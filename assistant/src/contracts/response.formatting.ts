@@ -17,10 +17,6 @@ No follow-up questions.
 Keep it brief and direct.`,
   USER_PROMPT: `Format this response as one short sentence:
 {{RESPONSE}}`,
-  RETRIES: {
-    0: `Keep it short and concise.
-No extra text.`,
-  },
 };
 
 /**
