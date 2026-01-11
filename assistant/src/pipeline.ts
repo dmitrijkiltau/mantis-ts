@@ -65,13 +65,21 @@ export class Pipeline {
       inputLength: userInput.length,
     });
 
-    // Detect user language
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-    const languageResult = await this.runner.executeContract(
-      'LANGUAGE_DETECTION',
-      languagePrompt,
-      (raw) => this.orchestrator.validateLanguageDetection(raw),
-    );
+    const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
+    const [languageResult, intentResult, toneInstructions] = await Promise.all([
+      this.runner.executeContract(
+        'LANGUAGE_DETECTION',
+        languagePrompt,
+        (raw) => this.orchestrator.validateLanguageDetection(raw),
+      ),
+      this.runner.executeContract(
+        'INTENT_CLASSIFICATION',
+        intentPrompt,
+        (raw) => this.orchestrator.validateIntentClassification(raw),
+      ),
+      this.selectToneInstructions(userInput),
+    ]);
 
     const language = languageResult.ok
       ? languageResult.value
@@ -79,19 +87,7 @@ export class Pipeline {
 
     Logger.info('pipeline', 'Language detected:', language);
 
-    const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
-    const intentResult = await this.runner.executeContract(
-      'INTENT_CLASSIFICATION',
-      intentPrompt,
-      (raw) => this.orchestrator.validateIntentClassification(raw),
-    );
-
     const tentativeIntent = intentResult.ok ? intentResult.value : undefined;
-    const toneInstructions = await this.selectToneInstructions(
-      userInput,
-      tentativeIntent,
-      language,
-    );
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
@@ -343,15 +339,11 @@ export class Pipeline {
    */
   private async selectToneInstructions(
     userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
-    language: { language: string; name: string },
   ): Promise<string> {
     const allowedPersonalities = getPersonalityKeys();
     const prompt = this.orchestrator.buildPersonalitySelectionPrompt(
       userInput,
       allowedPersonalities,
-      intent,
-      language,
     );
     const result = await this.runner.executeContract(
       'PERSONALITY_SELECTION',

@@ -106,14 +106,10 @@ export class Orchestrator {
   public buildPersonalitySelectionPrompt(
     userInput: string,
     allowedPersonalities: string[],
-    intent?: { intent: string; confidence: number },
-    language?: { language: string; name: string },
   ): ContractPrompt {
     return this.buildPrompt('PERSONALITY_SELECTION', {
       USER_INPUT: this.normalize(userInput),
       ALLOWED_PERSONALITIES: toUnorderedList(allowedPersonalities),
-      INTENT: intent?.intent ?? 'unknown',
-      LANGUAGE: language?.name ?? 'Unknown',
     });
   }
 

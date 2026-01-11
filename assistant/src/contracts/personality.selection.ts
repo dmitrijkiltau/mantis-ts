@@ -10,12 +10,6 @@ export const CONTRACT_PERSONALITY_SELECTION = {
 Allowed personalities (choose exactly one):
 {{ALLOWED_PERSONALITIES}}
 
-Intent:
-{{INTENT}}
-
-Language:
-{{LANGUAGE}}
-
 Output exactly (no formatting):
 {"personality":"<personality>","confidence":<number>}`,
   USER_PROMPT: `Select the personality of the input for generating the response.
