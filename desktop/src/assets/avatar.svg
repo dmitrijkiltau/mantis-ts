@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  width="120"
+  height="120"
+  viewBox="0 0 120 120"
+  xmlns="http://www.w3.org/2000/svg"
+  role="img"
+  aria-label="AI assistant avatar"
+>
+  <style>
+    :root {
+      --stroke: rgba(255, 255, 255, 0.2);
+      --stroke-strong: rgba(255, 255, 255, 0.32);
+      --accent: #7c5cff;
+      --accent2: #22d3ee;
+    }
+
+    .idle {
+      transform-origin: 60px 60px;
+      animation: bob 3.6s ease-in-out infinite;
+    }
+
+    .blink {
+      transform-origin: 60px 54px;
+      animation: blink 5s infinite;
+    }
+
+    [data-pupil] {
+      transition: transform 90ms ease-out;
+    }
+
+    [data-face-highlight] {
+      transition: opacity 200ms ease-out;
+    }
+
+    @keyframes bob {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(1.8px); }
+    }
+
+    @keyframes blink {
+      0%, 93%, 100% { transform: scaleY(1); }
+      95% { transform: scaleY(0.2); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .idle, .blink { animation: none !important; }
+    }
+  </style>
+
+  <defs />
+
+  <g class="idle">
+    <!-- Slightly squished oval head -->
+    <ellipse
+      cx="60"
+      cy="62"
+      rx="38"
+      ry="40"
+      fill="rgba(255,255,255,0.08)"
+      stroke="var(--stroke-strong)"
+      stroke-width="1.2"
+    />
+
+    <!-- Face highlight glow -->
+    <ellipse
+      cx="60"
+      cy="62"
+      rx="36"
+      ry="38"
+      data-face-highlight=""
+      fill="var(--accent)"
+      opacity="0.35"
+    />
+
+    <!-- Left eye -->
+    <g class="blink">
+      <circle cx="45" cy="54" r="9.5" fill="rgba(255,255,255,0.95)" />
+      <circle cx="46.5" cy="55.5" r="1.5" fill="rgba(255,255,255,0.5)" />
+      <circle data-pupil="" cx="46" cy="55" r="3.5" fill="rgba(20,20,30,0.9)" />
+    </g>
+
+    <!-- Right eye -->
+    <g class="blink">
+      <circle cx="75" cy="54" r="9.5" fill="rgba(255,255,255,0.95)" />
+      <circle cx="76.5" cy="55.5" r="1.5" fill="rgba(255,255,255,0.5)" />
+      <circle data-pupil="" cx="76" cy="55" r="3.5" fill="rgba(20,20,30,0.9)" />
+    </g>
+
+    <!-- Mouth -->
+    <path
+      data-mouth=""
+      d="M 48 73 C 54 78 66 78 72 73"
+      fill="none"
+      stroke="rgba(255,255,255,0.8)"
+      stroke-width="1.6"
+      stroke-linecap="round"
+    />
+  </g>
+</svg>

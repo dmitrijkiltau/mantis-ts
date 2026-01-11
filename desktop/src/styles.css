@@ -63,12 +63,50 @@
       @apply border-outline;
       box-shadow: 0 18px 40px var(--color-shadow-soft);
 
-      h1 {
-        @apply text-3xl font-semibold tracking-tight text-ink;
+      &:hover .assistant-avatar-svg {
+        @apply scale-150;
       }
 
-      p {
-        @apply mt-2 text-sm leading-relaxed text-ink-soft;
+      .hero-avatar {
+        @apply flex flex-col items-center gap-3;
+      }
+
+      .avatar-canvas {
+        @apply w-full grid place-items-center;
+
+        .assistant-avatar-svg {
+          @apply transition-transform duration-500 ease-out;
+        }
+      }
+
+      .avatar-legend {
+        @apply flex flex-col items-center gap-1 text-center;
+      }
+
+      .mood-chip {
+        @apply inline-flex items-center gap-2 rounded-full border bg-surface-solid px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-ink;
+        @apply border-outline;
+        box-shadow: 0 10px 24px var(--color-shadow-soft);
+      }
+
+      .mood-chip[data-mood='listening'] {
+        background: linear-gradient(120deg, rgba(34, 211, 238, 0.14), rgba(124, 92, 255, 0.18));
+      }
+
+      .mood-chip[data-mood='thinking'] {
+        background: linear-gradient(120deg, rgba(245, 158, 11, 0.18), rgba(34, 211, 238, 0.12));
+      }
+
+      .mood-chip[data-mood='speaking'] {
+        background: linear-gradient(120deg, rgba(16, 185, 129, 0.16), rgba(34, 211, 238, 0.16));
+      }
+
+      .mood-chip[data-mood='concerned'] {
+        background: linear-gradient(120deg, rgba(249, 115, 22, 0.2), rgba(124, 92, 255, 0.12));
+      }
+
+      .avatar-hint {
+        @apply text-xs leading-relaxed text-ink-muted;
       }
     }
   }

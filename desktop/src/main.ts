@@ -4,6 +4,7 @@ import { Pipeline } from '../../assistant/src/pipeline';
 import { Runner } from '../../assistant/src/runner';
 import { Logger } from '../../assistant/src/logger';
 import './styles.css';
+import { AssistantAvatar, AvatarMood } from './avatar';
 
 const orchestrator = new Orchestrator();
 const runner = new Runner(orchestrator, new OllamaClient());
@@ -13,6 +14,9 @@ const form = document.getElementById('prompt-form') as HTMLFormElement | null;
 const promptInput = document.getElementById('prompt-input') as HTMLTextAreaElement | null;
 const statusElement = document.getElementById('status');
 const historyElement = document.getElementById('history');
+const avatarMount = document.getElementById('assistant-avatar') as HTMLDivElement | null;
+const moodLabel = document.getElementById('avatar-mood-label');
+const avatar = avatarMount ? new AssistantAvatar(avatarMount) : null;
 
 /**
  * Updates the UI status banner text.
@@ -22,6 +26,17 @@ const setStatus = (text: string) => {
     statusElement.textContent = text;
   }
 };
+
+const setMood = (mood: AvatarMood) => {
+  avatar?.setMood(mood);
+  if (moodLabel) {
+    const title = mood.charAt(0).toUpperCase() + mood.slice(1);
+    moodLabel.textContent = title;
+    moodLabel.setAttribute('data-mood', mood);
+  }
+};
+
+setMood('idle');
 
 /**
  * Formats tool output for display in the history panel.
@@ -55,15 +70,21 @@ async function handleQuestion(event: Event) {
 
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
   submitButton?.setAttribute('disabled', 'true');
-  setStatus('Invoking Ollama...');
+  setStatus('Listening...');
+  setMood('listening');
   Logger.info('ui', 'User submitted question', { questionLength: question.length });
 
   const settle = () => {
     submitButton?.removeAttribute('disabled');
     setStatus('Idle');
+    window.setTimeout(() => {
+      setMood('idle');
+    }, 650);
   };
 
   try {
+    setMood('thinking');
+    setStatus('Thinking with contracts...');
     const result = await pipeline.run(question);
 
     const record = document.createElement('div');
@@ -71,6 +92,8 @@ async function handleQuestion(event: Event) {
     if (result.ok) {
       if (result.kind === 'tool') {
         Logger.info('ui', `Tool result received: ${result.tool}`);
+        setMood('speaking');
+        setStatus('Tool responded');
         record.innerHTML = `
           <h3>Tool: ${result.tool}</h3>
           <pre>${formatPayload(result.result)}</pre>
@@ -79,6 +102,8 @@ async function handleQuestion(event: Event) {
         `;
       } else {
         Logger.info('ui', 'Strict answer generated');
+        setMood('speaking');
+        setStatus('Answer ready');
         record.innerHTML = `
           <h3>Answer</h3>
           <pre>${result.value}</pre>
@@ -87,6 +112,8 @@ async function handleQuestion(event: Event) {
       }
     } else {
       Logger.error('ui', `Pipeline failed at stage: ${result.stage}`);
+      setMood('concerned');
+      setStatus('Encountered a problem');
       const errorDetail = result.error
         ? `${result.error.code}: ${result.error.message}`
         : 'No valid response after retries.';
@@ -99,6 +126,7 @@ async function handleQuestion(event: Event) {
     historyElement.prepend(record);
   } catch (error) {
     Logger.error('ui', 'Unhandled exception in pipeline', error);
+    setMood('concerned');
     const errCard = document.createElement('div');
     errCard.className = 'answer-card';
     errCard.innerHTML = `<h3>Error</h3><pre>${String(error)}</pre>`;

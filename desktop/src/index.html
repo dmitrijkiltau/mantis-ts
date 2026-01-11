@@ -1,26 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>MANTIS Desktop</title>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header>
-        <h1>MANTIS Desktop</h1>
-        <p>Ask a question, and MANTIS will query Ollama through the strict answer contract.</p>
-      </header>
 
-      <form id="prompt-form">
-        <label for="prompt-input">Question</label>
-        <textarea id="prompt-input" rows="4" placeholder="Write your question here"></textarea>
-        <button type="submit">Ask Ollama</button>
-      </form>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>MANTIS Desktop</title>
+</head>
 
-      <section class="status" id="status">Idle</section>
-      <section class="history" id="history"></section>
-    </div>
-    <script type="module" src="/main.ts"></script>
-  </body>
+<body>
+  <div class="app-shell">
+    <header class="hero-avatar">
+      <div id="assistant-avatar" class="avatar-canvas" aria-live="polite"></div>
+      <div class="avatar-legend">
+        <span id="avatar-mood-label" class="mood-chip">Idle</span>
+      </div>
+    </header>
+
+    <form id="prompt-form">
+      <label for="prompt-input">Question</label>
+      <textarea id="prompt-input" rows="4" placeholder="Write your question here"></textarea>
+      <button type="submit">Ask</button>
+    </form>
+
+    <section class="status" id="status">Idle</section>
+    <section class="history" id="history"></section>
+  </div>
+  <script type="module" src="/main.ts"></script>
+</body>
+
 </html>
