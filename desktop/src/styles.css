@@ -51,7 +51,8 @@
 
 @layer components {
   .app-shell {
-    @apply relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8;
+    @apply relative min-h-screen w-full max-w-4xl mx-auto px-4 py-8 z-10;
+    @apply flex flex-col justify-center gap-8;
   }
 
   .avatar-zone {
@@ -150,45 +151,43 @@
   }
 
   #prompt-form {
-    @apply flex flex-col gap-0;
+    @apply grid grid-cols-1 grid-rows-[auto_1fr] gap-0;
   }
 
   .terminal-input {
-    @apply w-full px-4 py-4 bg-transparent resize-y text-terminal-primary;
-    @apply border-none outline-none font-mono;
-    min-height: 100px;
+    @apply col-start-1 row-start-2;
+    @apply w-full min-h-25 px-4 pt-4 pb-14 bg-transparent text-terminal-primary;
+    @apply border-none outline-none font-mono resize-y;
 
     &::placeholder {
-      color: var(--color-primary-40);
+      @apply text-primary-40;
     }
 
     &:focus {
-      background: var(--color-primary-5);
+      @apply bg-primary-5;
     }
   }
 
   .terminal-button {
-    @apply self-end mx-4 mb-4 px-6 py-2 font-bold text-terminal-primary;
-    @apply border-2;
-    background: var(--color-primary-15);
-    border-color: var(--color-terminal-primary);
+    @apply col-start-1 row-start-2  self-end justify-self-end;
+    @apply mx-4 mb-4 px-6 py-2 bg-primary-15 font-bold;
+    @apply text-terminal-primary border-2 border-terminal-primary;
+    @apply transition-all duration-200 ease-out;
     letter-spacing: 0.1em;
-    transition: all 0.2s;
 
     .button-bracket {
       @apply inline-block transition-transform;
     }
 
     &:hover {
-      background: var(--color-primary-20);
-      box-shadow: var(--shadow-glow-primary-soft);
+      @apply bg-primary-20 shadow-glow-primary-soft;
 
       .button-bracket:first-child {
-        transform: translateX(-3px);
+        @apply -translate-x-3;
       }
 
       .button-bracket:last-child {
-        transform: translateX(3px);
+        @apply translate-x-3;
       }
     }
 
@@ -199,9 +198,8 @@
 
   .pip-tablet {
     @apply rounded-lg overflow-hidden relative;
-    @apply border-[3px];
+    @apply border-[3px] border-primary-60;
     background: linear-gradient(135deg, var(--color-bg-tablet), var(--color-bg-tablet-alt));
-    border-color: var(--color-primary-60);
     box-shadow: var(--shadow-glow-primary-strong), var(--shadow-inset-glow-strong);
 
     &::before {
