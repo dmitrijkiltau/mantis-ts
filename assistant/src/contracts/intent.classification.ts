@@ -15,6 +15,9 @@ If unsure, choose "unknown".`,
 Allowed intents (choose exactly one):
 {{ALLOWED_INTENTS}}
 
+Output exactly:
+{"intent":"<intent>","confidence":<number>}
+
 Input:
 {{USER_INPUT}}`,
   RETRIES: {
