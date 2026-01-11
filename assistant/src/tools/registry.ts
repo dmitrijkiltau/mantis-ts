@@ -1,10 +1,12 @@
 import type { ToolDefinitionBase } from './definition.js';
 import { DATE_TOOL, TIME_TOOL, WEEKDAY_TOOL } from './system/datetime.js';
+import { CLIPBOARD_TOOL } from './local/clipboard.js';
 
 /**
  * Registry of available tools keyed by name.
  */
 export const TOOLS = {
+  clipboard: CLIPBOARD_TOOL,
   time: TIME_TOOL,
   date: DATE_TOOL,
   weekday: WEEKDAY_TOOL,
