@@ -1,101 +1,128 @@
-:root {
-  font-family: 'Inter', system-ui, sans-serif;
-  color: #f9f9f9;
-  background: #111;
+@import "assets/css/theme.css";
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply relative isolate min-h-screen bg-canvas font-sans antialiased text-ink;
+    background: radial-gradient(
+        120% 120% at 15% 5%,
+        var(--color-aurora),
+        transparent 60%
+      ),
+      radial-gradient(
+        120% 120% at 90% 15%,
+        var(--color-aurora-secondary),
+        transparent 55%
+      ),
+      linear-gradient(
+        180deg,
+        var(--color-canvas) 0%,
+        var(--color-canvas-strong) 100%
+      );
+
+    &::before {
+      content: "";
+      @apply pointer-events-none fixed inset-0 z-0 opacity-20;
+      background-image: radial-gradient(
+        circle at 1px 1px,
+        var(--color-dot) 1px,
+        transparent 0
+      );
+      background-size: 24px 24px;
+    }
+  }
+
+  button {
+    @apply inline-flex items-center justify-center px-6 py-2;
+    @apply text-sm font-semibold cursor-pointer rounded-full;
+    @apply transition duration-200 ease-out;
+
+    &:hover {
+      @apply brightness-110;
+    }
+
+    &:active {
+      @apply scale-[0.98];
+    }
+
+    &:disabled {
+      @apply cursor-not-allowed opacity-60;
+    }
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer components {
+  .app-shell {
+    @apply relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-10;
 
-body {
-  margin: 0;
-  min-height: 100vh;
-}
+    header {
+      @apply rounded-2xl border bg-surface-soft p-5 backdrop-blur;
+      @apply border-outline;
+      box-shadow: 0 18px 40px var(--color-shadow-soft);
 
-.app-shell {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
+      h1 {
+        @apply text-3xl font-semibold tracking-tight text-ink;
+      }
 
-header h1 {
-  margin: 0;
-  font-size: 2rem;
-}
+      p {
+        @apply mt-2 text-sm leading-relaxed text-ink-soft;
+      }
+    }
+  }
 
-header p {
-  margin: 0.5rem 0 0;
-  color: #aaa;
-}
+  #prompt-form {
+    @apply grid gap-3 rounded-2xl border bg-surface-strong p-4;
+    @apply border-outline;
+    box-shadow: 0 16px 36px var(--color-shadow-soft);
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
+    label {
+      @apply text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-ink-muted;
+    }
 
-textarea {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 0.6rem;
-  color: #fff;
-  padding: 1rem;
-  resize: vertical;
-  font-size: 1rem;
-  font-family: inherit;
-}
+    textarea {
+      @apply min-h-32 w-full resize-y rounded-xl border;
+      @apply bg-surface-solid px-4 py-3 text-base text-ink shadow-inner;
+      @apply border-outline-strong;
+      box-shadow: inset 0 1px 8px var(--color-shadow-soft);
 
-button {
-  align-self: flex-end;
-  padding: 0.9rem 1.6rem;
-  border: none;
-  border-radius: 0.6rem;
-  background: linear-gradient(120deg, #6b8dff, #9d7eff);
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
+      &:focus {
+        @apply outline-none ring-2 ring-focus;
+      }
+    }
 
-button:active {
-  transform: scale(0.98);
-}
+    button {
+      @apply justify-self-end bg-linear-to-r from-cta to-cta-soft text-on-accent;
+      box-shadow: 0 12px 24px var(--color-shadow-soft);
+    }
+  }
 
-.status {
-  padding: 0.7rem 1rem;
-  border-radius: 0.6rem;
-  background: #1b1b1b;
-  color: #9bf;
-}
+  .status {
+    @apply rounded-full border bg-status-bg px-4 py-2 text-sm font-medium text-status;
+    @apply border-status-border;
+  }
 
-.history {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  font-family: 'SFMono-Regular', 'Roboto Mono', monospace;
-  font-size: 0.95rem;
-}
+  .history {
+    @apply flex flex-col gap-4 font-mono text-sm text-ink-soft;
 
-.answer-card {
-  border-radius: 0.6rem;
-  background: #1e1e1e;
-  padding: 1rem;
-  border: 1px solid #333;
-}
+    .answer-card {
+      @apply rounded-2xl border bg-card px-4 py-3;
+      @apply border-card-border;
+      box-shadow: 0 16px 36px var(--color-shadow-strong);
 
-.answer-card h3 {
-  margin: 0 0 0.4rem;
-  font-size: 1rem;
-  color: #7be2ff;
-}
+      h3 {
+        @apply text-sm font-semibold text-accent;
+      }
 
-.answer-card pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: #ddd;
+      pre {
+        @apply mt-2 whitespace-pre-wrap wrap-break-word text-ink-soft;
+      }
+
+      p {
+        @apply mt-2 text-xs text-ink-muted;
+      }
+    }
+  }
 }
