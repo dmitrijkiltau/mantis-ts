@@ -2,6 +2,7 @@ import type { ContractExecutionResult } from './runner.js';
 import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
 import { TOOLS, getToolDefinition, type ToolName } from './tools/registry.js';
+import { Logger } from './logger.js';
 
 export type PipelineStage =
   | 'intent'
@@ -53,6 +54,10 @@ export class Pipeline {
    * Routes a user input through intent classification, tool execution, or strict answer.
    */
   public async run(userInput: string): Promise<PipelineResult> {
+    Logger.info('pipeline', 'Starting pipeline execution', {
+      inputLength: userInput.length,
+    });
+
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
@@ -61,20 +66,28 @@ export class Pipeline {
     );
 
     if (!intentResult.ok) {
+      Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
       return this.runStrictAnswer(userInput, undefined, intentResult.attempts);
     }
 
     const intent = intentResult.value;
+    Logger.info('pipeline', `Intent classified: ${intent.intent}`, {
+      confidence: intent.confidence,
+    });
+
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
+      Logger.info('pipeline', 'No matching tool for intent, using strict answer');
       return this.runStrictAnswer(userInput, intent, intentResult.attempts);
     }
 
     const tool = getToolDefinition(toolName);
     const schemaKeys = Object.keys(tool.schema);
     if (schemaKeys.length === 0) {
+      Logger.info('pipeline', `Executing tool: ${toolName} (no arguments)`);
       try {
         const toolResult = await tool.execute({});
+        Logger.info('pipeline', `Tool ${toolName} executed successfully`);
         return {
           ok: true,
           kind: 'tool',
@@ -85,6 +98,7 @@ export class Pipeline {
           attempts: intentResult.attempts,
         };
       } catch (error) {
+        Logger.error('pipeline', `Tool ${toolName} execution failed`, error);
         return this.runErrorChannel(
           'tool_execution',
           intentResult.attempts,
@@ -93,6 +107,7 @@ export class Pipeline {
       }
     }
 
+    Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
       tool.schema,
@@ -105,16 +120,22 @@ export class Pipeline {
     );
 
     if (!toolArgResult.ok) {
+      Logger.error('pipeline', `Tool argument extraction failed for: ${toolName}`);
       return this.runErrorChannel(
         'tool_arguments',
         intentResult.attempts + toolArgResult.attempts,
       );
     }
 
+    Logger.info('pipeline', `Executing tool: ${toolName}`, {
+      args: toolArgResult.value,
+    });
+
     try {
       const toolResult = await tool.execute(
         toolArgResult.value as Record<string, unknown>,
       );
+      Logger.info('pipeline', `Tool ${toolName} executed successfully`);
       return {
         ok: true,
         kind: 'tool',
@@ -125,6 +146,7 @@ export class Pipeline {
         attempts: intentResult.attempts + toolArgResult.attempts,
       };
     } catch (error) {
+      Logger.error('pipeline', `Tool ${toolName} execution failed`, error);
       return this.runErrorChannel(
         'tool_execution',
         intentResult.attempts + toolArgResult.attempts,
@@ -151,6 +173,7 @@ export class Pipeline {
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
   ): Promise<PipelineResult> {
+    Logger.info('pipeline', 'Running strict answer contract');
     const prompt = this.orchestrator.buildStrictAnswerPrompt(userInput);
     const result = await this.runner.executeContract(
       'STRICT_ANSWER',
@@ -159,6 +182,7 @@ export class Pipeline {
     );
 
     if (!result.ok) {
+      Logger.error('pipeline', 'Strict answer contract failed');
       return {
         ok: false,
         kind: 'error',
@@ -167,6 +191,7 @@ export class Pipeline {
       };
     }
 
+    Logger.info('pipeline', 'Strict answer generated successfully');
     return {
       ok: true,
       kind: 'strict_answer',

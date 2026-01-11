@@ -4,6 +4,7 @@ import type {
   Orchestrator,
 } from './orchestrator.js';
 import type { ValidationResult } from './types.js';
+import { Logger } from './logger.js';
 
 /**
  * Parameters used to invoke an LLM.
@@ -74,21 +75,39 @@ export class Runner {
     const history: AttemptRecord<T, E>[] = [];
     const attemptsLimit = this.deriveAttemptsLimit(prompt, options?.maxAttempts);
 
+    Logger.info('runner', `Starting contract execution: ${contractName}`, {
+      model: prompt.model,
+      attemptsLimit,
+    });
+
     for (let attempt = 0; attempt < attemptsLimit; attempt += 1) {
+      Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit}`);
+
       const attemptPrompt = this.applyRetryInstruction(prompt, contractName, attempt);
       const raw = await this.llm.sendPrompt({
         model: attemptPrompt.model,
         systemPrompt: attemptPrompt.systemPrompt,
         userPrompt: attemptPrompt.userPrompt,
       });
+
+      Logger.debug('runner', `Received response from ${attemptPrompt.model}`, {
+        length: raw.length,
+      });
+
       const validation = validator(raw);
       history.push({ attempt, raw, validation });
 
       if (validation.ok) {
+        Logger.info('runner', `Contract ${contractName} succeeded on attempt ${attempt + 1}`);
         return { ok: true, value: validation.value, attempts: attempt + 1, history };
       }
+
+      Logger.warn('runner', `Validation failed on attempt ${attempt + 1}`, {
+        error: validation.error,
+      });
     }
 
+    Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`);
     return { ok: false, attempts: history.length, history };
   }
 

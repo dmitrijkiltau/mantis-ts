@@ -2,6 +2,7 @@ import { OllamaClient } from '../../assistant/src/models/ollama';
 import { Orchestrator } from '../../assistant/src/orchestrator';
 import { Pipeline } from '../../assistant/src/pipeline';
 import { Runner } from '../../assistant/src/runner';
+import { Logger } from '../../assistant/src/logger';
 import './styles.css';
 
 const orchestrator = new Orchestrator();
@@ -46,6 +47,8 @@ async function handleQuestion(event: Event) {
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
   submitButton?.setAttribute('disabled', 'true');
   setStatus('Invoking Ollama...');
+  Logger.info('ui', 'User submitted question', { questionLength: question.length });
+
   const settle = () => {
     submitButton?.removeAttribute('disabled');
     setStatus('Idle');
@@ -58,6 +61,7 @@ async function handleQuestion(event: Event) {
     record.className = 'answer-card';
     if (result.ok) {
       if (result.kind === 'tool') {
+        Logger.info('ui', `Tool result received: ${result.tool}`);
         record.innerHTML = `
           <h3>Tool: ${result.tool}</h3>
           <pre>${formatPayload(result.result)}</pre>
@@ -65,6 +69,7 @@ async function handleQuestion(event: Event) {
           <p>Attempts: ${result.attempts}</p>
         `;
       } else {
+        Logger.info('ui', 'Strict answer generated');
         record.innerHTML = `
           <h3>Answer</h3>
           <pre>${result.value}</pre>
@@ -72,6 +77,7 @@ async function handleQuestion(event: Event) {
         `;
       }
     } else {
+      Logger.error('ui', `Pipeline failed at stage: ${result.stage}`);
       const errorDetail = result.error
         ? `${result.error.code}: ${result.error.message}`
         : 'No valid response after retries.';
@@ -83,6 +89,7 @@ async function handleQuestion(event: Event) {
     }
     historyElement.prepend(record);
   } catch (error) {
+    Logger.error('ui', 'Unhandled exception in pipeline', error);
     const errCard = document.createElement('div');
     errCard.className = 'answer-card';
     errCard.innerHTML = `<h3>Error</h3><pre>${String(error)}</pre>`;

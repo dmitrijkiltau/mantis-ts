@@ -30,8 +30,8 @@ Return valid JSON only.`,
  * Types of validation errors for intent classification contract.
  */
 export type IntentClassificationValidationError = 
-  | 'INVALID_JSON'
-  | 'INVALID_SHAPE'
+  | `INVALID_JSON:${string}`
+  | `INVALID_SHAPE:${string}`
   | 'CONFIDENCE_OUT_OF_RANGE';
 
 /**
@@ -45,12 +45,12 @@ export const validateIntentClassification: ContractValidator<
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ok: false, error: 'INVALID_JSON' };
+    return { ok: false, error: `INVALID_JSON:${raw}` };
   }
 
   // Validate shape
   if (typeof parsed.intent !== 'string' || typeof parsed.confidence !== 'number') {
-    return { ok: false, error: 'INVALID_SHAPE' };
+    return { ok: false, error: `INVALID_SHAPE:${parsed.intent}` };
   }
 
   // Validate confidence range
