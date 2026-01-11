@@ -37,9 +37,15 @@ export const validateStrictAnswer: ContractValidator<string, StrictAnswerValidat
     return { ok: false, error: 'EMPTY_OUTPUT' };
   }
 
-  if (text.split('\n').length > 1) {
+  const paragraphs = text.split(/\n\s*\n/).filter((paragraph) => paragraph.trim().length > 0);
+  if (paragraphs.length > 1) {
     return { ok: false, error: 'MULTILINE_OUTPUT' };
   }
 
-  return { ok: true, value: text };
+  const normalized = paragraphs[0].replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return { ok: false, error: 'EMPTY_OUTPUT' };
+  }
+
+  return { ok: true, value: normalized };
 };
