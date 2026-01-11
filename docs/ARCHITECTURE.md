@@ -1,5 +1,7 @@
 # MANTIS Architecture
 
+_Minimal Adaptive Neural Tool-Integrated System_ features a Fallout-inspired retro-futuristic interface with terminal green aesthetics, scanline effects, and a Vault-Tec-style avatar.
+
 The Orchestrator is either a deterministic engine (e.g. BitNet) or a small language model
 (e.g. Qwen 2.5 1.5B), used exclusively for routing and decision-making, not for content generation.
 

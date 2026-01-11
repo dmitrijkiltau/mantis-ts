@@ -15,31 +15,31 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
   idle: {
     accent: '#00ff88',
     accent2: '#22d3ee',
-    mouth: 'M 65 97 C 72 102 88 102 95 97',
+    mouth: 'M 65 102 C 72 107 88 107 95 102',
     faceHighlight: 0.25,
   },
   listening: {
     accent: '#22d3ee',
     accent2: '#00ff88',
-    mouth: 'M 64 96 C 72 104 88 104 96 96',
+    mouth: 'M 64 101 C 72 109 88 109 96 101',
     faceHighlight: 0.3,
   },
   thinking: {
     accent: '#f59e0b',
     accent2: '#00ff88',
-    mouth: 'M 65 99 C 73 99 87 99 95 99',
+    mouth: 'M 65 104 C 73 104 87 104 95 104',
     faceHighlight: 0.2,
   },
   speaking: {
     accent: '#00ff88',
     accent2: '#10b981',
-    mouth: 'M 65 96 C 72 106 88 106 95 96',
+    mouth: 'M 65 101 C 72 111 88 111 95 101',
     faceHighlight: 0.35,
   },
   concerned: {
     accent: '#f97316',
     accent2: '#00ff88',
-    mouth: 'M 65 101 C 72 95 88 95 95 101',
+    mouth: 'M 65 106 C 72 100 88 100 95 106',
     faceHighlight: 0.18,
   },
 };

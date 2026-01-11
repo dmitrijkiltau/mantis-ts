@@ -30,6 +30,8 @@ The orchestrator also builds a `PERSONALITY_SELECTION` prompt that maps user inp
 
 `desktop` contains a Tauri/Vite UI that wires `Orchestrator`, `Runner`, and `OllamaClient` together. The renderer lets you type a question, pushes it through the strict answer contract, and renders each attempt so you can watch the retry guidance overlaying the result. The Rust backend (`desktop/src-tauri`) is a minimal host that simply launches the webview and exposes no custom commands.
 
+The UI features a **Fallout-inspired retro-futuristic theme** with terminal green colors, scanline effects, and a Vault-Tec-style avatar. Styling is centralized in `desktop/src/assets/css/theme.css` using Tailwind CSS v4 with custom theme tokens.
+
 To run the desktop experience:
 1. Ensure Rust 1.72+ and the Tauri CLI are installed.
 2. `cd desktop && npm install` (installs Vite and the @tauri-apps toolchain).

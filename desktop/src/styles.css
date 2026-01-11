@@ -58,16 +58,16 @@
     @apply relative flex flex-col items-center gap-4;
   }
 
+  :has(.avatar-canvas:hover, .input-terminal:hover, .pip-tablet:active) .assistant-avatar-svg {
+    @apply scale-110;
+  }
+
   .avatar-canvas {
     @apply w-48 h-48 grid place-items-center;
     filter: var(--shadow-glow-primary);
 
     .assistant-avatar-svg {
       @apply transition-transform duration-500 ease-out;
-    }
-
-    &:hover .assistant-avatar-svg {
-      @apply scale-110;
     }
   }
 
@@ -103,9 +103,7 @@
   }
 
   .input-terminal {
-    @apply rounded-lg overflow-hidden;
-    background: var(--color-bg-terminal);
-    border: 2px solid var(--color-primary-40);
+    @apply rounded-lg bg-bg-terminal border-2 border-primary-40 overflow-hidden;
     box-shadow: var(--shadow-glow-primary-soft), inset 0 1px 0 var(--color-primary-10);
   }
 
