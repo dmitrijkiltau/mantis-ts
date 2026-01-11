@@ -1,15 +1,13 @@
-import type {
-  LLMClient,
-  ModelInvocation,
-} from '../runner.js';
+import type { LLMClient, ModelInvocation } from '../runner.js';
+
+type OllamaChatMessage = {
+  role?: string;
+  content?: string;
+};
 
 type OllamaChatResponse = {
-  choices?: Array<{
-    message?: {
-      role?: string;
-      content?: string;
-    };
-  }>;
+  message?: OllamaChatMessage;
+  done?: boolean;
   error?: string;
 };
 
@@ -25,7 +23,7 @@ export class OllamaClient implements LLMClient {
       throw new Error('OllamaClient requires at least one message');
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,6 +31,7 @@ export class OllamaClient implements LLMClient {
       body: JSON.stringify({
         model: invocation.model,
         messages,
+        stream: false,
       }),
     });
 
@@ -43,14 +42,127 @@ export class OllamaClient implements LLMClient {
       );
     }
 
-    const payload = (await response.json()) as OllamaChatResponse;
-    const message = payload.choices?.[0]?.message?.content;
+    const payloadText = await response.text();
+    const message = this.extractMessageContent(payloadText);
 
-    if (!message) {
+    if (message.length === 0) {
       throw new Error('Ollama returned no assistant response');
     }
 
     return message;
+  }
+
+  /**
+   * Extracts message content from Ollama payloads, including streamed chunks.
+   */
+  private extractMessageContent(payloadText: string): string {
+    const chunks = this.parseChatResponses(payloadText);
+    let content = '';
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index];
+
+      if (chunk.error) {
+        throw new Error(`Ollama response error: ${chunk.error}`);
+      }
+
+      if (chunk.message?.content) {
+        content += chunk.message.content;
+      }
+    }
+
+    return content;
+  }
+
+  /**
+   * Parses the response body into one or more chat response objects.
+   */
+  private parseChatResponses(payloadText: string): OllamaChatResponse[] {
+    const trimmed = payloadText.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    try {
+      return [JSON.parse(trimmed) as OllamaChatResponse];
+    } catch {
+      // Fall through to streaming/concatenated payload parsing.
+    }
+
+    const lineChunks: OllamaChatResponse[] = [];
+    const lines = trimmed.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index].trim();
+      if (!line) {
+        continue;
+      }
+
+      try {
+        lineChunks.push(JSON.parse(line) as OllamaChatResponse);
+      } catch {
+        lineChunks.length = 0;
+        break;
+      }
+    }
+
+    if (lineChunks.length > 0) {
+      return lineChunks;
+    }
+
+    return this.splitConcatenatedJson(trimmed);
+  }
+
+  /**
+   * Splits concatenated JSON objects by tracking brace depth.
+   */
+  private splitConcatenatedJson(payloadText: string): OllamaChatResponse[] {
+    const chunks: OllamaChatResponse[] = [];
+    let depth = 0;
+    let startIndex = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = 0; index < payloadText.length; index += 1) {
+      const char = payloadText[index];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+
+      if (char === '{') {
+        if (depth === 0) {
+          startIndex = index;
+        }
+        depth += 1;
+        continue;
+      }
+
+      if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          const slice = payloadText.slice(startIndex, index + 1);
+          try {
+            chunks.push(JSON.parse(slice) as OllamaChatResponse);
+          } catch {
+            return [];
+          }
+        }
+      }
+    }
+
+    return chunks;
   }
 
   private buildMessages(invocation: ModelInvocation): {
