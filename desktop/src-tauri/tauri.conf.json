@@ -12,6 +12,18 @@
     "beforeBuildCommand": "npm run build"
   },
 
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MANTIS Desktop",
+        "width": 1200,
+        "height": 800,
+        "resizable": true
+      }
+    ]
+  },
+
   "bundle": {
     "active": true,
     "icon": []
