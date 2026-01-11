@@ -6,6 +6,11 @@ The Orchestrator is either a deterministic engine (e.g. BitNet) or a small langu
 Contracts define strict input/output behavior for models and are enforced by validators,
 not trusted to the model itself.
 
+The `assistant/src/pipeline.ts` module implements the routing pipeline described below,
+deriving allowed intents from the tool registry (`tool.<name>` plus `unknown`).
+If a tool schema is empty, the pipeline skips argument extraction and executes the tool
+with `{}`.
+
 ## Decision logic
 
 Orchestrator decides:
@@ -50,7 +55,7 @@ Invalid → retry (if allowed) or abort
 Input
  → Intent Classification
    → unknown → Strict Answer
-   → tool.* → Tool Args
+   → tool.* → Tool Args (schema from tool registry)
        → invalid → Error Channel → Abort or Re-route
        → valid → Execute Tool
 ```

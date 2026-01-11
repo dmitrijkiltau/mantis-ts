@@ -10,6 +10,7 @@ import { validateTextTransformation } from './contracts/text.transformation.js';
 import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
+import { getToolIntents } from './tools/registry.js';
 import type {
   ContractWithExtras,
   FieldType,
@@ -69,7 +70,7 @@ export class Orchestrator {
 
   public buildIntentClassificationPrompt(
     userInput: string,
-    allowedIntents: string[],
+    allowedIntents: string[] = getToolIntents(),
   ): ContractPrompt {
     return this.buildPrompt('INTENT_CLASSIFICATION', {
       USER_INPUT: this.normalize(userInput),

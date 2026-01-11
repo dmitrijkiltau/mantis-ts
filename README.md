@@ -20,6 +20,10 @@ The bridge between the orchestrator and the contracts lives in the `ContractProm
 
 `assistant/src/runner.ts` glues the orchestrator to a model client (via the `LLMClient` interface) and replays the retry hints defined inside each contract. `Runner.executeContract` builds the `ModelInvocation`, waits for the client to return raw text, stores the result inside `AttemptRecord` entries, and re-renders the retry instructions before every new attempt using `getRetryInstruction`. That keeps the retry budget implicit, lets validators stay deterministic.
 
+## Pipeline
+
+`assistant/src/pipeline.ts` wires the decision pipeline together. It runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed.
+
 ## Desktop App
 
 `desktop` contains a Tauri/Vite UI that wires `Orchestrator`, `Runner`, and `OllamaClient` together. The renderer lets you type a question, pushes it through the strict answer contract, and renders each attempt so you can watch the retry guidance overlaying the result. The Rust backend (`desktop/src-tauri`) is a minimal host that simply launches the webview and exposes no custom commands.
