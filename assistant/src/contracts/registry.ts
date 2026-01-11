@@ -3,6 +3,7 @@ import { CONTRACT_TOOL_ARGUMENT_EXTRACTION } from './tool.argument.extraction.js
 import { CONTRACT_TEXT_TRANSFORMATION } from './text.transformation.js';
 import { CONTRACT_SCORING_EVALUATION } from './scoring.evaluation.js';
 import { CONTRACT_STRICT_ANSWER } from './strict.answer.js';
+import { CONTRACT_RESPONSE_FORMATTING } from './response.formatting.js';
 import { CONTRACT_ERROR_CHANNEL } from './error.channel.js';
 
 /**
@@ -14,5 +15,6 @@ export const CONTRACTS = {
   TEXT_TRANSFORMATION: CONTRACT_TEXT_TRANSFORMATION,
   SCORING_EVALUATION: CONTRACT_SCORING_EVALUATION,
   STRICT_ANSWER: CONTRACT_STRICT_ANSWER,
+  RESPONSE_FORMATTING: CONTRACT_RESPONSE_FORMATTING,
   ERROR_CHANNEL: CONTRACT_ERROR_CHANNEL,
 } as const;

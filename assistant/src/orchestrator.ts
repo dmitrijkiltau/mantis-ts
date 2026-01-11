@@ -9,6 +9,7 @@ import {
 import { validateTextTransformation } from './contracts/text.transformation.js';
 import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
+import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
 import { getToolIntents } from './tools/registry.js';
 import type {
@@ -112,6 +113,12 @@ export class Orchestrator {
     });
   }
 
+  public buildResponseFormattingPrompt(response: string): ContractPrompt {
+    return this.buildPrompt('RESPONSE_FORMATTING', {
+      RESPONSE: this.normalize(response),
+    });
+  }
+
   public buildErrorChannelPrompt(): ContractPrompt {
     return this.buildPrompt('ERROR_CHANNEL');
   }
@@ -148,6 +155,12 @@ export class Orchestrator {
 
   public validateStrictAnswer(raw: string): ValidationResult<string> {
     return validateStrictAnswer(raw);
+  }
+
+  public validateResponseFormatting(
+    raw: string,
+  ): ValidationResult<string> {
+    return validateResponseFormatting(raw);
   }
 
   public validateErrorChannel(raw: string): ValidationResult<{

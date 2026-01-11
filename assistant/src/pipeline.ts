@@ -88,12 +88,13 @@ export class Pipeline {
       try {
         const toolResult = await tool.execute({});
         Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+        const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult) : toolResult;
         return {
           ok: true,
           kind: 'tool',
           tool: toolName,
           args: {},
-          result: toolResult,
+          result: formattedResult,
           intent,
           attempts: intentResult.attempts,
         };
@@ -136,12 +137,13 @@ export class Pipeline {
         toolArgResult.value as Record<string, unknown>,
       );
       Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+      const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult) : toolResult;
       return {
         ok: true,
         kind: 'tool',
         tool: toolName,
         args: toolArgResult.value,
-        result: toolResult,
+        result: formattedResult,
         intent,
         attempts: intentResult.attempts + toolArgResult.attempts,
       };
@@ -192,13 +194,40 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Strict answer generated successfully');
+    const formattedValue = await this.formatResponse(result.value);
     return {
       ok: true,
       kind: 'strict_answer',
-      value: result.value,
+      value: formattedValue,
       intent,
       attempts: attempts + result.attempts,
     };
+  }
+
+  /**
+   * Optionally formats response text as a single concise sentence.
+   * This is a best-effort operation; formatting failures do not block the result.
+   */
+  private async formatResponse(text: string): Promise<string> {
+    try {
+      const prompt = this.orchestrator.buildResponseFormattingPrompt(text);
+      const result = await this.runner.executeContract(
+        'RESPONSE_FORMATTING',
+        prompt,
+        (raw) => this.orchestrator.validateResponseFormatting(raw),
+      );
+
+      if (result.ok) {
+        Logger.info('pipeline', 'Response formatted successfully');
+        return result.value;
+      }
+
+      Logger.warn('pipeline', 'Response formatting failed, returning original text');
+      return text;
+    } catch (error) {
+      Logger.warn('pipeline', 'Response formatting error, returning original text', error);
+      return text;
+    }
   }
 
   private async runErrorChannel(

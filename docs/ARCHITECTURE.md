@@ -79,4 +79,11 @@ Retry 2 → {"intent":"unknown","confidence":0.0}
 | Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |
 | Scoring / Evaluation     | 1           | Default Score (0), Flag "evaluation_failed"             | Numeric Lock          |
 | Strict Answer Mode       | 0           | Force "I don’t know."                                   | Fail Fast             |
+| Response Formatting      | 0           | Keep Original Text, Continue                            | Best-Effort           |
 | Error Channel            | 0           | Signal Orchestrator: New Decision or Different Contract | Abort & Re-route      |
+
+## Response Formatting
+
+The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information.
+
+Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.

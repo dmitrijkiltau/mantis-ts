@@ -14,7 +14,7 @@ _Minimal Adaptive Neural Tool-Integrated System_ is a versatile AI assistant des
 
 `assistant/src/orchestrator.ts` contains an `Orchestrator` class that renders contract prompts and exposes the associated validators so the decision logic described in `ARCHITECTURE` can be exercised programmatically.
 
-The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, and `buildStrictAnswerPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
+The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, `buildStrictAnswerPrompt`, and `buildResponseFormattingPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
 
 ## Runner
 
@@ -22,7 +22,7 @@ The bridge between the orchestrator and the contracts lives in the `ContractProm
 
 ## Pipeline
 
-`assistant/src/pipeline.ts` wires the decision pipeline together. It runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed.
+`assistant/src/pipeline.ts` wires the decision pipeline together. It runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences via the response formatting contract before returning.
 
 ## Desktop App
 
