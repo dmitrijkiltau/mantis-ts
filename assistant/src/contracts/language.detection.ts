@@ -6,6 +6,7 @@ import { type ContractValidator } from '../types.js';
 export const CONTRACT_LANGUAGE_DETECTION = {
   MODEL: 'gemma3:1b',
   SYSTEM_PROMPT: `Detect the language of the user input and return its ISO 639-1 code and full name.
+Output JSON only.
 
 Output exactly (no formatting):
 {"language":"<ISO_639_1_CODE>","name":"<LANGUAGE_NAME>"}`,

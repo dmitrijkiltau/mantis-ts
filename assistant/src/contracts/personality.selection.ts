@@ -6,6 +6,7 @@ import { type ContractValidator } from '../types';
 export const CONTRACT_PERSONALITY_SELECTION = {
   MODEL: 'ministral-3:3b',
   SYSTEM_PROMPT: `Select the best personality of the input for the response tone only.
+Output JSON only.
 
 Allowed personalities (choose exactly one):
 {{ALLOWED_PERSONALITIES}}
