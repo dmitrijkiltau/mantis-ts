@@ -19,7 +19,10 @@ export type ErrorChannelValidationError =
 /**
  * Validator for error channel contract output.
  */
-export const validateErrorChannel: ContractValidator = (raw) => {
+export const validateErrorChannel: ContractValidator<
+  { error: { code: string; message: string } },
+  ErrorChannelValidationError
+> = (raw) => {
   let parsed: { error: { code: string; message: string } };
 
   try {

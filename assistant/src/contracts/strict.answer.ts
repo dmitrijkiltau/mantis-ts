@@ -30,7 +30,7 @@ export type StrictAnswerValidationError =
 /**
  * Validator for strict answer contract output.
  */
-export const validateStrictAnswer: ContractValidator = (raw) => {
+export const validateStrictAnswer: ContractValidator<string, StrictAnswerValidationError> = (raw) => {
   const text = raw.trim();
 
   if (!text) {

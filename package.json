@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "description": "Minimal Adaptive Neural Tool-Integrated System AI Assistant",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/node": "^25.0.6",
     "typescript": "^5.9.3"

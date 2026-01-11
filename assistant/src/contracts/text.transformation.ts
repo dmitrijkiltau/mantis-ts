@@ -39,7 +39,10 @@ export type TextTransformationValidationError =
 /**
  * Validator for text transformation contract output.
  */
-export const validateTextTransformation: ContractValidator = (raw) => {
+export const validateTextTransformation: ContractValidator<
+  string,
+  TextTransformationValidationError
+> = (raw) => {
   const text = raw.trim();
   if (!text) {
     return { ok: false, error: 'EMPTY_OUTPUT' };

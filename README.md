@@ -1,6 +1,6 @@
 # MANTIS
 
-Minimal Adaptive Neural Tool-Integrated System is a versatile AI assistant designed to be a user-friendly interface for various AI models and tools. It aims to simplify interactions with AI technologies, making them accessible to a broader audience.
+_Minimal Adaptive Neural Tool-Integrated System_ is a versatile AI assistant designed to be a user-friendly interface for various AI models and tools. It aims to simplify interactions with AI technologies, making them accessible to a broader audience.
 
 ## Design Principles
 
@@ -10,6 +10,12 @@ Minimal Adaptive Neural Tool-Integrated System is a versatile AI assistant desig
 - Small models decide, larger models execute
 - Retries are bounded
 
-## Documentation
+## Orchestrator
+
+`assistant/src/orchestrator.ts` contains an `Orchestrator` class that renders contract prompts and exposes the associated validators so the decision logic described in `ARCHITECTURE` can be exercised programmatically.
+
+The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, and `buildStrictAnswerPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
+
+## Further Documentation
 
 - [ARCHITECTURE](docs/ARCHITECTURE.md) - Overview of the system architecture and design principles.

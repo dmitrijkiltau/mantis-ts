@@ -1,12 +1,5 @@
 import { type ContractValidator } from '../types';
-
-type FieldType =
-  | 'string'
-  | 'boolean'
-  | 'number'
-  | 'string|null'
-  | 'number|null'
-  | 'boolean|null';
+import { type FieldType } from './definition.js';
 
 /**
  * Contract for tool argument extraction.
@@ -43,12 +36,15 @@ export type ToolArgumentExtractionValidationError =
   | `MISSING_FIELD:${string}`
   | `UNEXPECTED_FIELD:${string}`
   | `NULL_NOT_ALLOWED:${string}`
-  | `INVALID_TYPE:${string}`;
+  | `INVALID_TYPE:${string}`
+  | 'INVALID_JSON';
 
 /**
  * Validator for tool argument extraction contract output.
  */
-export const validateToolArguments = (schema: Record<string, FieldType>): ContractValidator => (raw) => {
+export const validateToolArguments = (
+  schema: Record<string, FieldType>,
+): ContractValidator<Record<string, unknown>, ToolArgumentExtractionValidationError> => (raw) => {
   // Validate JSON prefix
   if (!raw.trim().startsWith('{')) {
     return { ok: false, error: 'NON_JSON_PREFIX' };

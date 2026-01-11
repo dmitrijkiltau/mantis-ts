@@ -32,7 +32,10 @@ export type ScoringValidationError =
 /**
  * Validator for scoring contract output.
  */
-export const validateScoring: ContractValidator = (raw) => {
+export const validateScoring: ContractValidator<
+  Record<string, number>,
+  ScoringValidationError
+> = (raw) => {
   let parsed: Record<string, number>;
 
   try {

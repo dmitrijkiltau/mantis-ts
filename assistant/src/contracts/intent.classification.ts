@@ -37,7 +37,10 @@ export type IntentClassificationValidationError =
 /**
  * Validator for intent classification contract output.
  */
-export const validateIntentClassification: ContractValidator = (raw) => {
+export const validateIntentClassification: ContractValidator<
+  { intent: string; confidence: number },
+  IntentClassificationValidationError
+> = (raw) => {
   let parsed: { intent: string; confidence: number };
   try {
     parsed = JSON.parse(raw);
