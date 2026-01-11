@@ -9,21 +9,85 @@
 
 <body>
   <div class="app-shell">
-    <header class="hero-avatar">
+    <!-- Avatar with Speech Bubble -->
+    <section class="avatar-zone">
       <div id="assistant-avatar" class="avatar-canvas" aria-live="polite"></div>
-      <div class="avatar-legend">
-        <span id="avatar-mood-label" class="mood-chip">Idle</span>
+      <div id="speech-bubble" class="speech-bubble hidden">
+        <div class="bubble-content" id="bubble-answer"></div>
+        <div class="bubble-tail"></div>
       </div>
-    </header>
+    </section>
 
-    <form id="prompt-form">
-      <label for="prompt-input">Question</label>
-      <textarea id="prompt-input" rows="4" placeholder="Write your question here"></textarea>
-      <button type="submit">Ask</button>
-    </form>
+    <!-- Input Terminal -->
+    <div class="input-terminal">
+      <form id="prompt-form">
+        <div class="terminal-header">
+          <span class="terminal-title">[ QUERY_INPUT ]</span>
+          <span id="avatar-mood-label" class="status-indicator">IDLE</span>
+        </div>
+        <textarea 
+          id="prompt-input" 
+          rows="3" 
+          placeholder="> Enter query..."
+          class="terminal-input"
+        ></textarea>
+        <button type="submit" class="terminal-button">
+          <span class="button-bracket">[</span> EXECUTE <span class="button-bracket">]</span>
+        </button>
+      </form>
+    </div>
 
-    <section class="status" id="status">Idle</section>
-    <section class="history" id="history"></section>
+    <!-- Fallout-Style Tablet -->
+    <div class="pip-tablet">
+      <div class="tablet-header">
+        <div class="tablet-title">
+          <span class="title-icon">◈</span>
+          <span>MANTIS.INTERFACE.v2.0</span>
+        </div>
+        <div class="tablet-stats">
+          <span class="stat-item" id="stat-queries">Q:0</span>
+          <span class="stat-item" id="stat-runtime">RT:0s</span>
+        </div>
+      </div>
+      
+      <div class="tablet-tabs">
+        <button class="tab-button active" data-tab="status">[ STATUS ]</button>
+        <button class="tab-button" data-tab="history">[ HISTORY ]</button>
+        <button class="tab-button" data-tab="logs">[ LOGS ]</button>
+      </div>
+
+      <div class="tablet-screen">
+        <div class="scan-line"></div>
+        
+        <div class="tablet-panel active" id="panel-status">
+          <div class="status-display">
+            <div class="status-row">
+              <span class="status-label">SYSTEM:</span>
+              <span class="status-value" id="status-system">OPERATIONAL</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">STATE:</span>
+              <span class="status-value" id="status-state">AWAITING_INPUT</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">LAST_ACTION:</span>
+              <span class="status-value" id="status-action">NONE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tablet-panel" id="panel-history">
+          <div class="history-list" id="history"></div>
+        </div>
+
+        <div class="tablet-panel" id="panel-logs">
+          <div class="logs-console" id="logs">
+            <div class="log-entry">MANTIS Desktop initialized...</div>
+            <div class="log-entry">Awaiting user input...</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <script type="module" src="/main.ts"></script>
 </body>
