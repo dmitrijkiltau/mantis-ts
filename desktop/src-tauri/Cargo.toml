@@ -1,0 +1,14 @@
+[package]
+name = "mantis_desktop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2.9.5", features = [] }
+
+tauri-plugin-dialog = "2.5.0"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-shell = "2.3.4"
+
+[build-dependencies]
+tauri-build = { version = "2.5.3", features = [] }

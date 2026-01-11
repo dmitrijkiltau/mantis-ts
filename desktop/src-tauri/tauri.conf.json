@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.kiltau.mantis.desktop",
+
+  "productName": "MANTIS Desktop",
+  "version": "0.0.1",
+
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+
+  "bundle": {
+    "active": true,
+    "icon": []
+  }
+}

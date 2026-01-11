@@ -15,5 +15,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
   },
-  "include": ["assistant/src", "desktop/src"]
+  "include": ["src", "../assistant/src"]
 }
