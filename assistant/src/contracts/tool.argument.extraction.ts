@@ -32,12 +32,12 @@ Do not invent data.`,
  * Types of validation errors for tool argument extraction.
  */
 export type ToolArgumentExtractionValidationError =
-  | 'NON_JSON_PREFIX'
+  | `NON_JSON_PREFIX:${string}`
   | `MISSING_FIELD:${string}`
   | `UNEXPECTED_FIELD:${string}`
   | `NULL_NOT_ALLOWED:${string}`
   | `INVALID_TYPE:${string}`
-  | 'INVALID_JSON';
+  | `INVALID_JSON:${string}`;
 
 /**
  * Validator for tool argument extraction contract output.
@@ -47,14 +47,14 @@ export const validateToolArguments = (
 ): ContractValidator<Record<string, unknown>, ToolArgumentExtractionValidationError> => (raw) => {
   // Validate JSON prefix
   if (!raw.trim().startsWith('{')) {
-    return { ok: false, error: 'NON_JSON_PREFIX' };
+    return { ok: false, error: `NON_JSON_PREFIX:${raw}` };
   }
 
   let parsed: Record<string, any>;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ok: false, error: 'INVALID_JSON' };
+    return { ok: false, error: `INVALID_JSON:${raw}` };
   }
 
   for (const parsedKey of Object.keys(parsed)) {
