@@ -6,45 +6,34 @@
   }
 
   body {
-    @apply relative isolate min-h-screen font-mono antialiased;
-    background: radial-gradient(
-        ellipse at top left,
-        rgba(16, 185, 129, 0.15),
-        transparent 50%
-      ),
-      radial-gradient(
-        ellipse at bottom right,
-        rgba(34, 211, 238, 0.12),
-        transparent 50%
-      ),
-      #0a0e14;
-    color: #00ff88;
+    @apply relative isolate min-h-screen font-mono antialiased text-terminal-primary;
+    background: 
+      radial-gradient(ellipse at top left, var(--color-gradient-top), transparent 50%),
+      radial-gradient(ellipse at bottom right, var(--color-gradient-bottom), transparent 50%),
+      var(--color-bg-dark);
 
     &::before {
       content: "";
       @apply pointer-events-none fixed inset-0 z-0 opacity-5;
-      background-image: 
-        repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 2px,
-          rgba(0, 255, 136, 0.03) 2px,
-          rgba(0, 255, 136, 0.03) 4px
-        );
+      background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        var(--color-scanline) 2px,
+        var(--color-scanline) 4px
+      );
       animation: scanlines 8s linear infinite;
     }
   }
 
   @keyframes scanlines {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(4px); }
+    from { transform: translateY(0); }
+    to { transform: translateY(4px); }
   }
 
   button {
-    @apply inline-flex items-center justify-center px-6 py-2;
-    @apply text-sm font-semibold cursor-pointer;
-    @apply transition duration-200 ease-out;
-    font-family: var(--font-mono);
+    @apply inline-flex items-center justify-center px-6 py-2 text-sm font-semibold;
+    @apply cursor-pointer transition-all duration-200 ease-out font-mono;
 
     &:hover {
       @apply brightness-125;
@@ -65,55 +54,41 @@
     @apply relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8;
   }
 
-  /* Avatar Zone with Speech Bubble */
   .avatar-zone {
     @apply relative flex flex-col items-center gap-4;
-    
-    .avatar-canvas {
-      @apply w-48 h-48 grid place-items-center;
-      filter: drop-shadow(0 0 30px rgba(0, 255, 136, 0.5));
-      
-      .assistant-avatar-svg {
-        @apply transition-transform duration-500 ease-out;
-      }
+  }
 
-      &:hover .assistant-avatar-svg {
-        @apply scale-110;
-      }
+  .avatar-canvas {
+    @apply w-48 h-48 grid place-items-center;
+    filter: var(--shadow-glow-primary);
+
+    .assistant-avatar-svg {
+      @apply transition-transform duration-500 ease-out;
     }
 
-    .speech-bubble {
-      @apply relative bg-surface-solid rounded-xl p-6 max-w-2xl;
-      background: rgba(15, 35, 25, 0.95);
-      border: 2px solid #00ff88;
-      box-shadow: 
-        0 0 20px rgba(0, 255, 136, 0.3),
-        inset 0 0 30px rgba(0, 255, 136, 0.05);
-      animation: bubble-appear 0.4s ease-out;
-
-      &.hidden {
-        @apply hidden;
-      }
-
-      .bubble-content {
-        @apply text-base leading-relaxed;
-        color: #00ff88;
-        font-family: var(--font-mono);
-      }
-
-      .bubble-tail {
-        @apply absolute;
-        width: 0;
-        height: 0;
-        border-left: 15px solid transparent;
-        border-right: 15px solid transparent;
-        border-bottom: 20px solid #00ff88;
-        top: -20px;
-        left: 50%;
-        transform: translateX(-50%) rotate(180deg);
-        filter: drop-shadow(0 2px 4px rgba(0, 255, 136, 0.3));
-      }
+    &:hover .assistant-avatar-svg {
+      @apply scale-110;
     }
+  }
+
+  .speech-bubble {
+    @apply relative rounded-xl p-6 max-w-2xl bg-bg-bubble border-2 border-terminal-primary;
+    box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
+    animation: bubble-appear 0.4s ease-out;
+
+    &.hidden {
+      @apply hidden;
+    }
+  }
+
+  .bubble-content {
+    @apply text-base leading-relaxed text-terminal-primary font-mono;
+  }
+
+  .bubble-tail {
+    @apply w-0 h-0 absolute -top-5 left-1/2 transform -translate-x-1/2 rotate-180;
+    @apply border-l-15 border-r-15 border-b-20 border-b-terminal-primary;
+    filter: drop-shadow(0 2px 4px var(--color-primary-30));
   }
 
   @keyframes bubble-appear {
@@ -127,121 +102,109 @@
     }
   }
 
-  /* Input Terminal */
   .input-terminal {
     @apply rounded-lg overflow-hidden;
-    background: rgba(10, 20, 15, 0.9);
-    border: 2px solid rgba(0, 255, 136, 0.4);
-    box-shadow: 
-      0 0 30px rgba(0, 255, 136, 0.2),
-      inset 0 1px 0 rgba(0, 255, 136, 0.1);
+    background: var(--color-bg-terminal);
+    border: 2px solid var(--color-primary-40);
+    box-shadow: var(--shadow-glow-primary-soft), inset 0 1px 0 var(--color-primary-10);
+  }
 
-    .terminal-header {
-      @apply flex items-center justify-between px-4 py-2;
-      background: rgba(0, 255, 136, 0.1);
-      border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+  .terminal-header {
+    @apply flex items-center justify-between px-4 py-2;
+    background: var(--color-primary-10);
+    border-bottom: 1px solid var(--color-primary-30);
+  }
 
-      .terminal-title {
-        @apply text-xs font-bold tracking-wider;
-        color: #00ff88;
-        text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
-      }
+  .terminal-title {
+    @apply text-xs font-bold tracking-wider text-terminal-primary;
+    text-shadow: var(--shadow-text-primary);
+  }
 
-      .status-indicator {
-        @apply text-xs px-3 py-1 rounded;
-        background: rgba(0, 255, 136, 0.2);
-        color: #00ff88;
-        border: 1px solid rgba(0, 255, 136, 0.4);
-        animation: pulse 2s ease-in-out infinite;
+  .status-indicator {
+    @apply text-xs px-3 py-1 rounded text-terminal-primary;
+    @apply border;
+    background: var(--color-primary-20);
+    border-color: var(--color-primary-40);
+    animation: pulse 2s ease-in-out infinite;
 
-        &[data-mood='listening'] {
-          background: rgba(34, 211, 238, 0.2);
-          color: #22d3ee;
-          border-color: rgba(34, 211, 238, 0.4);
-        }
-
-        &[data-mood='thinking'] {
-          background: rgba(245, 158, 11, 0.2);
-          color: #f59e0b;
-          border-color: rgba(245, 158, 11, 0.4);
-        }
-
-        &[data-mood='speaking'] {
-          background: rgba(16, 185, 129, 0.2);
-          color: #10b981;
-          border-color: rgba(16, 185, 129, 0.4);
-        }
-      }
+    &[data-mood='listening'] {
+      @apply text-terminal-cyan;
+      background: var(--color-cyan-20);
+      border-color: var(--color-cyan-40);
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+    &[data-mood='thinking'] {
+      @apply text-terminal-amber;
+      background: var(--color-amber-20);
+      border-color: var(--color-amber-40);
     }
 
-    #prompt-form {
-      @apply flex flex-col gap-0;
-    }
-
-    .terminal-input {
-      @apply w-full px-4 py-4 bg-transparent resize-y;
-      color: #00ff88;
-      border: none;
-      outline: none;
-      font-family: var(--font-mono);
-      min-height: 100px;
-
-      &::placeholder {
-        color: rgba(0, 255, 136, 0.4);
-      }
-
-      &:focus {
-        background: rgba(0, 255, 136, 0.02);
-      }
-    }
-
-    .terminal-button {
-      @apply self-end mx-4 mb-4 px-6 py-2;
-      background: rgba(0, 255, 136, 0.15);
-      border: 2px solid #00ff88;
-      color: #00ff88;
-      font-weight: bold;
-      letter-spacing: 0.1em;
-      transition: all 0.2s;
-
-      .button-bracket {
-        @apply inline-block transition-transform;
-      }
-
-      &:hover {
-        background: rgba(0, 255, 136, 0.25);
-        box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
-        
-        .button-bracket:first-child {
-          transform: translateX(-3px);
-        }
-        
-        .button-bracket:last-child {
-          transform: translateX(3px);
-        }
-      }
-
-      &:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
-      }
+    &[data-mood='speaking'] {
+      @apply text-terminal-emerald;
+      background: var(--color-emerald-20);
+      border-color: var(--color-emerald-40);
     }
   }
 
-  /* Pip-Boy Style Tablet */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  #prompt-form {
+    @apply flex flex-col gap-0;
+  }
+
+  .terminal-input {
+    @apply w-full px-4 py-4 bg-transparent resize-y text-terminal-primary;
+    @apply border-none outline-none font-mono;
+    min-height: 100px;
+
+    &::placeholder {
+      color: var(--color-primary-40);
+    }
+
+    &:focus {
+      background: var(--color-primary-5);
+    }
+  }
+
+  .terminal-button {
+    @apply self-end mx-4 mb-4 px-6 py-2 font-bold text-terminal-primary;
+    @apply border-2;
+    background: var(--color-primary-15);
+    border-color: var(--color-terminal-primary);
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+
+    .button-bracket {
+      @apply inline-block transition-transform;
+    }
+
+    &:hover {
+      background: var(--color-primary-20);
+      box-shadow: var(--shadow-glow-primary-soft);
+
+      .button-bracket:first-child {
+        transform: translateX(-3px);
+      }
+
+      .button-bracket:last-child {
+        transform: translateX(3px);
+      }
+    }
+
+    &:disabled {
+      @apply opacity-30 cursor-not-allowed;
+    }
+  }
+
   .pip-tablet {
-    @apply rounded-lg overflow-hidden;
-    background: linear-gradient(135deg, rgba(15, 30, 20, 0.95), rgba(10, 25, 15, 0.95));
-    border: 3px solid rgba(0, 255, 136, 0.6);
-    box-shadow: 
-      0 10px 50px rgba(0, 255, 136, 0.3),
-      inset 0 0 50px rgba(0, 255, 136, 0.05);
-    position: relative;
+    @apply rounded-lg overflow-hidden relative;
+    @apply border-[3px];
+    background: linear-gradient(135deg, var(--color-bg-tablet), var(--color-bg-tablet-alt));
+    border-color: var(--color-primary-60);
+    box-shadow: var(--shadow-glow-primary-strong), var(--shadow-inset-glow-strong);
 
     &::before {
       content: "";
@@ -250,205 +213,194 @@
         0deg,
         transparent,
         transparent 2px,
-        rgba(0, 255, 136, 0.03) 2px,
-        rgba(0, 255, 136, 0.03) 4px
+        var(--color-scanline) 2px,
+        var(--color-scanline) 4px
       );
     }
+  }
 
-    .tablet-header {
-      @apply flex items-center justify-between px-5 py-3;
-      background: rgba(0, 255, 136, 0.15);
-      border-bottom: 2px solid rgba(0, 255, 136, 0.4);
+  .tablet-header {
+    @apply flex items-center justify-between px-5 py-3 border-b-2;
+    background: var(--color-primary-15);
+    border-color: var(--color-primary-40);
+  }
 
-      .tablet-title {
-        @apply flex items-center gap-2 text-sm font-bold tracking-wider;
-        color: #00ff88;
-        text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+  .tablet-title {
+    @apply flex items-center gap-2 text-sm font-bold tracking-wider text-terminal-primary;
+    text-shadow: var(--shadow-text-primary);
 
-        .title-icon {
-          @apply inline-block;
-          animation: rotate 4s linear infinite;
-        }
-      }
+    .title-icon {
+      @apply inline-block;
+      animation: rotate 4s linear infinite;
+    }
+  }
 
-      .tablet-stats {
-        @apply flex gap-4 text-xs;
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 
-        .stat-item {
-          @apply px-2 py-1 rounded;
-          background: rgba(0, 0, 0, 0.4);
-          color: #00ff88;
-          border: 1px solid rgba(0, 255, 136, 0.3);
-          font-family: var(--font-mono);
-        }
-      }
+  .tablet-stats {
+    @apply flex gap-4 text-xs;
+  }
+
+  .stat-item {
+    @apply px-2 py-1 rounded text-terminal-primary border font-mono;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-30);
+  }
+
+  .tablet-tabs {
+    @apply flex border-b-2;
+    background: var(--color-bg-black-soft);
+    border-color: var(--color-primary-30);
+  }
+
+  .tab-button {
+    @apply flex-1 px-4 py-3 text-xs font-bold tracking-wider;
+    @apply border-r transition-all duration-200;
+    color: var(--color-primary-50);
+    border-color: var(--color-primary-20);
+
+    &:last-child {
+      @apply border-r-0;
     }
 
-    @keyframes rotate {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+    &:hover {
+      background: var(--color-primary-10);
+      color: var(--color-primary-80);
     }
 
-    .tablet-tabs {
-      @apply flex border-b-2 border-b-[rgba(0,255,136,0.3)];
-      background: rgba(0, 0, 0, 0.3);
+    &.active {
+      @apply text-terminal-primary;
+      background: var(--color-primary-20);
+      box-shadow: inset 0 -2px 0 var(--color-terminal-primary);
+    }
+  }
 
-      .tab-button {
-        @apply flex-1 px-4 py-3 text-xs font-bold tracking-wider;
-        color: rgba(0, 255, 136, 0.5);
-        border-right: 1px solid rgba(0, 255, 136, 0.2);
-        transition: all 0.2s;
+  .tablet-screen {
+    @apply relative p-5 min-h-[400px];
+    background: var(--color-bg-black);
+  }
 
-        &:last-child {
-          border-right: none;
-        }
+  .scan-line {
+    @apply absolute left-0 right-0 h-[2px] pointer-events-none;
+    background: linear-gradient(90deg, transparent, var(--color-primary-40), transparent);
+    animation: scan 3s linear infinite;
+  }
 
-        &:hover {
-          background: rgba(0, 255, 136, 0.1);
-          color: rgba(0, 255, 136, 0.8);
-        }
+  @keyframes scan {
+    from { top: 0; }
+    to { top: 100%; }
+  }
 
-        &.active {
-          background: rgba(0, 255, 136, 0.2);
-          color: #00ff88;
-          box-shadow: inset 0 -2px 0 #00ff88;
-        }
-      }
+  .tablet-panel {
+    @apply hidden;
+
+    &.active {
+      @apply block;
+      animation: panel-fade-in 0.3s ease-out;
+    }
+  }
+
+  @keyframes panel-fade-in {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .status-display {
+    @apply flex flex-col gap-3;
+  }
+
+  .status-row {
+    @apply flex items-center gap-3 px-4 py-3 rounded border-l-[3px];
+    background: var(--color-primary-5);
+    border-color: var(--color-primary-50);
+  }
+
+  .status-label {
+    @apply text-xs font-bold tracking-wider min-w-[120px];
+    color: var(--color-primary-70);
+  }
+
+  .status-value {
+    @apply text-sm font-mono text-terminal-primary;
+    text-shadow: var(--shadow-text-primary-soft);
+  }
+
+  .history-list {
+    @apply flex flex-col gap-3 max-h-[400px] overflow-y-auto;
+
+    &::-webkit-scrollbar {
+      @apply w-2;
     }
 
-    .tablet-screen {
-      @apply relative p-5 min-h-[400px];
-      background: rgba(0, 0, 0, 0.4);
-
-      .scan-line {
-        @apply absolute left-0 right-0 h-[2px] pointer-events-none;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          rgba(0, 255, 136, 0.4),
-          transparent
-        );
-        animation: scan 3s linear infinite;
-      }
-
-      @keyframes scan {
-        0% { top: 0; }
-        100% { top: 100%; }
-      }
-
-      .tablet-panel {
-        @apply hidden;
-
-        &.active {
-          @apply block;
-          animation: panel-fade-in 0.3s ease-out;
-        }
-      }
-
-      @keyframes panel-fade-in {
-        from {
-          opacity: 0;
-          transform: translateX(-10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
+    &::-webkit-scrollbar-track {
+      background: var(--color-bg-black-soft);
     }
 
-    .status-display {
-      @apply flex flex-col gap-3;
+    &::-webkit-scrollbar-thumb {
+      @apply rounded;
+      background: var(--color-primary-40);
 
-      .status-row {
-        @apply flex items-center gap-3 px-4 py-3 rounded;
-        background: rgba(0, 255, 136, 0.05);
-        border-left: 3px solid rgba(0, 255, 136, 0.5);
-
-        .status-label {
-          @apply text-xs font-bold tracking-wider;
-          color: rgba(0, 255, 136, 0.7);
-          min-width: 120px;
-        }
-
-        .status-value {
-          @apply text-sm font-mono;
-          color: #00ff88;
-          text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
-        }
+      &:hover {
+        background: var(--color-primary-60);
       }
     }
+  }
 
-    .history-list {
-      @apply flex flex-col gap-3 max-h-[400px] overflow-y-auto;
+  .answer-card {
+    @apply p-4 rounded border;
+    background: var(--color-primary-8);
+    border-color: var(--color-primary-30);
 
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.3);
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 255, 136, 0.4);
-        border-radius: 4px;
-
-        &:hover {
-          background: rgba(0, 255, 136, 0.6);
-        }
-      }
-
-      .answer-card {
-        @apply p-4 rounded;
-        background: rgba(0, 255, 136, 0.08);
-        border: 1px solid rgba(0, 255, 136, 0.3);
-
-        h3 {
-          @apply text-sm font-bold mb-2;
-          color: #22d3ee;
-          text-shadow: 0 0 5px rgba(34, 211, 238, 0.5);
-        }
-
-        pre {
-          @apply text-xs whitespace-pre-wrap mt-2 p-2 rounded;
-          background: rgba(0, 0, 0, 0.4);
-          color: #00ff88;
-          border: 1px solid rgba(0, 255, 136, 0.2);
-        }
-
-        p {
-          @apply text-xs mt-2;
-          color: rgba(0, 255, 136, 0.7);
-        }
-      }
+    h3 {
+      @apply text-sm font-bold mb-2 text-terminal-cyan;
+      text-shadow: var(--shadow-glow-cyan);
     }
 
-    .logs-console {
-      @apply flex flex-col gap-1 max-h-100 overflow-y-auto text-xs font-mono;
+    pre {
+      @apply text-xs whitespace-pre-wrap mt-2 p-2 rounded text-terminal-primary border;
+      background: var(--color-bg-black);
+      border-color: var(--color-primary-20);
+    }
 
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
+    p {
+      @apply text-xs mt-2;
+      color: var(--color-primary-70);
+    }
+  }
 
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.3);
-      }
+  .logs-console {
+    @apply flex flex-col gap-1 max-h-[400px] overflow-y-auto text-xs font-mono;
 
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 255, 136, 0.4);
-        border-radius: 4px;
-      }
+    &::-webkit-scrollbar {
+      @apply w-2;
+    }
 
-      .log-entry {
-        @apply py-1 px-2;
-        color: rgba(0, 255, 136, 0.8);
-        border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    &::-webkit-scrollbar-track {
+      background: var(--color-bg-black-soft);
+    }
 
-        &:hover {
-          background: rgba(0, 255, 136, 0.05);
-        }
-      }
+    &::-webkit-scrollbar-thumb {
+      @apply rounded;
+      background: var(--color-primary-40);
+    }
+  }
+
+  .log-entry {
+    @apply py-1 px-2 border-b;
+    color: var(--color-primary-80);
+    border-color: var(--color-primary-10);
+
+    &:hover {
+      background: var(--color-primary-5);
     }
   }
 }
