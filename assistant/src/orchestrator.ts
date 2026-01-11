@@ -12,6 +12,7 @@ import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
+import { validatePersonalitySelection } from './contracts/personality.selection.js';
 import { getToolIntents } from './tools/registry.js';
 import type {
   ContractWithExtras,
@@ -66,6 +67,22 @@ export class Orchestrator {
     return text.trim();
   }
 
+  /**
+   * Ensures tone instructions are injected as an optional leading block.
+   */
+  private formatToneInstructions(toneInstructions?: string): string {
+    if (!toneInstructions) {
+      return '';
+    }
+
+    const normalized = toneInstructions.trim();
+    if (!normalized) {
+      return '';
+    }
+
+    return `${normalized}\n`;
+  }
+
   private formatToolSchema(schema: ToolSchema): string {
     return JSON.stringify(schema, undefined, 2);
   }
@@ -83,6 +100,20 @@ export class Orchestrator {
   public buildLanguageDetectionPrompt(userInput: string): ContractPrompt {
     return this.buildPrompt('LANGUAGE_DETECTION', {
       USER_INPUT: this.normalize(userInput),
+    });
+  }
+
+  public buildPersonalitySelectionPrompt(
+    userInput: string,
+    allowedPersonalities: string[],
+    intent?: { intent: string; confidence: number },
+    language?: { language: string; name: string },
+  ): ContractPrompt {
+    return this.buildPrompt('PERSONALITY_SELECTION', {
+      USER_INPUT: this.normalize(userInput),
+      ALLOWED_PERSONALITIES: toUnorderedList(allowedPersonalities),
+      INTENT: intent?.intent ?? 'unknown',
+      LANGUAGE: language?.name ?? 'Unknown',
     });
   }
 
@@ -114,16 +145,25 @@ export class Orchestrator {
     });
   }
 
-  public buildStrictAnswerPrompt(question: string): ContractPrompt {
+  public buildStrictAnswerPrompt(
+    question: string,
+    toneInstructions?: string,
+  ): ContractPrompt {
     return this.buildPrompt('STRICT_ANSWER', {
       QUESTION: this.normalize(question),
+      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
     });
   }
 
-  public buildResponseFormattingPrompt(response: string, language: { language: string; name: string }): ContractPrompt {
+  public buildResponseFormattingPrompt(
+    response: string,
+    language: { language: string; name: string },
+    toneInstructions?: string,
+  ): ContractPrompt {
     return this.buildPrompt('RESPONSE_FORMATTING', {
       RESPONSE: this.normalize(response),
       LANGUAGE: language.name,
+      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
     });
   }
 
@@ -165,6 +205,13 @@ export class Orchestrator {
     raw: string,
   ): ValidationResult<{ language: string; name: string }> {
     return validateLanguageDetection(raw);
+  }
+
+  public validatePersonalitySelection(
+    raw: string,
+    allowedPersonalities: string[],
+  ): ValidationResult<{ personality: string; confidence: number }> {
+    return validatePersonalitySelection(allowedPersonalities)(raw);
   }
 
   public validateStrictAnswer(raw: string): ValidationResult<string> {

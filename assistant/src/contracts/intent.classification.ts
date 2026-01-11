@@ -5,18 +5,14 @@ import { type ContractValidator } from '../types';
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
   MODEL: 'qwen2.5:1.5b',
-  SYSTEM_PROMPT: `You are an intent classifier.
-You do not explain.
-You do not chat.
-You only output valid JSON.
-If unsure, choose "unknown".`,
-  USER_PROMPT: `Classify the intent of the following input.
+  SYSTEM_PROMPT: `Classify the intent of the input based on the allowed list.
 
 Allowed intents (choose exactly one):
 {{ALLOWED_INTENTS}}
 
-Output exactly:
-{"intent":"<intent>","confidence":<number>}
+Output exactly (no formatting):
+{"intent":"<intent>","confidence":<number>}`,
+  USER_PROMPT: `Classify the intent of the following input.
 
 Input:
 {{USER_INPUT}}`,

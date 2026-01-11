@@ -5,7 +5,7 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
-  SYSTEM_PROMPT: `You answer the question directly.
+  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You answer the question directly.
 No preamble.
 No disclaimers.
 No follow-up questions.

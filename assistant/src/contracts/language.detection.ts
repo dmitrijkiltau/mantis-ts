@@ -4,16 +4,12 @@ import { type ContractValidator } from '../types.js';
  * Contract for language detection.
  */
 export const CONTRACT_LANGUAGE_DETECTION = {
-  MODEL: 'qwen2.5:1.5b',
-  SYSTEM_PROMPT: `You are a language detection system.
-You do not explain.
-You do not chat.
-You only output valid JSON.
-Detect the language of the user input and return its ISO 639-1 code and full name.`,
-  USER_PROMPT: `Detect the language of the following input.
+  MODEL: 'gemma3:1b',
+  SYSTEM_PROMPT: `Detect the language of the user input and return its ISO 639-1 code and full name.
 
-Output exactly:
-{"language":"<ISO_639_1_CODE>","name":"<LANGUAGE_NAME>"}
+Output exactly (no formatting):
+{"language":"<ISO_639_1_CODE>","name":"<LANGUAGE_NAME>"}`,
+  USER_PROMPT: `Detect the language of the following input.
 
 Input:
 {{USER_INPUT}}`,

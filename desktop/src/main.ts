@@ -14,12 +14,18 @@ const promptInput = document.getElementById('prompt-input') as HTMLTextAreaEleme
 const statusElement = document.getElementById('status');
 const historyElement = document.getElementById('history');
 
+/**
+ * Updates the UI status banner text.
+ */
 const setStatus = (text: string) => {
   if (statusElement) {
     statusElement.textContent = text;
   }
 };
 
+/**
+ * Formats tool output for display in the history panel.
+ */
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
     return value;
@@ -32,6 +38,9 @@ const formatPayload = (value: unknown): string => {
   }
 };
 
+/**
+ * Handles user question submission.
+ */
 async function handleQuestion(event: Event) {
   event.preventDefault();
 

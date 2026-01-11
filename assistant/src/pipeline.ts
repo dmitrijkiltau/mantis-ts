@@ -3,6 +3,11 @@ import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
 import { TOOLS, getToolDefinition, type ToolName } from './tools/registry.js';
 import { Logger } from './logger.js';
+import {
+  getDefaultPersonalityProfile,
+  getPersonalityKeys,
+  getPersonalityProfile,
+} from './personality.js';
 
 export type PipelineStage =
   | 'intent'
@@ -81,9 +86,22 @@ export class Pipeline {
       (raw) => this.orchestrator.validateIntentClassification(raw),
     );
 
+    const tentativeIntent = intentResult.ok ? intentResult.value : undefined;
+    const toneInstructions = await this.selectToneInstructions(
+      userInput,
+      tentativeIntent,
+      language,
+    );
+
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
-      return this.runStrictAnswer(userInput, undefined, intentResult.attempts, language);
+      return this.runStrictAnswer(
+        userInput,
+        tentativeIntent,
+        intentResult.attempts,
+        language,
+        toneInstructions,
+      );
     }
 
     const intent = intentResult.value;
@@ -94,7 +112,13 @@ export class Pipeline {
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
       Logger.info('pipeline', 'No matching tool for intent, using strict answer');
-      return this.runStrictAnswer(userInput, intent, intentResult.attempts, language);
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        language,
+        toneInstructions,
+      );
     }
 
     const tool = getToolDefinition(toolName);
@@ -104,7 +128,9 @@ export class Pipeline {
       try {
         const toolResult = await tool.execute({});
         Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-        const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult, language) : toolResult;
+        const formattedResult = typeof toolResult === 'string'
+          ? await this.formatResponse(toolResult, language, toneInstructions)
+          : toolResult;
         return {
           ok: true,
           kind: 'tool',
@@ -154,7 +180,9 @@ export class Pipeline {
         toolArgResult.value as Record<string, unknown>,
       );
       Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-      const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult, language) : toolResult;
+      const formattedResult = typeof toolResult === 'string'
+        ? await this.formatResponse(toolResult, language, toneInstructions)
+        : toolResult;
       return {
         ok: true,
         kind: 'tool',
@@ -193,9 +221,13 @@ export class Pipeline {
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
     language: { language: string; name: string },
+    toneInstructions?: string,
   ): Promise<PipelineResult> {
     Logger.info('pipeline', 'Running strict answer contract');
-    const prompt = this.orchestrator.buildStrictAnswerPrompt(userInput);
+    const prompt = this.orchestrator.buildStrictAnswerPrompt(
+      userInput,
+      toneInstructions,
+    );
     const result = await this.runner.executeContract(
       'STRICT_ANSWER',
       prompt,
@@ -213,7 +245,11 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Strict answer generated successfully');
-    const formattedValue = await this.formatResponse(result.value, language);
+    const formattedValue = await this.formatResponse(
+      result.value,
+      language,
+      toneInstructions,
+    );
     return {
       ok: true,
       kind: 'strict_answer',
@@ -228,9 +264,17 @@ export class Pipeline {
    * Optionally formats response text as a single concise sentence in the user's language.
    * This is a best-effort operation; formatting failures do not block the result.
    */
-  private async formatResponse(text: string, language: { language: string; name: string }): Promise<string> {
+  private async formatResponse(
+    text: string,
+    language: { language: string; name: string },
+    toneInstructions?: string,
+  ): Promise<string> {
     try {
-      const prompt = this.orchestrator.buildResponseFormattingPrompt(text, language);
+      const prompt = this.orchestrator.buildResponseFormattingPrompt(
+        text,
+        language,
+        toneInstructions,
+      );
       const result = await this.runner.executeContract(
         'RESPONSE_FORMATTING',
         prompt,
@@ -292,5 +336,38 @@ export class Pipeline {
       code: 'tool_error',
       message: error ? String(error) : 'Tool execution failed.',
     };
+  }
+
+  /**
+   * Selects tone instructions using the personality selection contract.
+   */
+  private async selectToneInstructions(
+    userInput: string,
+    intent: { intent: string; confidence: number } | undefined,
+    language: { language: string; name: string },
+  ): Promise<string> {
+    const allowedPersonalities = getPersonalityKeys();
+    const prompt = this.orchestrator.buildPersonalitySelectionPrompt(
+      userInput,
+      allowedPersonalities,
+      intent,
+      language,
+    );
+    const result = await this.runner.executeContract(
+      'PERSONALITY_SELECTION',
+      prompt,
+      (raw) => this.orchestrator.validatePersonalitySelection(raw, allowedPersonalities),
+    );
+
+    if (!result.ok) {
+      Logger.warn('pipeline', 'Personality selection failed, using DEFAULT');
+      return getDefaultPersonalityProfile().toneInstructions;
+    }
+
+    const profile = getPersonalityProfile(result.value.personality);
+    Logger.info('pipeline', `Personality selected: ${profile.id}`, {
+      confidence: result.value.confidence,
+    });
+    return profile.toneInstructions;
   }
 }

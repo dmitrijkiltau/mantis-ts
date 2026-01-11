@@ -8,7 +8,7 @@ const MAX_RESPONSE_LENGTH = 200;
  */
 export const CONTRACT_RESPONSE_FORMATTING = {
   MODEL: 'ministral-3:3b',
-  SYSTEM_PROMPT: `You format responses concisely, in a natural, human, everyday language.
+  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You format responses concisely, in a natural, human, everyday language.
 Do not add new information, actions, opinions or context.
 Preserve the original meaning exactly.
 No preamble.

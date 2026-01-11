@@ -16,13 +16,15 @@ _Minimal Adaptive Neural Tool-Integrated System_ is a versatile AI assistant des
 
 The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, `buildStrictAnswerPrompt`, and `buildResponseFormattingPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
 
+The orchestrator also builds a `PERSONALITY_SELECTION` prompt that maps user input + detected intent/language to an allowed personality preset (see `assistant/src/contracts/personality.selection.ts`) and injects the resulting tone instructions into strict answer and response formatting prompts.
+
 ## Runner
 
 `assistant/src/runner.ts` glues the orchestrator to a model client (via the `LLMClient` interface) and replays the retry hints defined inside each contract. `Runner.executeContract` builds the `ModelInvocation`, waits for the client to return raw text, stores the result inside `AttemptRecord` entries, and re-renders the retry instructions before every new attempt using `getRetryInstruction`. That keeps the retry budget implicit, lets validators stay deterministic.
 
 ## Pipeline
 
-`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning.
+`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, selects a personality preset via the `PERSONALITY_SELECTION` contract (falling back to `DEFAULT` on failure), extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning, with the selected tone applied to both strict answer and formatting prompts.
 
 ## Desktop App
 
