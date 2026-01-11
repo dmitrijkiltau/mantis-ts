@@ -5,6 +5,7 @@ import { Runner } from '../../assistant/src/runner';
 import { Logger } from '../../assistant/src/logger';
 import './styles.css';
 import { AssistantAvatar, AvatarMood } from './avatar';
+import { marked } from 'marked';
 
 const orchestrator = new Orchestrator();
 const runner = new Runner(orchestrator, new OllamaClient());
@@ -56,11 +57,11 @@ const addLog = (message: string) => {
 };
 
 /**
- * Shows answer in speech bubble
+ * Shows answer in speech bubble with markdown support
  */
 const showBubble = (text: string) => {
   if (speechBubble && bubbleAnswer) {
-    bubbleAnswer.textContent = text;
+    bubbleAnswer.innerHTML = marked.parse(text) as string;
     speechBubble.classList.remove('hidden');
   }
 };
@@ -159,7 +160,8 @@ async function handleQuestion(event: Event) {
         setStatus('OPERATIONAL', 'COMPLETE', `TOOL_${result.tool.toUpperCase()}`);
         addLog(`Tool executed: ${result.tool}`);
         
-        const answerText = `Tool: ${result.tool}\nResult: ${formatPayload(result.result)}`;
+        // Don't show 'Tool: time Result:' - just show the actual result
+        const answerText = formatPayload(result.result);
         showBubble(answerText);
         
         record.innerHTML = `
