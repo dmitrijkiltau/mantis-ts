@@ -27,13 +27,15 @@ LLM decides:
 ```
 User Input
    ↓
+Language Detection
+   ↓
 Orchestrator (Routing & Decision)
    ↓
 LLM (Task Execution)
    ↓
 Validator (mandatory)
    ↓
-(Optional: Formatter)
+(Optional: Formatter in User's Language)
    ↓
 Output
 ```
@@ -53,11 +55,14 @@ Invalid → retry (if allowed) or abort
 
 ```
 Input
+ → Language Detection
+   → Detected Language → preserved through pipeline
+   ↓
  → Intent Classification
-   → unknown → Strict Answer
+   → unknown → Strict Answer (in user's language)
    → tool.* → Tool Args (schema from tool registry)
        → invalid → Error Channel → Abort or Re-route
-       → valid → Execute Tool
+       → valid → Execute Tool → Format in user's language
 ```
 
 ## Retry Pipeline
@@ -74,6 +79,7 @@ Retry 2 → {"intent":"unknown","confidence":0.0}
 
 | Contract-Type            | Max Retries | On Failure                                              | Strategy              |
 | ------------------------ | ----------- | ------------------------------------------------------- | --------------------- |
+| Language Detection       | 2           | Default to "unknown"                                    | Best-Effort           |
 | Intent Classification    | 2           | Default Intent                                          | Constraint Tightening |
 | Tool Argument Extraction | 2           | Revalidate User or Cancel                               | Schema Reinforcement  |
 | Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |
@@ -84,6 +90,6 @@ Retry 2 → {"intent":"unknown","confidence":0.0}
 
 ## Response Formatting
 
-The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information.
+The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences in the user's detected language, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information.
 
 Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.

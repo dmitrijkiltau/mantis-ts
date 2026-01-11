@@ -11,6 +11,7 @@ import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
+import { validateLanguageDetection } from './contracts/language.detection.js';
 import { getToolIntents } from './tools/registry.js';
 import type {
   ContractWithExtras,
@@ -79,6 +80,12 @@ export class Orchestrator {
     });
   }
 
+  public buildLanguageDetectionPrompt(userInput: string): ContractPrompt {
+    return this.buildPrompt('LANGUAGE_DETECTION', {
+      USER_INPUT: this.normalize(userInput),
+    });
+  }
+
   public buildToolArgumentPrompt(
     toolName: string,
     schema: ToolSchema,
@@ -113,9 +120,10 @@ export class Orchestrator {
     });
   }
 
-  public buildResponseFormattingPrompt(response: string): ContractPrompt {
+  public buildResponseFormattingPrompt(response: string, language: { language: string; name: string }): ContractPrompt {
     return this.buildPrompt('RESPONSE_FORMATTING', {
       RESPONSE: this.normalize(response),
+      LANGUAGE: language.name,
     });
   }
 
@@ -151,6 +159,12 @@ export class Orchestrator {
     raw: string,
   ): ValidationResult<Record<string, number>> {
     return validateScoring(raw);
+  }
+
+  public validateLanguageDetection(
+    raw: string,
+  ): ValidationResult<{ language: string; name: string }> {
+    return validateLanguageDetection(raw);
   }
 
   public validateStrictAnswer(raw: string): ValidationResult<string> {

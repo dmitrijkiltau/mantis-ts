@@ -22,7 +22,7 @@ The bridge between the orchestrator and the contracts lives in the `ContractProm
 
 ## Pipeline
 
-`assistant/src/pipeline.ts` wires the decision pipeline together. It runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences via the response formatting contract before returning.
+`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning.
 
 ## Desktop App
 

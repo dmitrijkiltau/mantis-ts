@@ -4,7 +4,7 @@ const MAX_RESPONSE_LENGTH = 200;
 
 /**
  * Contract for response formatting.
- * Ensures responses are concise and formatted as a single short sentence.
+ * Ensures responses are concise and formatted as a single short sentence in the user's language.
  */
 export const CONTRACT_RESPONSE_FORMATTING = {
   MODEL: 'ministral-3:3b',
@@ -14,7 +14,8 @@ Preserve the original meaning exactly.
 No preamble.
 No explanations.
 No follow-up questions.
-Keep it brief and direct.`,
+Keep it brief and direct.
+Always respond in {{LANGUAGE}}.`,
   USER_PROMPT: `Format this response as one short sentence:
 {{RESPONSE}}`,
 };

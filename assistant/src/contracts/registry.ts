@@ -5,6 +5,7 @@ import { CONTRACT_SCORING_EVALUATION } from './scoring.evaluation.js';
 import { CONTRACT_STRICT_ANSWER } from './strict.answer.js';
 import { CONTRACT_RESPONSE_FORMATTING } from './response.formatting.js';
 import { CONTRACT_ERROR_CHANNEL } from './error.channel.js';
+import { CONTRACT_LANGUAGE_DETECTION } from './language.detection.js';
 
 /**
  * Aggregated contracts.
@@ -17,4 +18,5 @@ export const CONTRACTS = {
   STRICT_ANSWER: CONTRACT_STRICT_ANSWER,
   RESPONSE_FORMATTING: CONTRACT_RESPONSE_FORMATTING,
   ERROR_CHANNEL: CONTRACT_ERROR_CHANNEL,
+  LANGUAGE_DETECTION: CONTRACT_LANGUAGE_DETECTION,
 } as const;

@@ -22,6 +22,7 @@ export type PipelineResult =
       kind: 'strict_answer';
       value: string;
       intent?: { intent: string; confidence: number };
+      language: { language: string; name: string };
       attempts: number;
     }
   | {
@@ -31,6 +32,7 @@ export type PipelineResult =
       args: Record<string, unknown>;
       result: unknown;
       intent: { intent: string; confidence: number };
+      language: { language: string; name: string };
       attempts: number;
     }
   | {
@@ -58,6 +60,20 @@ export class Pipeline {
       inputLength: userInput.length,
     });
 
+    // Detect user language
+    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+    const languageResult = await this.runner.executeContract(
+      'LANGUAGE_DETECTION',
+      languagePrompt,
+      (raw) => this.orchestrator.validateLanguageDetection(raw),
+    );
+
+    const language = languageResult.ok
+      ? languageResult.value
+      : { language: 'unknown', name: 'Unknown' };
+
+    Logger.info('pipeline', 'Language detected:', language);
+
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
@@ -67,7 +83,7 @@ export class Pipeline {
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
-      return this.runStrictAnswer(userInput, undefined, intentResult.attempts);
+      return this.runStrictAnswer(userInput, undefined, intentResult.attempts, language);
     }
 
     const intent = intentResult.value;
@@ -78,7 +94,7 @@ export class Pipeline {
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
       Logger.info('pipeline', 'No matching tool for intent, using strict answer');
-      return this.runStrictAnswer(userInput, intent, intentResult.attempts);
+      return this.runStrictAnswer(userInput, intent, intentResult.attempts, language);
     }
 
     const tool = getToolDefinition(toolName);
@@ -88,7 +104,7 @@ export class Pipeline {
       try {
         const toolResult = await tool.execute({});
         Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-        const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult) : toolResult;
+        const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult, language) : toolResult;
         return {
           ok: true,
           kind: 'tool',
@@ -96,6 +112,7 @@ export class Pipeline {
           args: {},
           result: formattedResult,
           intent,
+          language,
           attempts: intentResult.attempts,
         };
       } catch (error) {
@@ -137,7 +154,7 @@ export class Pipeline {
         toolArgResult.value as Record<string, unknown>,
       );
       Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-      const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult) : toolResult;
+      const formattedResult = typeof toolResult === 'string' ? await this.formatResponse(toolResult, language) : toolResult;
       return {
         ok: true,
         kind: 'tool',
@@ -145,6 +162,7 @@ export class Pipeline {
         args: toolArgResult.value,
         result: formattedResult,
         intent,
+        language,
         attempts: intentResult.attempts + toolArgResult.attempts,
       };
     } catch (error) {
@@ -174,6 +192,7 @@ export class Pipeline {
     userInput: string,
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
+    language: { language: string; name: string },
   ): Promise<PipelineResult> {
     Logger.info('pipeline', 'Running strict answer contract');
     const prompt = this.orchestrator.buildStrictAnswerPrompt(userInput);
@@ -194,23 +213,24 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Strict answer generated successfully');
-    const formattedValue = await this.formatResponse(result.value);
+    const formattedValue = await this.formatResponse(result.value, language);
     return {
       ok: true,
       kind: 'strict_answer',
       value: formattedValue,
       intent,
+      language,
       attempts: attempts + result.attempts,
     };
   }
 
   /**
-   * Optionally formats response text as a single concise sentence.
+   * Optionally formats response text as a single concise sentence in the user's language.
    * This is a best-effort operation; formatting failures do not block the result.
    */
-  private async formatResponse(text: string): Promise<string> {
+  private async formatResponse(text: string, language: { language: string; name: string }): Promise<string> {
     try {
-      const prompt = this.orchestrator.buildResponseFormattingPrompt(text);
+      const prompt = this.orchestrator.buildResponseFormattingPrompt(text, language);
       const result = await this.runner.executeContract(
         'RESPONSE_FORMATTING',
         prompt,
