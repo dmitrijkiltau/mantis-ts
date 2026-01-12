@@ -66,6 +66,7 @@ const addLog = (message: string) => {
 const showBubble = (text: string) => {
   if (speechBubble && bubbleAnswer) {
     bubbleAnswer.innerHTML = marked.parse(text) as string;
+    bubbleAnswer.textContent = bubbleAnswer.textContent.replace(/\n$/, '');
     speechBubble.classList.remove('hidden');
   }
 };
