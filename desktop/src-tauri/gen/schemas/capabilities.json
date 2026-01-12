@@ -1,1 +1,1 @@
-{}
+{"main-capability":{"identifier":"main-capability","description":"Main window capabilities with unrestricted filesystem access","local":true,"windows":["main"],"permissions":["fs:default","fs:allow-read-text-file","fs:allow-read-dir","fs:allow-stat",{"identifier":"fs:scope","allow":[{"path":"$HOME/**"},{"path":"$DOCUMENT/**"},{"path":"$DESKTOP/**"},{"path":"$DOWNLOAD/**"},{"path":"C:/**"},{"path":"D:/**"},{"path":"E:/**"}]},"dialog:default","shell:default"]}}

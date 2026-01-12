@@ -10,11 +10,11 @@ export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
 You do not validate permissions.
 You do not guess missing values.
 If required data is missing, set it to null.
-Output JSON only.`,
-  USER_PROMPT: `Extract arguments for the tool "{{TOOL_NAME}}".
+Output JSON only.
 
-Tool schema:
-{{TOOL_SCHEMA}}
+Output exactly (no formatting):
+{{TOOL_SCHEMA}}`,
+  USER_PROMPT: `Extract arguments for the tool "{{TOOL_NAME}}".
 
 User input:
 {{USER_INPUT}}`,
@@ -78,12 +78,11 @@ export const validateToolArguments = (
     }
 
     // Validate type
-    if (type === 'string|null') {
-      if (value !== null && typeof value !== 'string') {
+    if (value !== null) {
+      const actualType = type.includes('|') ? type.split('|')[0] : type;
+      if (typeof value !== actualType) {
         return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
       }
-    } else if (typeof value !== type) {
-      return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
     }
   }
 

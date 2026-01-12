@@ -3,6 +3,7 @@ import { Orchestrator } from '../../assistant/src/orchestrator';
 import { Pipeline } from '../../assistant/src/pipeline';
 import { Runner } from '../../assistant/src/runner';
 import { Logger } from '../../assistant/src/logger';
+import { getToolDefinition } from '../../assistant/src/tools/registry';
 import './styles.css';
 import { AssistantAvatar, AvatarMood } from './avatar';
 import { marked } from 'marked';
@@ -20,6 +21,9 @@ const speechBubble = document.getElementById('speech-bubble');
 const bubbleAnswer = document.getElementById('bubble-answer');
 const logsConsole = document.getElementById('logs');
 const avatar = avatarMount ? new AssistantAvatar(avatarMount) : null;
+const toolResults = document.getElementById('tool-results');
+const toolSearchForm = document.getElementById('tool-search-form') as HTMLFormElement | null;
+const toolOpenForm = document.getElementById('tool-open-form') as HTMLFormElement | null;
 
 // Status display elements
 const statusSystem = document.getElementById('status-system');
@@ -108,6 +112,151 @@ const formatPayload = (value: unknown): string => {
     return JSON.stringify(value, null, 2);
   } catch {
     return String(value);
+  }
+};
+
+const renderToolResult = (title: string, payload: unknown, meta?: Record<string, unknown>) => {
+  if (!toolResults) {
+    return;
+  }
+
+  const placeholder = toolResults.querySelector('.tool-placeholder');
+  if (placeholder) {
+    placeholder.remove();
+  }
+
+  const card = document.createElement('div');
+  card.className = 'tool-result-card';
+
+  const heading = document.createElement('div');
+  heading.className = 'tool-result-title';
+  heading.textContent = title;
+  card.appendChild(heading);
+
+  if (meta && Object.keys(meta).length > 0) {
+    const metaBlock = document.createElement('div');
+    metaBlock.className = 'tool-result-meta';
+    metaBlock.textContent = formatPayload(meta);
+    card.appendChild(metaBlock);
+  }
+
+  const body = document.createElement('pre');
+  body.textContent = formatPayload(payload);
+  card.appendChild(body);
+
+  toolResults.prepend(card);
+};
+
+const parseNumberField = (value: string | null | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+};
+
+/**
+ * Executes the search tool with UI-provided arguments.
+ */
+const handleSearchTool = async (event: Event) => {
+  event.preventDefault();
+
+  const queryInput = document.getElementById('search-query') as HTMLInputElement | null;
+  const baseInput = document.getElementById('search-base') as HTMLInputElement | null;
+  const startInput = document.getElementById('search-start') as HTMLInputElement | null;
+  const maxResultsInput = document.getElementById('search-max-results') as HTMLInputElement | null;
+  const maxDepthInput = document.getElementById('search-max-depth') as HTMLInputElement | null;
+  const filesInput = document.getElementById('search-files') as HTMLInputElement | null;
+  const dirsInput = document.getElementById('search-dirs') as HTMLInputElement | null;
+
+  const query = queryInput?.value.trim() ?? '';
+  const baseDir = baseInput?.value.trim() ?? '';
+  if (!query || !baseDir) {
+    return;
+  }
+
+  const args = {
+    query,
+    baseDir,
+    startPath: startInput?.value.trim() || null,
+    maxResults: parseNumberField(maxResultsInput?.value),
+    maxDepth: parseNumberField(maxDepthInput?.value),
+    includeFiles: filesInput ? filesInput.checked : true,
+    includeDirectories: dirsInput ? dirsInput.checked : true,
+  };
+
+  try {
+    setMood('thinking');
+    setStatus('OPERATIONAL', 'PROCESSING', 'TOOL_SEARCH');
+    addLog('Executing filesystem search tool...');
+
+    const tool = getToolDefinition('search');
+    const result = await tool.execute(args as Record<string, unknown>);
+
+    setMood('speaking');
+    setStatus('OPERATIONAL', 'COMPLETE', 'TOOL_SEARCH');
+    addLog(`Search completed (${(result as { matches?: unknown[] }).matches?.length ?? 0} matches)`);
+
+    renderToolResult('Filesystem Search', result, { args });
+  } catch (error) {
+    setMood('concerned');
+    setStatus('ERROR', 'FAILED', 'TOOL_SEARCH');
+    addLog(`Search error: ${String(error)}`);
+    renderToolResult('Filesystem Search Error', String(error));
+  } finally {
+    window.setTimeout(() => setMood('idle'), 500);
+  }
+};
+
+/**
+ * Executes the filesystem open tool with UI-provided arguments.
+ */
+const handleOpenTool = async (event: Event) => {
+  event.preventDefault();
+
+  const actionSelect = document.getElementById('open-action') as HTMLSelectElement | null;
+  const pathInput = document.getElementById('open-path') as HTMLInputElement | null;
+  const limitInput = document.getElementById('open-limit') as HTMLInputElement | null;
+  const maxBytesInput = document.getElementById('open-max-bytes') as HTMLInputElement | null;
+
+  const action = actionSelect?.value ?? '';
+  const path = pathInput?.value.trim() ?? '';
+  if (!action || !path) {
+    return;
+  }
+
+  const args = {
+    action,
+    path,
+    limit: parseNumberField(limitInput?.value),
+    maxBytes: parseNumberField(maxBytesInput?.value),
+  };
+
+  try {
+    setMood('thinking');
+    setStatus('OPERATIONAL', 'PROCESSING', 'TOOL_FILESYSTEM');
+    addLog(`Executing filesystem tool (${action})...`);
+
+    const tool = getToolDefinition('filesystem');
+    const result = await tool.execute(args as Record<string, unknown>);
+
+    setMood('speaking');
+    setStatus('OPERATIONAL', 'COMPLETE', 'TOOL_FILESYSTEM');
+    addLog(`Filesystem ${action} completed`);
+
+    renderToolResult('Filesystem Open', result, { args });
+  } catch (error) {
+    setMood('concerned');
+    setStatus('ERROR', 'FAILED', 'TOOL_FILESYSTEM');
+    addLog(`Filesystem error: ${String(error)}`);
+    renderToolResult('Filesystem Open Error', String(error));
+  } finally {
+    window.setTimeout(() => setMood('idle'), 500);
   }
 };
 
@@ -248,6 +397,8 @@ for (const button of tabButtons) {
 }
 
 form?.addEventListener('submit', handleQuestion);
+toolSearchForm?.addEventListener('submit', handleSearchTool);
+toolOpenForm?.addEventListener('submit', handleOpenTool);
 
 // Update runtime counter every second
 setInterval(updateStats, 1000);

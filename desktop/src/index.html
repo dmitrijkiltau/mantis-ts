@@ -54,6 +54,7 @@
         <button class="tab-button active" data-tab="status">[ STATUS ]</button>
         <button class="tab-button" data-tab="history">[ HISTORY ]</button>
         <button class="tab-button" data-tab="logs">[ LOGS ]</button>
+        <button class="tab-button" data-tab="tools">[ TOOLS ]</button>
       </div>
 
       <div class="tablet-screen">
@@ -84,6 +85,93 @@
           <div class="logs-console" id="logs">
             <div class="log-entry">MANTIS Desktop initialized...</div>
             <div class="log-entry">Awaiting user input...</div>
+          </div>
+        </div>
+
+        <div class="tablet-panel" id="panel-tools">
+          <div class="tool-panel">
+            <div class="tool-grid">
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-label">Filesystem Search</div>
+                  <div class="tool-subtext">Locate files or folders by name.</div>
+                </div>
+                <form id="tool-search-form" class="tool-form">
+                  <div class="field">
+                    <label class="field-label" for="search-query">Query</label>
+                    <input id="search-query" name="query" required placeholder="e.g. README" class="field-input" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="search-base">Base directory</label>
+                    <input id="search-base" name="baseDir" required placeholder="e.g. D:/Projects" class="field-input" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="search-start">Start path (relative)</label>
+                    <input id="search-start" name="startPath" placeholder="Optional subdirectory" class="field-input" />
+                  </div>
+                  <div class="field-grid">
+                    <div class="field">
+                      <label class="field-label" for="search-max-results">Max results</label>
+                      <input id="search-max-results" name="maxResults" type="number" min="1" placeholder="25" class="field-input" />
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="search-max-depth">Max depth</label>
+                      <input id="search-max-depth" name="maxDepth" type="number" min="0" placeholder="4" class="field-input" />
+                    </div>
+                  </div>
+                  <div class="field switches">
+                    <label class="switch">
+                      <input type="checkbox" id="search-files" name="includeFiles" checked />
+                      <span>Files</span>
+                    </label>
+                    <label class="switch">
+                      <input type="checkbox" id="search-dirs" name="includeDirectories" checked />
+                      <span>Directories</span>
+                    </label>
+                  </div>
+                  <button type="submit" class="terminal-button slim">
+                    <span class="button-bracket">[</span> SCAN <span class="button-bracket">]</span>
+                  </button>
+                </form>
+              </div>
+
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-label">Open Path</div>
+                  <div class="tool-subtext">Preview files or list folders.</div>
+                </div>
+                <form id="tool-open-form" class="tool-form">
+                  <div class="field">
+                    <label class="field-label" for="open-action">Action</label>
+                    <select id="open-action" name="action" class="field-input">
+                      <option value="open_file">Read file</option>
+                      <option value="open_folder">List directory</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="open-path">Path</label>
+                    <input id="open-path" name="path" required placeholder="Absolute or relative path" class="field-input" />
+                  </div>
+                  <div class="field-grid">
+                    <div class="field">
+                      <label class="field-label" for="open-limit">List limit</label>
+                      <input id="open-limit" name="limit" type="number" min="1" placeholder="50" class="field-input" />
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="open-max-bytes">Max bytes</label>
+                      <input id="open-max-bytes" name="maxBytes" type="number" min="256" placeholder="100000" class="field-input" />
+                    </div>
+                  </div>
+                  <button type="submit" class="terminal-button slim">
+                    <span class="button-bracket">[</span> OPEN <span class="button-bracket">]</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="tool-results" id="tool-results">
+              <div class="tool-placeholder">Manual tool outputs will appear here.</div>
+            </div>
           </div>
         </div>
       </div>

@@ -455,4 +455,104 @@
       background: var(--color-primary-5);
     }
   }
+
+  .tool-panel {
+    @apply flex flex-col gap-4;
+  }
+
+  .tool-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .tool-card {
+    @apply p-4 rounded border flex flex-col gap-4;
+    background: var(--color-bg-terminal);
+    border-color: var(--color-primary-30);
+    box-shadow: var(--shadow-glow-primary-soft), inset 0 1px 0 var(--color-primary-10);
+  }
+
+  .tool-card-header {
+    @apply flex flex-col gap-1;
+  }
+
+  .tool-label {
+    @apply text-sm font-bold tracking-wider text-terminal-primary;
+  }
+
+  .tool-subtext {
+    @apply text-xs text-primary-70;
+  }
+
+  .tool-form {
+    @apply flex flex-col gap-3;
+  }
+
+  .field {
+    @apply flex flex-col gap-2;
+  }
+
+  .field-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .field-label {
+    @apply text-xs font-bold uppercase tracking-widest text-primary-70;
+  }
+
+  .field-input {
+    @apply w-full px-3 py-2 rounded border text-sm font-mono;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-30);
+    color: var(--color-terminal-primary);
+
+    &:focus {
+      outline: 2px solid var(--color-primary-40);
+      box-shadow: var(--shadow-glow-primary-soft);
+    }
+  }
+
+  .switches {
+    @apply flex gap-4 flex-wrap;
+  }
+
+  .switch {
+    @apply inline-flex items-center gap-2 text-sm text-terminal-primary;
+  }
+
+  .terminal-button.slim {
+    @apply w-full justify-center text-xs;
+  }
+
+  .tool-results {
+    @apply flex flex-col gap-3 max-h-[320px] overflow-y-auto;
+  }
+
+  .tool-placeholder {
+    @apply text-xs text-primary-70 py-3 px-4 rounded border border-dashed;
+    border-color: var(--color-primary-30);
+    background: var(--color-primary-5);
+  }
+
+  .tool-result-card {
+    @apply p-3 rounded border flex flex-col gap-2;
+    background: var(--color-primary-8);
+    border-color: var(--color-primary-30);
+  }
+
+  .tool-result-title {
+    @apply text-xs font-bold uppercase tracking-widest text-terminal-cyan;
+  }
+
+  .tool-result-meta {
+    @apply text-[11px] text-primary-70;
+  }
+
+  .tool-result-card pre {
+    @apply text-xs whitespace-pre-wrap p-2 rounded border;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-20);
+    color: var(--color-terminal-primary);
+  }
 }

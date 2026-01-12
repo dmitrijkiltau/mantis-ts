@@ -5,8 +5,12 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_ERROR_CHANNEL = {
   MODEL: 'ministral-3:3b',
-  SYSTEM_PROMPT: `If the task cannot be completed, output a JSON error.
-Do not attempt a partial answer.`,
+  SYSTEM_PROMPT: `You output a JSON error.
+Do not attempt a partial answer.
+Output JSON only.
+
+Output exactly (no formatting):
+{"error":{"code":<string>,"message":<string>}}`,
 };
 
 /**
