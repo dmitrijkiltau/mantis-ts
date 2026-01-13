@@ -238,15 +238,10 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Strict answer generated successfully');
-    const formattedValue = await this.formatResponse(
-      result.value,
-      language,
-      toneInstructions,
-    );
     return {
       ok: true,
       kind: 'strict_answer',
-      value: formattedValue,
+      value: result.value,
       intent,
       language,
       attempts: attempts + result.attempts,
