@@ -18,6 +18,8 @@ export const TOOLS = {
 
 export type ToolName = keyof typeof TOOLS;
 
+export const GENERAL_ANSWER_INTENT = 'answer.general';
+
 /**
  * Returns intent labels derived from the tool registry.
  */
@@ -27,6 +29,8 @@ export const getToolIntents = (includeUnknown = true): string[] => {
   if (includeUnknown) {
     intents.push('unknown');
   }
+
+  intents.push(GENERAL_ANSWER_INTENT);
 
   const toolNames = Object.keys(TOOLS) as ToolName[];
   for (let index = 0; index < toolNames.length; index += 1) {

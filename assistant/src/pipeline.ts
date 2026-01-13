@@ -1,9 +1,14 @@
 import type { ContractExecutionResult } from './runner.js';
 import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
-import { TOOLS, getToolDefinition, type ToolName } from './tools/registry.js';
+import { TOOLS, GENERAL_ANSWER_INTENT, getToolDefinition, type ToolName } from './tools/registry.js';
+import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
+
+const TOOL_INTENT_PREFIX = 'tool.';
+const MIN_TOOL_CONFIDENCE = 0.6;
+const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
 
 export type PipelineStage =
   | 'intent'
@@ -102,6 +107,28 @@ export class Pipeline {
       confidence: intent.confidence,
     });
 
+    if (!this.isToolIntent(intent.intent)) {
+      Logger.info('pipeline', 'Non-tool intent selected, using strict answer');
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        language,
+        toneInstructions,
+      );
+    }
+
+    if (!this.meetsToolConfidence(intent.confidence)) {
+      Logger.info('pipeline', 'Tool intent below confidence threshold, using strict answer');
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        language,
+        toneInstructions,
+      );
+    }
+
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
       Logger.info('pipeline', 'No matching tool for intent, using strict answer');
@@ -157,10 +184,30 @@ export class Pipeline {
     );
 
     if (!toolArgResult.ok) {
-      Logger.error('pipeline', `Tool argument extraction failed for: ${toolName}`);
-      return this.runErrorChannel(
-        'tool_arguments',
+      Logger.warn(
+        'pipeline',
+        `Tool argument extraction failed for ${toolName}, falling back to strict answer`,
+      );
+      return this.runStrictAnswer(
+        userInput,
+        intent,
         intentResult.attempts + toolArgResult.attempts,
+        language,
+        toneInstructions,
+      );
+    }
+
+    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value)) {
+      Logger.info(
+        'pipeline',
+        `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
+      );
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        intentResult.attempts + toolArgResult.attempts,
+        language,
+        toneInstructions,
       );
     }
 
@@ -187,26 +234,96 @@ export class Pipeline {
         attempts: intentResult.attempts + toolArgResult.attempts,
       };
     } catch (error) {
-      Logger.error('pipeline', `Tool ${toolName} execution failed`, error);
-      return this.runErrorChannel(
-        'tool_execution',
-        intentResult.attempts + toolArgResult.attempts,
+      Logger.error(
+        'pipeline',
+        `Tool ${toolName} execution failed, falling back to strict answer`,
         error,
+      );
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        intentResult.attempts + toolArgResult.attempts,
+        language,
+        toneInstructions,
       );
     }
   }
 
   private resolveToolName(intent: string): ToolName | null {
-    if (!intent.startsWith('tool.')) {
+    if (!this.isToolIntent(intent)) {
       return null;
     }
 
-    const toolName = intent.slice('tool.'.length) as ToolName;
+    const toolName = intent.slice(TOOL_INTENT_PREFIX.length) as ToolName;
     if (!(toolName in TOOLS)) {
       return null;
     }
 
     return toolName;
+  }
+
+  private isToolIntent(intent: string): boolean {
+    if (intent === 'unknown') {
+      return false;
+    }
+
+    if (intent === GENERAL_ANSWER_INTENT) {
+      return false;
+    }
+
+    return intent.startsWith(TOOL_INTENT_PREFIX);
+  }
+
+  private meetsToolConfidence(confidence: number): boolean {
+    return confidence >= MIN_TOOL_CONFIDENCE;
+  }
+
+  private shouldSkipToolExecution(
+    schema: Record<string, FieldType>,
+    args: Record<string, unknown>,
+  ): boolean {
+    if (this.areAllArgumentsNull(args)) {
+      return true;
+    }
+
+    let requiredFields = 0;
+    let nullRequired = 0;
+    const entries = Object.entries(schema);
+    for (let index = 0; index < entries.length; index += 1) {
+      const [key, type] = entries[index];
+      const allowsNull = type.endsWith('|null');
+      if (allowsNull) {
+        continue;
+      }
+
+      requiredFields += 1;
+      const value = args[key];
+      if (value === null || value === undefined) {
+        nullRequired += 1;
+      }
+    }
+
+    if (requiredFields === 0) {
+      return false;
+    }
+
+    const nullRatio = nullRequired / requiredFields;
+    return nullRatio > REQUIRED_NULL_RATIO_THRESHOLD;
+  }
+
+  private areAllArgumentsNull(args: Record<string, unknown>): boolean {
+    const values = Object.values(args);
+    if (values.length === 0) {
+      return true;
+    }
+
+    for (let index = 0; index < values.length; index += 1) {
+      if (values[index] !== null && values[index] !== undefined) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private async runStrictAnswer(
