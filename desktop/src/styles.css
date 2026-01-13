@@ -74,8 +74,11 @@
 
   .speech-bubble {
     @apply relative rounded-xl p-6 max-w-2xl bg-bg-bubble border-2 border-terminal-primary;
+    @apply flex flex-col;
     box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
     animation: bubble-appear 0.4s ease-out;
+    max-height: min(60vh, 520px);
+    overflow: hidden;
 
     &.hidden {
       @apply hidden;
@@ -86,6 +89,9 @@
     @apply text-base leading-relaxed text-terminal-primary font-mono;
     white-space: pre-wrap;
     word-wrap: break-word;
+    @apply pr-2;
+    max-height: min(50vh, 420px);
+    overflow-y: auto;
 
     p {
       margin: 0.5em 0;
@@ -96,25 +102,6 @@
 
       &:last-child {
         margin-bottom: 0;
-      }
-    }
-
-    code {
-      background: rgba(0, 255, 136, 0.1);
-      padding: 0.125em 0.25em;
-      border-radius: 3px;
-    }
-
-    pre {
-      background: rgba(0, 0, 0, 0.3);
-      padding: 0.75em;
-      border-radius: 4px;
-      overflow-x: auto;
-      margin: 0.5em 0;
-
-      code {
-        background: none;
-        padding: 0;
       }
     }
 
@@ -140,6 +127,178 @@
         color: var(--color-primary-70);
       }
     }
+
+    &::-webkit-scrollbar {
+      @apply w-2;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--color-bg-black-soft);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      @apply rounded;
+      background: var(--color-primary-40);
+
+      &:hover {
+        background: var(--color-primary-60);
+      }
+    }
+  }
+
+  .bubble-content .inline-code {
+    @apply px-1 py-0.5 rounded border text-sm;
+    background: var(--color-primary-10);
+    border-color: var(--color-primary-30);
+    color: var(--color-terminal-cyan);
+  }
+
+  .bubble-content .code-block {
+    @apply flex flex-col rounded border overflow-hidden;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-30);
+    box-shadow: var(--shadow-inset-glow);
+  }
+
+  .bubble-content .code-block-header {
+    @apply flex items-center justify-between px-3 py-2 text-[11px] font-bold tracking-widest;
+    background: var(--color-primary-10);
+    border-bottom: 1px solid var(--color-primary-30);
+  }
+
+  .bubble-content .code-block-lang {
+    @apply text-terminal-cyan;
+  }
+
+  .bubble-content .code-block pre {
+    @apply m-0 p-3 text-xs overflow-x-auto;
+    white-space: pre;
+  }
+
+  .bubble-content .code-block code {
+    @apply font-mono text-terminal-primary;
+  }
+
+  .bubble-content .token-keyword {
+    color: var(--color-terminal-cyan);
+    font-weight: 600;
+  }
+
+  .bubble-content .token-string {
+    color: var(--color-terminal-amber);
+  }
+
+  .bubble-content .token-number {
+    color: var(--color-terminal-emerald);
+  }
+
+  .bubble-content .token-comment {
+    color: var(--color-primary-60);
+    font-style: italic;
+  }
+
+  .bubble-content .token-constant {
+    color: var(--color-terminal-orange);
+    font-weight: 600;
+  }
+
+  .bubble-content .file-preview {
+    @apply flex flex-col gap-3;
+  }
+
+  .bubble-content .file-preview-header {
+    @apply flex flex-wrap items-center gap-3 text-xs font-bold tracking-widest;
+    color: var(--color-primary-70);
+  }
+
+  .bubble-content .file-preview-label {
+    @apply px-2 py-1 rounded border text-[10px];
+    border-color: var(--color-primary-40);
+    color: var(--color-terminal-cyan);
+    background: var(--color-primary-10);
+  }
+
+  .bubble-content .file-preview-path {
+    @apply text-[11px] font-mono;
+    color: var(--color-terminal-primary);
+  }
+
+  .bubble-content .file-tree {
+    @apply rounded border p-3;
+    background: var(--color-bg-terminal);
+    border-color: var(--color-primary-30);
+    box-shadow: var(--shadow-inset-glow);
+  }
+
+  .bubble-content .file-tree-header {
+    @apply flex flex-col gap-1 mb-3 text-xs;
+  }
+
+  .bubble-content .file-tree-title {
+    @apply text-terminal-cyan font-bold tracking-widest;
+  }
+
+  .bubble-content .file-tree-path {
+    @apply text-[11px] font-mono;
+    color: var(--color-primary-70);
+  }
+
+  .bubble-content .file-tree-meta {
+    @apply text-[11px] font-mono;
+    color: var(--color-primary-70);
+  }
+
+  .bubble-content .file-tree-warning {
+    @apply text-[10px] font-bold tracking-widest;
+    color: var(--color-terminal-amber);
+  }
+
+  .bubble-content .file-tree-list {
+    @apply flex flex-col gap-1;
+  }
+
+  .bubble-content .file-tree-row {
+    @apply flex items-start gap-2 text-sm;
+    padding-left: calc(var(--depth, 0) * 1.25rem);
+  }
+
+  .bubble-content .file-node-badge {
+    @apply text-[10px] font-bold uppercase border px-2 py-0.5 rounded;
+    border-color: var(--color-primary-40);
+    color: var(--color-terminal-primary);
+    background: var(--color-primary-10);
+  }
+
+  .bubble-content .file-node-badge[data-kind='folder'] {
+    color: var(--color-terminal-cyan);
+    border-color: var(--color-cyan-40);
+    background: var(--color-cyan-20);
+  }
+
+  .bubble-content .file-node-badge[data-kind='file'] {
+    color: var(--color-terminal-emerald);
+    border-color: var(--color-emerald-40);
+    background: var(--color-emerald-20);
+  }
+
+  .bubble-content .file-node-badge[data-kind='other'] {
+    color: var(--color-terminal-orange);
+    border-color: var(--color-primary-40);
+    background: var(--color-primary-10);
+  }
+
+  .bubble-content .file-node-info {
+    @apply flex flex-col gap-1;
+  }
+
+  .bubble-content .file-node-name {
+    @apply text-terminal-primary;
+  }
+
+  .bubble-content .file-node-path {
+    @apply text-[11px] font-mono;
+    color: var(--color-primary-70);
+    word-break: break-all;
   }
 
   .bubble-tail {
@@ -310,33 +469,29 @@
 
   .tab-button {
     @apply flex-1 px-4 py-3 text-xs font-bold tracking-wider;
-    @apply border-r transition-all duration-200;
-    color: var(--color-primary-50);
-    border-color: var(--color-primary-20);
+    @apply border-r border-r-primary-20 transition-all duration-200;
+    @apply text-primary-50;
 
     &:last-child {
       @apply border-r-0;
     }
 
     &:hover {
-      background: var(--color-primary-10);
-      color: var(--color-primary-80);
+      @apply bg-primary-10 text-primary-80;
     }
 
     &.active {
-      @apply text-terminal-primary;
-      background: var(--color-primary-20);
+      @apply text-terminal-primary bg-primary-20;
       box-shadow: inset 0 -2px 0 var(--color-terminal-primary);
     }
   }
 
   .tablet-screen {
-    @apply relative p-5 min-h-[400px];
-    background: var(--color-bg-black);
+    @apply relative p-5 min-h-100 bg-bg-black;
   }
 
   .scan-line {
-    @apply absolute left-0 right-0 h-[2px] pointer-events-none;
+    @apply absolute left-0 right-0 h-0.5 pointer-events-none;
     background: linear-gradient(90deg, transparent, var(--color-primary-40), transparent);
     animation: scan 3s linear infinite;
   }
@@ -377,7 +532,7 @@
   }
 
   .status-label {
-    @apply text-xs font-bold tracking-wider min-w-[120px];
+    @apply text-xs font-bold tracking-wider min-w-30;
     color: var(--color-primary-70);
   }
 
@@ -387,7 +542,7 @@
   }
 
   .history-list {
-    @apply flex flex-col gap-3 max-h-[400px] overflow-y-auto;
+    @apply flex flex-col gap-3 max-h-100 overflow-y-auto;
 
     &::-webkit-scrollbar {
       @apply w-2;
@@ -430,7 +585,7 @@
   }
 
   .logs-console {
-    @apply flex flex-col gap-1 max-h-[400px] overflow-y-auto text-xs font-mono;
+    @apply flex flex-col gap-1 max-h-100 overflow-y-auto text-xs font-mono;
 
     &::-webkit-scrollbar {
       @apply w-2;
@@ -526,7 +681,7 @@
   }
 
   .tool-results {
-    @apply flex flex-col gap-3 max-h-[320px] overflow-y-auto;
+    @apply flex flex-col gap-3 max-h-80 overflow-y-auto;
   }
 
   .tool-placeholder {

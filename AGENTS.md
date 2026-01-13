@@ -11,7 +11,7 @@ Refer to the [ARCHITECTURE](docs/ARCHITECTURE.md) document for a comprehensive o
 ## Coding Standards
 
 - **TypeScript**: All code should be written in most recent TypeScript, leveraging its type safety features to ensure robust and maintainable code. Prefere `for` loops over `forEach` for better performance and readability.
-- **TailwindCSS**: Prefer `@apply` in CSS with semantic class names and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics.
+- **TailwindCSS**: Prefer `@apply` in CSS with semantic class names and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics. Theme defined colors can be used as normal Tailwind colors.
 - **Modularity**: Follow a modular design approach. Each component (e.g., Orchestrator, Contracts, Validators) should be encapsulated in its own module.
 - **Documentation**: Ensure all functions, classes, and modules are well-documented using short JSDoc comments.
 - **Error Handling**: Implement explicit error handling. Use validators to enforce contract compliance and handle failures gracefully.
