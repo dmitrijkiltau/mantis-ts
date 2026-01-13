@@ -212,7 +212,17 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
     
     // Check for "read" or any variant containing "read"
     if (normalized === 'read' || normalized.includes('read')) {
-      return readFileContent(targetPath, args.maxBytes, fs);
+      try {
+        return await readFileContent(targetPath, args.maxBytes, fs);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith('Path is not a file:')
+        ) {
+          return listDirectory(targetPath, args.limit, fs);
+        }
+        throw error;
+      }
     }
 
     // Check for "list" or any variant containing "list"
