@@ -49,9 +49,6 @@ const MAX_ALLOWED_BYTES = 1_000_000; // 1 MB safety cap
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 500;
 
-const READ_ACTIONS = new Set(['read', 'readfile', 'openfile', 'viewfile']);
-const LIST_ACTIONS = new Set(['openfolder', 'list', 'listdirectory', 'browse', 'ls']);
-
 /* -------------------------------------------------------------------------
  * STATE
  * ------------------------------------------------------------------------- */
@@ -105,12 +102,6 @@ const validatePath = (rawPath: string): string => {
   }
   return candidate;
 };
-
-/**
- * Normalizes action strings to a canonical, punctuation-free form.
- */
-const normalizeAction = (action: string): string =>
-  action.trim().toLowerCase().replace(/[^a-z]/g, '');
 
 /**
  * Opens a file and returns a bounded preview of its contents.
@@ -205,7 +196,7 @@ const listDirectory = async (
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
   description:
-    'Opens files (read-only) or folders. Actions (case/punctuation-insensitive): read/open_file/openFile/view_file for file contents; open_folder/list/list_directory/listDirectory/browse/ls for directory entries.',
+    'Read-only filesystem access. Use action "read" to read file contents (with optional maxBytes limit). Use action "list" to list directory entries (with optional limit).',
   schema: {
     action: 'string',
     path: 'string',
@@ -214,17 +205,21 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
   },
   async execute(args) {
     const fs = await loadTauriFS();
-    const normalizedAction = normalizeAction(args.action);
     const targetPath = validatePath(args.path);
-
-    if (READ_ACTIONS.has(normalizedAction)) {
+    
+    // Normalize action: lowercase, remove separators, extract core word
+    const normalized = args.action.toLowerCase().trim().replace(/[_\-\s]/g, '');
+    
+    // Check for "read" or any variant containing "read"
+    if (normalized === 'read' || normalized.includes('read')) {
       return readFileContent(targetPath, args.maxBytes, fs);
     }
 
-    if (LIST_ACTIONS.has(normalizedAction)) {
+    // Check for "list" or any variant containing "list"
+    if (normalized === 'list' || normalized.includes('list')) {
       return listDirectory(targetPath, args.limit, fs);
     }
 
-    throw new Error(`Unknown filesystem action: "${args.action}"`);
+    throw new Error(`Invalid action "${args.action}". Use "read" for files or "list" for directories.`);
   },
 };
