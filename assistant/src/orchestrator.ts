@@ -12,7 +12,7 @@ import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
-import { getToolIntents } from './tools/registry.js';
+import { GENERAL_ANSWER_INTENT, TOOLS, getToolIntents } from './tools/registry.js';
 import type {
   ContractWithExtras,
   FieldType,
@@ -86,6 +86,22 @@ export class Orchestrator {
     return JSON.stringify(schema, undefined, 2);
   }
 
+  private formatToolReference(): string {
+    const toolEntries = Object.entries(TOOLS);
+    const lines: string[] = [];
+
+    for (let index = 0; index < toolEntries.length; index += 1) {
+      const [name, tool] = toolEntries[index];
+      lines.push(`- tool.${name}: ${tool.description}`);
+    }
+
+    lines.push(
+      `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool action is required.`,
+    );
+
+    return lines.join('\n');
+  }
+
   public buildIntentClassificationPrompt(
     userInput: string,
     allowedIntents: string[] = getToolIntents(),
@@ -93,6 +109,7 @@ export class Orchestrator {
     return this.buildPrompt('INTENT_CLASSIFICATION', {
       USER_INPUT: this.normalize(userInput),
       ALLOWED_INTENTS: toUnorderedList(allowedIntents),
+      TOOL_REFERENCE: this.formatToolReference(),
     });
   }
 

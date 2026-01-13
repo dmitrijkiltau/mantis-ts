@@ -12,6 +12,13 @@ Output JSON only.
 Allowed intents (choose exactly one):
 {{ALLOWED_INTENTS}}
 
+Tool intents reference:
+{{TOOL_REFERENCE}}
+
+Guidelines:
+- Pick a tool intent only when the request matches that tool's capability.
+- Prefer answer.general when the user is asking general questions or no tool action is needed.
+
 Output exactly (no formatting):
 {"intent":"<intent>","confidence":<number>}`,
   USER_PROMPT: `Classify the intent of the following input.
