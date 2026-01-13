@@ -49,8 +49,8 @@ const MAX_ALLOWED_BYTES = 1_000_000; // 1 MB safety cap
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 500;
 
-const READ_ACTIONS = new Set(['read', 'read_file', 'open_file', 'view_file']);
-const LIST_ACTIONS = new Set(['open_folder', 'list', 'list_directory', 'browse']);
+const READ_ACTIONS = new Set(['read', 'readfile', 'openfile', 'viewfile']);
+const LIST_ACTIONS = new Set(['openfolder', 'list', 'listdirectory', 'browse', 'ls']);
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -105,6 +105,12 @@ const validatePath = (rawPath: string): string => {
   }
   return candidate;
 };
+
+/**
+ * Normalizes action strings to a canonical, punctuation-free form.
+ */
+const normalizeAction = (action: string): string =>
+  action.trim().toLowerCase().replace(/[^a-z]/g, '');
 
 /**
  * Opens a file and returns a bounded preview of its contents.
@@ -199,7 +205,7 @@ const listDirectory = async (
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
   description:
-    'Opens files (read-only) or folders. Actions: read/open_file for file contents, open_folder/list for directory entries.',
+    'Opens files (read-only) or folders. Actions (case/punctuation-insensitive): read/open_file/openFile/view_file for file contents; open_folder/list/list_directory/listDirectory/browse/ls for directory entries.',
   schema: {
     action: 'string',
     path: 'string',
@@ -208,7 +214,7 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
   },
   async execute(args) {
     const fs = await loadTauriFS();
-    const normalizedAction = args.action.trim().toLowerCase();
+    const normalizedAction = normalizeAction(args.action);
     const targetPath = validatePath(args.path);
 
     if (READ_ACTIONS.has(normalizedAction)) {
