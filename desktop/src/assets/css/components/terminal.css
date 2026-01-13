@@ -1,0 +1,67 @@
+@layer components {
+  .input-terminal {
+    @apply rounded-lg bg-bg-terminal border-2 border-primary-40 overflow-hidden;
+    box-shadow: var(--shadow-glow-primary-soft), inset 0 1px 0 var(--color-primary-10);
+  }
+
+  .terminal-header {
+    @apply flex items-center justify-between px-4 py-2;
+    background: var(--color-primary-10);
+    border-bottom: 1px solid var(--color-primary-30);
+  }
+
+  .terminal-title {
+    @apply text-xs font-bold tracking-wider text-terminal-primary;
+    text-shadow: var(--shadow-text-primary);
+  }
+
+  #prompt-form {
+    @apply grid grid-cols-1 grid-rows-[auto_1fr] gap-0;
+  }
+
+  .terminal-input {
+    @apply col-start-1 row-start-2;
+    @apply w-full min-h-25 px-4 pt-4 pb-14 bg-transparent text-terminal-primary;
+    @apply border-none outline-none font-mono resize-y;
+
+    &::placeholder {
+      @apply text-primary-40;
+    }
+
+    &:focus {
+      @apply bg-primary-5;
+    }
+  }
+
+  .terminal-button {
+    @apply col-start-1 row-start-2 self-end justify-self-end;
+    @apply mx-4 mb-4 px-6 py-2 bg-primary-15 font-bold;
+    @apply text-terminal-primary border-2 border-terminal-primary;
+    @apply transition-all duration-200 ease-out;
+    letter-spacing: 0.1em;
+
+    .button-bracket {
+      @apply inline-block transition-transform;
+    }
+
+    &:hover {
+      @apply bg-primary-20 shadow-glow-primary-soft;
+
+      .button-bracket:first-child {
+        @apply -translate-x-3;
+      }
+
+      .button-bracket:last-child {
+        @apply translate-x-3;
+      }
+    }
+
+    &:disabled {
+      @apply opacity-30 cursor-not-allowed;
+    }
+
+    &.slim {
+      @apply w-full justify-center text-xs;
+    }
+  }
+}

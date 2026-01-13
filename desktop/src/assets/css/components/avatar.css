@@ -1,0 +1,49 @@
+@layer components {
+  .avatar-zone {
+    @apply relative flex flex-col items-center gap-4;
+  }
+
+  :has(.avatar-canvas:hover, .input-terminal:hover, .pip-tablet:active) .assistant-avatar-svg {
+    @apply scale-110;
+  }
+
+  .avatar-canvas {
+    @apply w-48 h-48 grid place-items-center;
+    filter: var(--shadow-glow-primary);
+
+    .assistant-avatar-svg {
+      @apply transition-transform duration-500 ease-out;
+    }
+  }
+
+  .status-indicator {
+    @apply text-xs px-3 py-1 rounded text-terminal-primary;
+    @apply border;
+    background: var(--color-primary-20);
+    border-color: var(--color-primary-40);
+    animation: pulse 2s ease-in-out infinite;
+
+    &[data-mood='listening'] {
+      @apply text-terminal-cyan;
+      background: var(--color-cyan-20);
+      border-color: var(--color-cyan-40);
+    }
+
+    &[data-mood='thinking'] {
+      @apply text-terminal-amber;
+      background: var(--color-amber-20);
+      border-color: var(--color-amber-40);
+    }
+
+    &[data-mood='speaking'] {
+      @apply text-terminal-emerald;
+      background: var(--color-emerald-20);
+      border-color: var(--color-emerald-40);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+}
