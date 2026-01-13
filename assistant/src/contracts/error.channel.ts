@@ -4,7 +4,7 @@ import { type ContractValidator } from "../types";
  * Contract for error channel.
  */
 export const CONTRACT_ERROR_CHANNEL = {
-  MODEL: 'ministral-3:3b',
+  MODEL: 'gemma3:1b',
   SYSTEM_PROMPT: `You output a JSON error.
 Do not attempt a partial answer.
 Output JSON only.

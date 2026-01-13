@@ -5,7 +5,7 @@ import { type FieldType } from './definition.js';
  * Contract for tool argument extraction.
  */
 export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
-  MODEL: 'ministral-3:3b',
+  MODEL: 'qwen2.5:1.5b',
   SYSTEM_PROMPT: `You extract structured arguments.
 You do not validate permissions.
 You do not guess missing values.

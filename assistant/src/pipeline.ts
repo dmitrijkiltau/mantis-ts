@@ -3,11 +3,7 @@ import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
 import { TOOLS, getToolDefinition, type ToolName } from './tools/registry.js';
 import { Logger } from './logger.js';
-import {
-  getDefaultPersonalityProfile,
-  getPersonalityKeys,
-  getPersonalityProfile,
-} from './personality.js';
+import { DEFAULT_PERSONALITY } from './personality.js';
 
 export type PipelineStage =
   | 'intent'
@@ -65,9 +61,11 @@ export class Pipeline {
       inputLength: userInput.length,
     });
 
+    const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
+    Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
-    const [languageResult, intentResult, toneInstructions] = await Promise.all([
+    const [languageResult, intentResult] = await Promise.all([
       this.runner.executeContract(
         'LANGUAGE_DETECTION',
         languagePrompt,
@@ -78,7 +76,6 @@ export class Pipeline {
         intentPrompt,
         (raw) => this.orchestrator.validateIntentClassification(raw),
       ),
-      this.selectToneInstructions(userInput),
     ]);
 
     const language = languageResult.ok
@@ -332,34 +329,5 @@ export class Pipeline {
       code: 'tool_error',
       message: error ? String(error) : 'Tool execution failed.',
     };
-  }
-
-  /**
-   * Selects tone instructions using the personality selection contract.
-   */
-  private async selectToneInstructions(
-    userInput: string,
-  ): Promise<string> {
-    const allowedPersonalities = getPersonalityKeys();
-    const prompt = this.orchestrator.buildPersonalitySelectionPrompt(
-      userInput,
-      allowedPersonalities,
-    );
-    const result = await this.runner.executeContract(
-      'PERSONALITY_SELECTION',
-      prompt,
-      (raw) => this.orchestrator.validatePersonalitySelection(raw, allowedPersonalities),
-    );
-
-    if (!result.ok) {
-      Logger.warn('pipeline', 'Personality selection failed, using DEFAULT');
-      return getDefaultPersonalityProfile().toneInstructions;
-    }
-
-    const profile = getPersonalityProfile(result.value.personality);
-    Logger.info('pipeline', `Personality selected: ${profile.id}`, {
-      confidence: result.value.confidence,
-    });
-    return profile.toneInstructions;
   }
 }

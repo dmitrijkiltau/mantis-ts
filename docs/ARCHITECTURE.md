@@ -11,10 +11,9 @@ not trusted to the model itself.
 The `assistant/src/pipeline.ts` module implements the routing pipeline described below,
 deriving allowed intents from the tool registry (`tool.<name>` plus `unknown`).
 If a tool schema is empty, the pipeline skips argument extraction and executes the tool
-with `{}`. The pipeline also runs a dedicated `PERSONALITY_SELECTION` contract to pick a
-tone preset from an allowed list, defaulting to `DEFAULT` when selection fails, and
-injects the resulting tone instructions into strict answer and response formatting prompts
-without relaxing any constraints.
+with `{}`. A predefined MANTIS personality tone preset is injected into strict answer and
+response formatting prompts without relying on any selection contract, keeping tone steady
+while avoiding extra model calls.
 
 ## Decision logic
 
@@ -35,8 +34,6 @@ User Input
 Language Detection
    |
 Orchestrator (Routing & Decision)
-   |
-Personality Selection
    |
 LLM (Task Execution)
    |
@@ -66,11 +63,10 @@ Input
    -> Detected Language -> preserved through pipeline
    |
  -> Intent Classification
-   -> Personality Selection (tone preset from allowed list)
-   -> unknown -> Strict Answer (in user's language, with selected tone)
+   -> unknown -> Strict Answer (in user's language, MANTIS tone)
    -> tool.* -> Tool Args (schema from tool registry)
        -> invalid -> Error Channel -> Abort or Re-route
-       -> valid -> Execute Tool -> Format in user's language (with selected tone)
+       -> valid -> Execute Tool -> Format in user's language (MANTIS tone)
 ```
 
 ## Retry Pipeline
@@ -89,7 +85,6 @@ Retry 2 -> {"intent":"unknown","confidence":0.0}
 | ------------------------ | ----------- | ------------------------------------------------------- | --------------------- |
 | Language Detection       | 2           | Default to "unknown"                                    | Best-Effort           |
 | Intent Classification    | 2           | Default Intent                                          | Constraint Tightening |
-| Personality Selection    | 2           | Use DEFAULT personality                                 | Constraint Tightening |
 | Tool Argument Extraction | 2           | Revalidate User or Cancel                               | Schema Reinforcement  |
 | Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |
 | Scoring / Evaluation     | 1           | Default Score (0), Flag "evaluation_failed"             | Numeric Lock          |
@@ -99,6 +94,6 @@ Retry 2 -> {"intent":"unknown","confidence":0.0}
 
 ## Response Formatting
 
-The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences in the user's detected language, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. Tone instructions selected earlier are injected ahead of the formatting constraints but do not override them.
+The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences in the user's detected language, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
 
 Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.
