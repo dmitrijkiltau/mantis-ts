@@ -6,7 +6,7 @@ import { extractFirstJsonObject } from './parsing.js';
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
   MODEL: 'qwen2.5:1.5b',
-  SYSTEM_PROMPT: `Classify the intent of the input based on the allowed list.
+  SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Output JSON only.
 
 Allowed intents (choose exactly one):
