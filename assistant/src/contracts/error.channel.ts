@@ -12,6 +12,14 @@ Output JSON only.
 
 Output exactly (no formatting):
 {"error":{"code":<string>,"message":<string>}}`,
+  USER_PROMPT: `Generate an error for the following context:
+
+Stage: {{STAGE}}
+Context: {{ERROR_CONTEXT}}`,
+  RETRIES: {
+    0: `Output valid JSON only.
+Format: {"error":{"code":"ERROR_CODE","message":"description"}}`,
+  },
 };
 
 /**

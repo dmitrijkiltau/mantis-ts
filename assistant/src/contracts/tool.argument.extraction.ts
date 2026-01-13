@@ -7,15 +7,18 @@ import { extractFirstJsonObject, stripMarkdownFences } from './parsing.js';
  */
 export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
   MODEL: 'qwen2.5:1.5b',
-  SYSTEM_PROMPT: `You extract structured arguments.
+  SYSTEM_PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
 You do not validate permissions.
 You do not guess missing values.
 If required data is missing, set it to null.
 Output JSON only.
 
+Tool description:
+{{TOOL_DESCRIPTION}}
+
 Output exactly (no formatting):
 {{TOOL_SCHEMA}}`,
-  USER_PROMPT: `Extract arguments for the tool "{{TOOL_NAME}}".
+  USER_PROMPT: `Extract arguments from the following user input.
 
 User input:
 {{USER_INPUT}}`,

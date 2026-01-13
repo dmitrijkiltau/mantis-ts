@@ -174,6 +174,7 @@ export class Pipeline {
     Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
+      tool.description,
       tool.schema,
       userInput,
     );
@@ -404,7 +405,8 @@ export class Pipeline {
     attempts: number,
     error?: unknown,
   ): Promise<PipelineResult> {
-    const prompt = this.orchestrator.buildErrorChannelPrompt();
+    const errorContext = error ? String(error) : undefined;
+    const prompt = this.orchestrator.buildErrorChannelPrompt(stage, errorContext);
     const result = await this.runner.executeContract(
       'ERROR_CHANNEL',
       prompt,

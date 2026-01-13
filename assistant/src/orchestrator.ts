@@ -104,11 +104,13 @@ export class Orchestrator {
 
   public buildToolArgumentPrompt(
     toolName: string,
+    description: string,
     schema: ToolSchema,
     userInput: string,
   ): ContractPrompt {
     return this.buildPrompt('TOOL_ARGUMENT_EXTRACTION', {
       TOOL_NAME: toolName,
+      TOOL_DESCRIPTION: description,
       TOOL_SCHEMA: this.formatToolSchema(schema),
       USER_INPUT: this.normalize(userInput),
     });
@@ -152,8 +154,14 @@ export class Orchestrator {
     });
   }
 
-  public buildErrorChannelPrompt(): ContractPrompt {
-    return this.buildPrompt('ERROR_CHANNEL');
+  public buildErrorChannelPrompt(
+    stage: string,
+    errorContext?: string,
+  ): ContractPrompt {
+    return this.buildPrompt('ERROR_CHANNEL', {
+      STAGE: stage,
+      ERROR_CONTEXT: errorContext ?? 'No additional context available',
+    });
   }
 
   public getRetryInstruction(

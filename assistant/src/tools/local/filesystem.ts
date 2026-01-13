@@ -196,7 +196,7 @@ const listDirectory = async (
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
   description:
-    'Read-only filesystem access. Use action "read" to read file contents (with optional maxBytes limit). Use action "list" to list directory entries (with optional limit).',
+    'Read or list known file/directory paths. Use action "read" to get file contents, "list" to show directory entries. Use when user asks to "read", "show", "display", "open", "what\'s in" with a specific path. NOT for finding/searching files.',
   schema: {
     action: 'string',
     path: 'string',

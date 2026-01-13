@@ -6,12 +6,13 @@ import type { ToolDefinition } from '../definition.js';
 
 type SearchToolArgs = {
   query: string;
-  baseDir: string;        // ← Pflicht
+  baseDir: string;
   startPath?: string | null;
   maxResults?: number | null;
   maxDepth?: number | null;
   includeFiles?: boolean | null;
   includeDirectories?: boolean | null;
+  exactMatch?: boolean | null;
 };
 
 type SearchMatch = {
@@ -83,6 +84,11 @@ const clampNonNegativeInteger = (
   return Math.min(Math.floor(value), max);
 };
 
+const normalizePath = (path: string): string => {
+  // Normalize path separators and remove trailing slashes
+  return path.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+};
+
 const resolveSafeRoot = async (
   baseDir: string,
   startPath: string | null | undefined,
@@ -94,14 +100,15 @@ const resolveSafeRoot = async (
     });
   }
 
+  const normalizedBase = normalizePath(baseDir);
   const base = startPath?.trim();
   
-  // Simple path joining for Tauri environment
   if (base && base !== '.') {
-    return `${baseDir.replace(/[\\/]$/, '')}/${base.replace(/^[\\/]/, '')}`;
+    const normalizedStart = normalizePath(base).replace(/^\//, '');
+    return `${normalizedBase}/${normalizedStart}`;
   }
   
-  return baseDir;
+  return normalizedBase;
 };
 
 /* -------------------------------------------------------------------------
@@ -135,10 +142,16 @@ const searchFileSystem = async (
 
   const includeFiles = args.includeFiles !== false;
   const includeDirectories = args.includeDirectories !== false;
+  const exactMatch = args.exactMatch === true;
 
   const matches: SearchMatch[] = [];
   const stack: SearchFrame[] = [{ directory: root, depth: 0 }];
   let truncated = false;
+
+  const matchesQuery = (name: string): boolean => {
+    const lowerName = name.toLowerCase();
+    return exactMatch ? lowerName === query : lowerName.includes(query);
+  };
 
   while (stack.length > 0 && matches.length < maxResults) {
     const { directory, depth } = stack.pop() as SearchFrame;
@@ -161,12 +174,11 @@ const searchFileSystem = async (
 
       if (entry.isSymlink) continue;
 
-      const entryPath = `${directory.replace(/[\\/]$/, '')}/${entry.name}`;
-      const name = entry.name.toLowerCase();
+      const entryPath = normalizePath(`${directory}/${entry.name}`);
       const nextDepth = depth + 1;
 
       if (entry.isDirectory) {
-        if (includeDirectories && name.includes(query)) {
+        if (includeDirectories && matchesQuery(entry.name)) {
           matches.push({ path: entryPath, type: 'directory' });
         }
 
@@ -174,7 +186,7 @@ const searchFileSystem = async (
           stack.push({ directory: entryPath, depth: nextDepth });
         }
       } else if (entry.isFile) {
-        if (includeFiles && name.includes(query)) {
+        if (includeFiles && matchesQuery(entry.name)) {
           matches.push({ path: entryPath, type: 'file' });
         }
       }
@@ -196,7 +208,7 @@ const searchFileSystem = async (
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
   description:
-    'Sandboxed filesystem name search. Read-only. Bounded depth and result count.',
+    'Find/locate files or directories by name pattern. Use when user asks "is there a", "find", "locate", "does X exist", "search for", or "where is". Searches recursively by substring (or exactMatch=true for exact filename). Returns matching paths.',
   schema: {
     query: 'string',
     baseDir: 'string',
@@ -205,6 +217,7 @@ export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
     maxDepth: 'number|null',
     includeFiles: 'boolean|null',
     includeDirectories: 'boolean|null',
+    exactMatch: 'boolean|null',
   },
   async execute(args) {
     return searchFileSystem(args);
