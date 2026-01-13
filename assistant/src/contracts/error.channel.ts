@@ -1,4 +1,5 @@
 import { type ContractValidator } from "../types";
+import { extractFirstJsonObject } from "./parsing.js";
 
 /**
  * Contract for error channel.
@@ -27,17 +28,30 @@ export const validateErrorChannel: ContractValidator<
   { error: { code: string; message: string } },
   ErrorChannelValidationError
 > = (raw) => {
-  let parsed: { error: { code: string; message: string } };
+  let parsedCandidate: unknown;
 
   try {
-    parsed = JSON.parse(raw);
+    parsedCandidate = extractFirstJsonObject(raw);
   } catch {
     return { ok: false, error: 'INVALID_JSON' };
   }
+
+  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
+    return { ok: false, error: 'INVALID_JSON' };
+  }
+
+  const parsed = parsedCandidate as { error?: { code?: unknown; message?: unknown } };
 
   if (!parsed.error || typeof parsed.error.code !== 'string' || typeof parsed.error.message !== 'string') {
     return { ok: false, error: 'INVALID_ERROR_FORMAT' };
   }
 
-  return { ok: true, value: parsed };
+  const value = {
+    error: {
+      code: parsed.error.code,
+      message: parsed.error.message,
+    },
+  };
+
+  return { ok: true, value };
 };

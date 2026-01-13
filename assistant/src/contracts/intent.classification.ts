@@ -1,4 +1,5 @@
 import { type ContractValidator } from '../types';
+import { extractFirstJsonObject } from './parsing.js';
 
 /**
  * Contract for intent classification.
@@ -41,22 +42,33 @@ export const validateIntentClassification: ContractValidator<
   { intent: string; confidence: number },
   IntentClassificationValidationError
 > = (raw) => {
-  let parsed: { intent: string; confidence: number };
+  let parsedCandidate: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedCandidate = extractFirstJsonObject(raw);
   } catch {
     return { ok: false, error: `INVALID_JSON:${raw}` };
   }
+
+  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
+    return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsedCandidate)}` };
+  }
+
+  const parsed = parsedCandidate as { intent: unknown; confidence: unknown };
 
   // Validate shape
   if (typeof parsed.intent !== 'string' || typeof parsed.confidence !== 'number') {
     return { ok: false, error: `INVALID_SHAPE:${parsed.intent}` };
   }
 
+  const value = {
+    intent: parsed.intent,
+    confidence: parsed.confidence,
+  };
+
   // Validate confidence range
-  if (parsed.confidence < 0 || parsed.confidence > 1) {
+  if (value.confidence < 0 || value.confidence > 1) {
     return { ok: false, error: 'CONFIDENCE_OUT_OF_RANGE' };
   }
 
-  return { ok: true, value: parsed };
+  return { ok: true, value };
 };

@@ -1,4 +1,5 @@
 import { type ContractValidator } from '../types.js';
+import { extractFirstJsonObject } from './parsing.js';
 
 /**
  * Contract for language detection.
@@ -39,27 +40,38 @@ export const validateLanguageDetection: ContractValidator<
   { language: string; name: string },
   LanguageDetectionValidationError
 > = (raw) => {
-  let parsed: { language: string; name: string };
+  let parsedCandidate: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedCandidate = extractFirstJsonObject(raw);
   } catch {
     return { ok: false, error: `INVALID_JSON:${raw}` };
   }
+
+  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
+    return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsedCandidate)}` };
+  }
+
+  const parsed = parsedCandidate as { language: unknown; name: unknown };
 
   // Validate shape
   if (typeof parsed.language !== 'string' || typeof parsed.name !== 'string') {
     return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsed)}` };
   }
 
+  const value = {
+    language: parsed.language,
+    name: parsed.name,
+  };
+
   // Validate language code is not empty
-  if (!parsed.language) {
+  if (!value.language) {
     return { ok: false, error: 'MISSING_LANGUAGE_CODE' };
   }
 
   // Validate language name is not empty
-  if (!parsed.name) {
+  if (!value.name) {
     return { ok: false, error: 'MISSING_LANGUAGE_NAME' };
   }
 
-  return { ok: true, value: parsed };
+  return { ok: true, value };
 };

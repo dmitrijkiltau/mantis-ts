@@ -1,5 +1,6 @@
 import { type ContractValidator } from '../types';
 import { type FieldType } from './definition.js';
+import { extractFirstJsonObject, stripMarkdownFences } from './parsing.js';
 
 /**
  * Contract for tool argument extraction.
@@ -45,28 +46,37 @@ export type ToolArgumentExtractionValidationError =
 export const validateToolArguments = (
   schema: Record<string, FieldType>,
 ): ContractValidator<Record<string, unknown>, ToolArgumentExtractionValidationError> => (raw) => {
-  // Validate JSON prefix
-  if (!raw.trim().startsWith('{')) {
+  const cleaned = stripMarkdownFences(raw);
+  if (!cleaned.includes('{')) {
     return { ok: false, error: `NON_JSON_PREFIX:${raw}` };
   }
 
-  let parsed: Record<string, any>;
+  let parsedCandidate: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedCandidate = extractFirstJsonObject(raw);
   } catch {
     return { ok: false, error: `INVALID_JSON:${raw}` };
   }
 
-  for (const parsedKey of Object.keys(parsed)) {
+  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
+    return { ok: false, error: `INVALID_JSON:${raw}` };
+  }
+
+  const parsed = parsedCandidate as Record<string, unknown>;
+  const parsedKeys = Object.keys(parsed);
+  for (let index = 0; index < parsedKeys.length; index += 1) {
+    const parsedKey = parsedKeys[index];
     // Validate unexpected fields
     if (!(parsedKey in schema)) {
       return { ok: false, error: `UNEXPECTED_FIELD:${parsedKey}` };
     }
   }
 
-  for (const [schemaKey, type] of Object.entries(schema)) {
+  const schemaEntries = Object.entries(schema);
+  for (let index = 0; index < schemaEntries.length; index += 1) {
+    const [schemaKey, type] = schemaEntries[index];
     // Validate missing fields
-    if (!(schemaKey in parsed)) {
+    if (!Object.prototype.hasOwnProperty.call(parsed, schemaKey)) {
       return { ok: false, error: `MISSING_FIELD:${schemaKey}` };
     }
 

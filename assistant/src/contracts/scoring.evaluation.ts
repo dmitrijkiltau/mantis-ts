@@ -1,5 +1,6 @@
 import { toUnorderedList } from "../helpers";
 import { type ContractValidator } from "../types";
+import { extractFirstJsonObject } from "./parsing.js";
 
 /**
  * Contract for scoring / evaluation.
@@ -36,19 +37,28 @@ export const validateScoring: ContractValidator<
   Record<string, number>,
   ScoringValidationError
 > = (raw) => {
-  let parsed: Record<string, number>;
+  let parsedCandidate: unknown;
 
   try {
-    parsed = JSON.parse(raw);
+    parsedCandidate = extractFirstJsonObject(raw);
   } catch {
     return { ok: false, error: 'INVALID_JSON' };
   }
 
-  for (const [key, value] of Object.entries(parsed)) {
-    if (!Number.isInteger(value) || value < 0 || value > 10) {
-      return { ok: false, error: `INVALID_SCORE:${key}` };
-    }
+  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
+    return { ok: false, error: 'INVALID_JSON' };
   }
 
-  return { ok: true, value: parsed };
+  const parsed = parsedCandidate as Record<string, unknown>;
+  const entries = Object.entries(parsed);
+  const typed: Record<string, number> = {};
+  for (let index = 0; index < entries.length; index += 1) {
+    const [key, value] = entries[index];
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 10) {
+      return { ok: false, error: `INVALID_SCORE:${key}` };
+    }
+    typed[key] = value;
+  }
+
+  return { ok: true, value: typed };
 };
