@@ -348,9 +348,11 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
 };
 
 const markButtonCopied = (button: HTMLButtonElement): void => {
-  button.classList.add('http-json-button--copied');
+  const isBubbleButton = button.classList.contains('code-block-button');
+  const copiedClass = isBubbleButton ? 'code-block-button--copied' : 'http-json-button--copied';
+  button.classList.add(copiedClass);
   window.setTimeout(() => {
-    button.classList.remove('http-json-button--copied');
+    button.classList.remove(copiedClass);
   }, COPY_FEEDBACK_DURATION);
 };
 
@@ -365,36 +367,116 @@ export const setupBubbleInteractions = (bubbleAnswer: HTMLElement | null) => {
       return;
     }
 
-    const control = target.closest<HTMLButtonElement>('[data-http-json-action]');
-    if (!control) {
+    // Handle HTTP JSON block interactions
+    const jsonControl = target.closest<HTMLButtonElement>('[data-http-json-action]');
+    if (jsonControl) {
+      const block = jsonControl.closest<HTMLElement>('.http-json-block');
+      if (!block) {
+        return;
+      }
+
+      const action = jsonControl.getAttribute('data-http-json-action');
+      if (!action) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (action === JSON_TOGGLE_ACTION) {
+        const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
+        const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
+        block.setAttribute('data-json-view', nextMode);
+        updateToggleLabel(jsonControl, nextMode);
+      } else if (action === JSON_COPY_ACTION) {
+        const raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
+        void copyTextToClipboard(raw).then((success) => {
+          if (success) {
+            markButtonCopied(jsonControl);
+          }
+        });
+      }
       return;
     }
 
-    const block = control.closest<HTMLElement>('.http-json-block');
-    if (!block) {
+    // Handle markdown preview toggle
+    const markdownControl = target.closest<HTMLButtonElement>('[data-markdown-action]');
+    if (markdownControl) {
+      const block = markdownControl.closest<HTMLElement>('.code-block-markdown');
+      if (!block) {
+        return;
+      }
+
+      const action = markdownControl.getAttribute('data-markdown-action');
+      if (action === JSON_TOGGLE_ACTION) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const current = block.getAttribute('data-markdown-view') === 'preview' ? 'preview' : 'raw';
+        const nextMode: 'preview' | 'raw' = current === 'preview' ? 'raw' : 'preview';
+        block.setAttribute('data-markdown-view', nextMode);
+        
+        const label = nextMode === 'preview' ? 'Show raw markdown' : 'Show markdown preview';
+        markdownControl.setAttribute('aria-label', label);
+      }
       return;
     }
 
-    const action = control.getAttribute('data-http-json-action');
-    if (!action) {
+    // Handle JSON code block preview toggle
+    const jsonCodeControl = target.closest<HTMLButtonElement>('[data-json-action]');
+    if (jsonCodeControl) {
+      const block = jsonCodeControl.closest<HTMLElement>('.code-block-json');
+      if (!block) {
+        return;
+      }
+
+      const action = jsonCodeControl.getAttribute('data-json-action');
+      if (action === JSON_TOGGLE_ACTION) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
+        const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
+        block.setAttribute('data-json-view', nextMode);
+        
+        const label = nextMode === 'viewer' ? 'Show pretty JSON' : 'Show structured JSON view';
+        jsonCodeControl.setAttribute('aria-label', label);
+      }
       return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
+    // Handle code block copy
+    const codeControl = target.closest<HTMLButtonElement>('[data-code-action]');
+    if (codeControl) {
+      const action = codeControl.getAttribute('data-code-action');
+      if (action === JSON_COPY_ACTION) {
+        event.preventDefault();
+        event.stopPropagation();
 
-    if (action === JSON_TOGGLE_ACTION) {
-      const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
-      const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
-      block.setAttribute('data-json-view', nextMode);
-      updateToggleLabel(control, nextMode);
-    } else if (action === JSON_COPY_ACTION) {
-      const raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
-      void copyTextToClipboard(raw).then((success) => {
-        if (success) {
-          markButtonCopied(control);
+        let raw = '';
+        const block = codeControl.closest<HTMLElement>('.code-block, .code-block-markdown, .code-block-json');
+        if (block) {
+          if (block.classList.contains('code-block-markdown')) {
+            raw = block.dataset.markdownRaw ? decodeURIComponent(block.dataset.markdownRaw) : '';
+          } else if (block.classList.contains('code-block-json')) {
+            raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
+          } else {
+            const codeElement = block.querySelector('code[data-raw]') as HTMLElement | null;
+            raw = codeElement?.dataset.raw ? decodeURIComponent(codeElement.dataset.raw) : '';
+            if (!raw) {
+              const codeNode = block.querySelector('code');
+              raw = codeNode?.textContent ?? '';
+            }
+          }
         }
-      });
+
+        void copyTextToClipboard(raw).then((success) => {
+          if (success) {
+            markButtonCopied(codeControl);
+          }
+        });
+      }
+      return;
     }
   });
 };

@@ -187,13 +187,118 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   const label = normalizedLanguage ? normalizedLanguage.toUpperCase() : 'TEXT';
   const highlighted = highlightCodeBlock(code, normalizedLanguage);
   const languageClass = normalizedLanguage ? `language-${normalizedLanguage}` : 'language-text';
+  const rawAttr = encodeJsonForAttribute(code);
+
+  // Check if this is markdown that should have preview
+  const isMarkdown = normalizedLanguage === 'markdown';
+  if (isMarkdown) {
+    const preview = marked.parse(code, { renderer: bubbleRenderer }) as string;
+    return `
+      <div class="code-block code-block-markdown" data-markdown-view="preview" data-markdown-raw="${rawAttr}">
+        <div class="code-block-header">
+          <span class="code-block-lang">${escapeHtml(label)}</span>
+          <div class="code-block-controls">
+            <button type="button" class="code-block-button" data-markdown-action="toggle" aria-label="Toggle markdown view">
+              <svg class="icon-preview" viewBox="0 0 24 24" role="img" aria-hidden="true">
+                <path d="M2 6h20v12H2z" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M6 10h4v4H6z" fill="currentColor" />
+                <path d="M14 10h4M14 14h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg class="icon-raw" viewBox="0 0 24 24" role="img" aria-hidden="true">
+                <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
+              <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <rect x="9" y="7" width="8" height="2" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="code-block-body">
+          <div class="code-block-preview" data-markdown-mode="preview">
+            <div class="markdown-preview-content">${preview}</div>
+          </div>
+          <div class="code-block-raw" data-markdown-mode="raw">
+            <pre><code class="${languageClass}">${highlighted}</code></pre>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Check if this is JSON that should have preview
+  const isJson = normalizedLanguage === 'json';
+  if (isJson) {
+    let parsed: unknown = null;
+    let viewer = '';
+    try {
+      parsed = JSON.parse(code);
+      viewer = renderJsonViewer(parsed);
+    } catch {
+      // If parsing fails, fall back to regular code block
+    }
+
+    if (viewer) {
+      const pretty = JSON.stringify(parsed, null, 2);
+      const prettyHighlighted = highlightCodeBlock(pretty, 'json');
+      return `
+        <div class="code-block code-block-json" data-json-view="viewer" data-json-raw="${rawAttr}">
+          <div class="code-block-header">
+            <span class="code-block-lang">${escapeHtml(label)}</span>
+            <div class="code-block-controls">
+              <button type="button" class="code-block-button" data-json-action="toggle" aria-label="Toggle JSON view">
+                <svg class="icon-pretty" viewBox="0 0 24 24" role="img" aria-hidden="true">
+                  <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <svg class="icon-tree" viewBox="0 0 24 24" role="img" aria-hidden="true">
+                  <circle cx="6" cy="7" r="1.75" fill="currentColor" />
+                  <circle cx="12" cy="12" r="1.75" fill="currentColor" />
+                  <circle cx="18" cy="17" r="1.75" fill="currentColor" />
+                  <path d="M6 8.75v3.5h6v2.5h6v3.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
+                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                  <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <rect x="9" y="7" width="8" height="2" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="code-block-body">
+            <div class="code-block-json-pretty" data-json-mode="pretty">
+              <pre><code class="${languageClass}">${prettyHighlighted}</code></pre>
+            </div>
+            <div class="code-block-json-viewer" data-json-mode="viewer">
+              ${viewer}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
 
   return `
     <div class="code-block">
       <div class="code-block-header">
         <span class="code-block-lang">${escapeHtml(label)}</span>
+        <div class="code-block-controls">
+          <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
+            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+              <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <rect x="9" y="7" width="8" height="2" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <pre><code class="${languageClass}">${highlighted}</code></pre>
+      <pre><code class="${languageClass}" data-raw="${rawAttr}">${highlighted}</code></pre>
     </div>
   `;
 };
@@ -433,7 +538,7 @@ const renderHttpJsonPreview = (content: string): string => {
   const rawAttr = encodeJsonForAttribute(content);
 
   return `
-    <div class="http-json-block" data-json-view="pretty" data-json-raw="${rawAttr}">
+    <div class="http-json-block" data-json-view="viewer" data-json-raw="${rawAttr}">
       <div class="http-json-body">
         <div class="http-json-pretty" data-json-mode="pretty">
           <pre><code class="language-json">${escapeHtml(pretty)}</code></pre>
