@@ -3,6 +3,7 @@ import { CLIPBOARD_TOOL } from './local/clipboard.js';
 import { FILESYSTEM_TOOL } from './local/filesystem.js';
 import { SEARCH_TOOL } from './local/search.js';
 import { FETCH_TOOL } from './web/fetch.js';
+import { HTTP_TOOL } from './web/http.js';
 import { DATE_TOOL, TIME_TOOL, WEEKDAY_TOOL } from './system/datetime.js';
 
 /**
@@ -13,6 +14,7 @@ export const TOOLS = {
   filesystem: FILESYSTEM_TOOL,
   search: SEARCH_TOOL,
   fetch: FETCH_TOOL,
+  http: HTTP_TOOL,
   time: TIME_TOOL,
   date: DATE_TOOL,
   weekday: WEEKDAY_TOOL,

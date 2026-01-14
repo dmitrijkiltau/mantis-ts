@@ -5,9 +5,11 @@ export type FieldType =
   | 'string'
   | 'boolean'
   | 'number'
+  | 'object'
   | 'string|null'
   | 'number|null'
-  | 'boolean|null';
+  | 'boolean|null'
+  | 'object|null';
 
 /**
  * Type defining the structure of a contract.
