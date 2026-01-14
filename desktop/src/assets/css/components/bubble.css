@@ -244,7 +244,7 @@
     }
 
     .http-json-viewer {
-      @apply text-[11px];
+      @apply text-[11px] whitespace-normal;
       @apply max-h-60 overflow-y-auto;
     }
 
@@ -425,7 +425,7 @@
     }
 
     .json-node summary {
-      @apply list-none flex items-center justify-between gap-2 cursor-pointer;
+      @apply list-none flex items-center gap-2 cursor-pointer;
       @apply text-[11px] font-semibold tracking-widest text-terminal-cyan;
     }
 

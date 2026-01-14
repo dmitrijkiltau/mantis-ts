@@ -9,6 +9,10 @@ import { DEFAULT_PERSONALITY } from './personality.js';
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
+const DIRECT_LANGUAGE_FALLBACK: { language: string; name: string } = {
+  language: 'unknown',
+  name: 'Unknown',
+};
 
 export type PipelineStage =
   | 'intent'
@@ -49,6 +53,12 @@ export type PipelineResult =
       error?: PipelineError;
     };
 
+type DirectToolMatch = {
+  tool: ToolName;
+  args: Record<string, unknown>;
+  reason: string;
+};
+
 /**
  * Executes the end-to-end orchestration pipeline described in ARCHITECTURE.
  */
@@ -65,6 +75,11 @@ export class Pipeline {
     Logger.info('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
     });
+
+    const directResult = await this.tryRunDirectTool(userInput);
+    if (directResult) {
+      return directResult;
+    }
 
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
@@ -247,6 +262,171 @@ export class Pipeline {
         language,
         toneInstructions,
       );
+    }
+  }
+
+  private async tryRunDirectTool(userInput: string): Promise<PipelineResult | null> {
+    const directMatch = this.parseDirectToolRequest(userInput);
+    if (!directMatch) {
+      return null;
+    }
+
+    Logger.info('pipeline', 'Direct tool command detected, bypassing contracts', {
+      tool: directMatch.tool,
+      reason: directMatch.reason,
+    });
+
+    try {
+      const tool = getToolDefinition(directMatch.tool);
+      const toolResult = await tool.execute(directMatch.args);
+      return {
+        ok: true,
+        kind: 'tool',
+        tool: directMatch.tool,
+        args: directMatch.args,
+        result: toolResult,
+        intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
+        language: DIRECT_LANGUAGE_FALLBACK,
+        attempts: 0,
+      };
+    } catch (error) {
+      Logger.error('pipeline', `Direct tool execution failed for ${directMatch.tool}`, error);
+      return {
+        ok: false,
+        kind: 'error',
+        stage: 'tool_execution',
+        attempts: 0,
+        error: {
+          code: 'tool_error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }
+
+  private parseDirectToolRequest(userInput: string): DirectToolMatch | null {
+    const trimmed = userInput.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (trimmed.includes('\n')) {
+      return null;
+    }
+
+    const filesystem = this.parseDirectFilesystemCommand(trimmed);
+    if (filesystem) {
+      return filesystem;
+    }
+
+    const fetch = this.parseDirectFetchCommand(trimmed);
+    if (fetch) {
+      return fetch;
+    }
+
+    return null;
+  }
+
+  private parseDirectFilesystemCommand(input: string): DirectToolMatch | null {
+    const match = /^(read|list)\s+(.+)$/i.exec(input);
+    if (!match) {
+      return null;
+    }
+
+    const action = match[1].toLowerCase();
+    const path = this.stripWrappingQuotes(match[2]);
+    if (!path || !this.looksLikePath(path)) {
+      return null;
+    }
+
+    return {
+      tool: 'filesystem',
+      args: {
+        action,
+        path,
+        limit: null,
+        maxBytes: null,
+      },
+      reason: `direct_${action}_filesystem`,
+    };
+  }
+
+  private parseDirectFetchCommand(input: string): DirectToolMatch | null {
+    const match = /^(get|fetch)\s+(.+)$/i.exec(input);
+    if (!match) {
+      return null;
+    }
+
+    const url = this.stripWrappingQuotes(match[2]);
+    if (!url || !this.isHttpUrl(url)) {
+      return null;
+    }
+
+    return {
+      tool: 'fetch',
+      args: {
+        url,
+        method: 'GET',
+        headers: null,
+        body: null,
+        queryParams: null,
+        maxBytes: null,
+        timeoutMs: null,
+      },
+      reason: 'direct_get_fetch',
+    };
+  }
+
+  private stripWrappingQuotes(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+      return trimmed;
+    }
+
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+    const isWrapped =
+      (first === '"' && last === '"') ||
+      (first === "'" && last === "'") ||
+      (first === '`' && last === '`');
+
+    if (!isWrapped) {
+      return trimmed;
+    }
+
+    return trimmed.slice(1, -1).trim();
+  }
+
+  private looksLikePath(candidate: string): boolean {
+    if (!candidate) {
+      return false;
+    }
+
+    if (/^https?:\/\//i.test(candidate)) {
+      return false;
+    }
+
+    if (candidate.includes('\\') || candidate.includes('/')) {
+      return true;
+    }
+
+    if (/^[A-Za-z]:/.test(candidate)) {
+      return true;
+    }
+
+    if (candidate.startsWith('.')) {
+      return true;
+    }
+
+    return candidate.includes('.');
+  }
+
+  private isHttpUrl(candidate: string): boolean {
+    try {
+      const url = new URL(candidate);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
     }
   }
 
