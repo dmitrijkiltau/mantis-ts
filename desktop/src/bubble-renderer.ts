@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import type { HttpResponseResult } from '../../assistant/src/tools/web/http-core';
 
 type BubbleFilePayload = {
   action: 'file';
@@ -37,6 +38,12 @@ type FileTreeRow = {
   depth: number;
   path?: string;
 };
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const isStringRecord = (value: unknown): value is Record<string, string> =>
+  isObjectRecord(value) && Object.values(value).every((item) => typeof item === 'string');
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   ts: 'typescript',
@@ -401,6 +408,120 @@ const parseBubbleJson = (text: string): unknown | null => {
   }
 };
 
+const deriveLanguageFromContentType = (contentType: string | null): string | null => {
+  if (!contentType) {
+    return null;
+  }
+
+  const normalized = contentType.split(';')[0].trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes('json') || normalized.endsWith('+json')) {
+    return 'json';
+  }
+
+  if (normalized.includes('html')) {
+    return 'html';
+  }
+
+  if (normalized.includes('xml')) {
+    return 'xml';
+  }
+
+  if (normalized.includes('javascript')) {
+    return 'javascript';
+  }
+
+  if (normalized.startsWith('text/')) {
+    return 'text';
+  }
+
+  return null;
+};
+
+const formatBytes = (value: number): string => `${Math.max(0, Math.floor(value))} B`;
+
+const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
+  const finalUrl = payload.finalUrl || payload.url;
+  const statusLabel = `${payload.status}${payload.statusText ? ` ${payload.statusText.trim()}` : ''}`.trim();
+  const language = deriveLanguageFromContentType(payload.contentType);
+  const headerCount = Object.keys(payload.headers).length;
+  const headerSummary = `${headerCount} entries`;
+  const sizeText = `${formatBytes(payload.bytesRead)} read / ${formatBytes(payload.totalBytes)} total`;
+
+  const badges: string[] = [];
+  if (payload.redirected) {
+    badges.push('<span class="http-preview-badge">REDIRECTED</span>');
+  }
+  if (payload.truncated) {
+    badges.push('<span class="http-preview-badge warning">TRUNCATED</span>');
+  }
+
+  return `
+    <div class="http-preview">
+      <div class="http-preview-header">
+        <span class="http-preview-label">HTTP RESPONSE</span>
+        <span class="http-preview-status">${escapeHtml(statusLabel)}</span>
+      </div>
+      <div class="http-preview-meta">
+        <div class="http-meta-method">
+          <span class="http-meta-key">METHOD</span>
+          <span class="http-meta-value">${escapeHtml(payload.method)}</span>
+        </div>
+        <div class="http-meta-size">
+          <span class="http-meta-key">SIZE</span>
+          <span class="http-meta-value">${escapeHtml(sizeText)}</span>
+        </div>
+        <div class="http-meta-headers">
+          <span class="http-meta-key">HEADERS</span>
+          <span class="http-meta-value">${escapeHtml(headerSummary)}</span>
+        </div>
+        <div class="http-meta-content-type">
+          <span class="http-meta-key">CONTENT-TYPE</span>
+          <span class="http-meta-value">${escapeHtml(payload.contentType ?? 'UNKNOWN')}</span>
+        </div>
+        <div class="http-meta-url">
+          <span class="http-meta-key">URL</span>
+          <span class="http-meta-value">${escapeHtml(finalUrl)}</span>
+        </div>
+      </div>
+      <div class="http-preview-body">
+        ${renderCodeBlock(payload.content, language)}
+      </div>
+      <div class="http-preview-footer">
+        ${badges.join('')}
+      </div>
+    </div>
+  `;
+};
+
+const isHttpResponsePayload = (value: unknown): value is HttpResponseResult => {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.url === 'string'
+    && typeof record.finalUrl === 'string'
+    && typeof record.method === 'string'
+    && typeof record.status === 'number'
+    && Number.isFinite(record.status)
+    && typeof record.statusText === 'string'
+    && isStringRecord(record.headers)
+    && (typeof record.contentType === 'string' || record.contentType === null)
+    && typeof record.content === 'string'
+    && typeof record.bytesRead === 'number'
+    && Number.isFinite(record.bytesRead)
+    && typeof record.totalBytes === 'number'
+    && Number.isFinite(record.totalBytes)
+    && typeof record.truncated === 'boolean'
+    && typeof record.redirected === 'boolean'
+  );
+};
+
 const bubbleRenderer = new marked.Renderer();
 
 bubbleRenderer.code = ({ text, lang }) => {
@@ -432,6 +553,9 @@ export const renderBubbleContent = (text: string): string => {
     }
     if (isSearchPayload(payload)) {
       return renderSearchPayload(payload);
+    }
+    if (isHttpResponsePayload(payload)) {
+      return renderHttpResponsePayload(payload);
     }
   }
 

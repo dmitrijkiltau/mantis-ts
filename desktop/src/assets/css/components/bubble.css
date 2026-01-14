@@ -131,6 +131,59 @@
       @apply text-[11px] font-mono text-terminal-primary;
     }
 
+    .http-preview {
+      @apply flex flex-col gap-3 rounded border p-3 bg-bg-terminal border-primary-30;
+      box-shadow: var(--shadow-inset-glow);
+    }
+
+    .http-preview-header {
+      @apply flex items-center justify-between gap-3;
+    }
+
+    .http-preview-label {
+      @apply px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-[0.2em] border-primary-40 text-terminal-cyan bg-primary-10;
+    }
+
+    .http-preview-status {
+      @apply text-[12px] font-bold tracking-[0.2em] text-terminal-emerald;
+    }
+
+    .http-preview-meta {
+      @apply grid grid-cols-3 gap-2;
+
+      .http-meta-method, .http-meta-url, .http-meta-content-type, .http-meta-size, .http-meta-headers {
+        @apply flex flex-col gap-1;
+      }
+
+      .http-meta-content-type, .http-meta-url {
+        @apply col-span-3;
+      }
+    }
+
+    .http-meta-key {
+      @apply text-[10px] font-semibold tracking-widest text-primary-70;
+    }
+
+    .http-meta-value {
+      @apply text-[11px] font-mono text-terminal-primary break-words;
+    }
+
+    .http-preview-body {
+      @apply flex flex-col gap-2;
+    }
+
+    .http-preview-footer {
+      @apply flex flex-wrap gap-2;
+    }
+
+    .http-preview-badge {
+      @apply text-[10px] font-bold tracking-widest border px-2 py-0.5 rounded border-primary-40 text-terminal-primary bg-primary-10;
+    }
+
+    .http-preview-badge.warning {
+      @apply text-terminal-amber border-amber-40 bg-amber-20;
+    }
+
     .file-tree {
       @apply flex flex-col rounded border p-3 bg-bg-terminal border-primary-30;
       box-shadow: var(--shadow-inset-glow);
