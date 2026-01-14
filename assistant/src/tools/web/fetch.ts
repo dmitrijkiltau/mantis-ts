@@ -142,7 +142,7 @@ const applyQueryParams = (
 export const FETCH_TOOL: ToolDefinition<FetchToolArgs, FetchToolResult> = {
   name: 'fetch',
   description:
-    'Fetch HTTP(S) endpoints. Supply an absolute URL, optional method (default GET), headers as a JSON object string, an optional body for non-GET/HEAD requests, and optional limits (timeout/ms, maxBytes). Use `queryParams` to append a JSON map or raw query string to the URL. Returns status metadata and a truncated text representation of the response.',
+    'Simple HTTP fetch. Best for raw URL retrieval or simple GET requests. Requires manual JSON stringification for headers/body.',
   schema: {
     url: 'string',
     method: 'string|null',

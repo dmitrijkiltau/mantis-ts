@@ -117,7 +117,7 @@ const buildQueryParamEntries = (
 export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
   name: 'http',
   description:
-    'Fetch HTTP(S) endpoints with structured arguments. Provide a URL, optional method (default GET), typed headers/queryParams objects, an optional body for non-GET/HEAD methods, and optional limits (timeout, maxBytes). Returns status metadata plus a truncated text body similar to `fetch`.',
+    'Versatile HTTP client. Supports structured arguments for headers/queries and automatic JSON body serialization. Use this for API interactions.',
   schema: {
     url: 'string',
     method: 'string|null',
