@@ -53,22 +53,6 @@
       }
     }
 
-    &::-webkit-scrollbar {
-      @apply w-2;
-    }
-
-    &::-webkit-scrollbar-track {
-      @apply bg-bg-black-soft;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      @apply rounded bg-primary-40;
-
-      &:hover {
-        @apply bg-primary-60;
-      }
-    }
-
     .inline-code {
       @apply px-1 py-0.5 rounded border text-sm bg-primary-10 border-primary-30 text-terminal-cyan;
     }
@@ -536,6 +520,51 @@
     @apply w-0 h-0 absolute -top-5 left-1/2 transform -translate-x-1/2 rotate-180;
     @apply border-l-15 border-r-15 border-b-20 border-b-terminal-primary;
     filter: drop-shadow(0 2px 4px var(--color-primary-30));
+  }
+
+  .bubble-content,
+  .code-block-preview,
+  .code-block-json-viewer,
+  .code-block-json-pretty pre,
+  .http-json-viewer,
+  .http-json-pretty pre {
+    scrollbar-color: var(--color-primary-40) var(--color-bg-black-soft);
+  }
+
+  .bubble-content::-webkit-scrollbar,
+  .code-block-preview::-webkit-scrollbar,
+  .code-block-json-viewer::-webkit-scrollbar,
+  .code-block-json-pretty pre::-webkit-scrollbar,
+  .http-json-viewer::-webkit-scrollbar,
+  .http-json-pretty pre::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .bubble-content::-webkit-scrollbar-track,
+  .code-block-preview::-webkit-scrollbar-track,
+  .code-block-json-viewer::-webkit-scrollbar-track,
+  .code-block-json-pretty pre::-webkit-scrollbar-track,
+  .http-json-viewer::-webkit-scrollbar-track,
+  .http-json-pretty pre::-webkit-scrollbar-track {
+    @apply bg-bg-black-soft;
+  }
+
+  .bubble-content::-webkit-scrollbar-thumb,
+  .code-block-preview::-webkit-scrollbar-thumb,
+  .code-block-json-viewer::-webkit-scrollbar-thumb,
+  .code-block-json-pretty pre::-webkit-scrollbar-thumb,
+  .http-json-viewer::-webkit-scrollbar-thumb,
+  .http-json-pretty pre::-webkit-scrollbar-thumb {
+    @apply rounded bg-primary-40;
+  }
+
+  .bubble-content::-webkit-scrollbar-thumb:hover,
+  .code-block-preview::-webkit-scrollbar-thumb:hover,
+  .code-block-json-viewer::-webkit-scrollbar-thumb:hover,
+  .code-block-json-pretty pre::-webkit-scrollbar-thumb:hover,
+  .http-json-viewer::-webkit-scrollbar-thumb:hover,
+  .http-json-pretty pre::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-60;
   }
 
   @keyframes bubble-appear {
