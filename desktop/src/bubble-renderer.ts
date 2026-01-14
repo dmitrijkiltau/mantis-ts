@@ -346,6 +346,127 @@ const renderSearchPayload = (payload: BubbleSearchPayload): string => {
   });
 };
 
+const encodeJsonForAttribute = (value: string): string => encodeURIComponent(value);
+
+const renderJsonLiteral = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return `<span class="json-value json-value-string">"${escapeHtml(value)}"</span>`;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `<span class="json-value json-value-number">${escapeHtml(String(value))}</span>`;
+  }
+
+  if (typeof value === 'boolean') {
+    return `<span class="json-value json-value-boolean">${escapeHtml(String(value))}</span>`;
+  }
+
+  if (value === null) {
+    return '<span class="json-value json-value-null">null</span>';
+  }
+
+  return '<span class="json-value json-value-undefined">undefined</span>';
+};
+
+const renderJsonNode = (value: unknown, key?: string): string => {
+  if (Array.isArray(value)) {
+    const children = value
+      .map((item, index) => renderJsonNode(item, `[${index}]`))
+      .join('');
+
+    return `
+      <details open class="json-node json-node-array">
+        <summary>
+          ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+          <span class="json-node-type">Array(${value.length})</span>
+        </summary>
+        <div class="json-node-children">
+          ${children || '<div class="json-node-empty">Empty array</div>'}
+        </div>
+      </details>
+    `;
+  }
+
+  if (isObjectRecord(value)) {
+    const entries = Object.keys(value);
+    const children = entries
+      .map((entry) => renderJsonNode(value[entry], entry))
+      .join('');
+
+    return `
+      <details open class="json-node json-node-object">
+        <summary>
+          ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+          <span class="json-node-type">Object</span>
+          <span class="json-node-count">${entries.length} keys</span>
+        </summary>
+        <div class="json-node-children">
+          ${children || '<div class="json-node-empty">Empty object</div>'}
+        </div>
+      </details>
+    `;
+  }
+
+  return `
+    <div class="json-node json-node-primitive">
+      ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+      ${renderJsonLiteral(value)}
+    </div>
+  `;
+};
+
+const renderJsonViewer = (value: unknown): string => (
+  `<div class="json-viewer-root">${renderJsonNode(value)}</div>`
+);
+
+const renderHttpJsonPreview = (content: string): string => {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return '';
+  }
+
+  const pretty = JSON.stringify(parsed, null, 2);
+  const viewer = renderJsonViewer(parsed);
+  const rawAttr = encodeJsonForAttribute(content);
+
+  return `
+    <div class="http-json-block" data-json-view="pretty" data-json-raw="${rawAttr}">
+      <div class="http-json-body">
+        <div class="http-json-pretty" data-json-mode="pretty">
+          <pre><code class="language-json">${escapeHtml(pretty)}</code></pre>
+        </div>
+        <div class="http-json-viewer" data-json-mode="viewer">
+          ${viewer}
+        </div>
+      </div>
+      <div class="http-json-controls">
+        <button type="button" class="http-json-button" data-http-json-action="toggle" aria-label="Show structured JSON view">
+          <svg class="icon-pretty" viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg class="icon-tree" viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <circle cx="6" cy="7" r="1.75" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.75" fill="currentColor" />
+            <circle cx="18" cy="17" r="1.75" fill="currentColor" />
+            <path d="M6 8.75v3.5h6v2.5h6v3.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button type="button" class="http-json-button" data-http-json-action="copy" aria-label="Copy JSON to clipboard">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <rect x="9" y="7" width="8" height="2" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+};
+
 const renderFilePayload = (payload: BubbleFilePayload): string => {
   const language = inferLanguageFromPath(payload.path);
   const truncation = payload.truncated ? '<span class="file-tree-warning">TRUNCATED</span>' : '';
@@ -450,6 +571,8 @@ const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
   const headerCount = Object.keys(payload.headers).length;
   const headerSummary = `${headerCount} entries`;
   const sizeText = `${formatBytes(payload.bytesRead)} read / ${formatBytes(payload.totalBytes)} total`;
+  const jsonPreview = language === 'json' ? renderHttpJsonPreview(payload.content) : '';
+  const bodyContent = jsonPreview || renderCodeBlock(payload.content, language);
 
   const badges: string[] = [];
   if (payload.redirected) {
@@ -488,7 +611,7 @@ const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
         </div>
       </div>
       <div class="http-preview-body">
-        ${renderCodeBlock(payload.content, language)}
+        ${bodyContent}
       </div>
       <div class="http-preview-footer">
         ${badges.join('')}

@@ -10,6 +10,7 @@ import {
   createOpenToolHandler,
   createQuestionHandler,
   setupTabSwitching,
+  setupBubbleInteractions,
 } from './ui-handlers';
 
 import './styles.css';
@@ -62,6 +63,7 @@ const handleQuestion = promptInput && form && historyElement
   : null;
 
 setupTabSwitching(uiState);
+setupBubbleInteractions(bubbleAnswer);
 
 form?.addEventListener('submit', (event) => handleQuestion?.(event));
 toolSearchForm?.addEventListener('submit', handleSearchTool);

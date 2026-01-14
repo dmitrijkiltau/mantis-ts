@@ -296,3 +296,105 @@ export const setupTabSwitching = (uiState: UIState) => {
     });
   }
 };
+
+const JSON_TOGGLE_ACTION = 'toggle';
+const JSON_COPY_ACTION = 'copy';
+const COPY_FEEDBACK_DURATION = 1200;
+
+const updateToggleLabel = (button: HTMLButtonElement | null, mode: 'pretty' | 'viewer'): void => {
+  if (!button) {
+    return;
+  }
+
+  const label = mode === 'viewer' ? 'Structured JSON view' : 'Pretty JSON view';
+  button.setAttribute('aria-label', label);
+};
+
+const fallbackCopy = (text: string): boolean => {
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    const succeeded = document.execCommand('copy');
+    textarea.remove();
+    return Boolean(succeeded);
+  } catch {
+    return false;
+  }
+};
+
+const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  if (!text) {
+    return false;
+  }
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return fallbackCopy(text);
+    }
+  }
+
+  return fallbackCopy(text);
+};
+
+const markButtonCopied = (button: HTMLButtonElement): void => {
+  button.classList.add('http-json-button--copied');
+  window.setTimeout(() => {
+    button.classList.remove('http-json-button--copied');
+  }, COPY_FEEDBACK_DURATION);
+};
+
+export const setupBubbleInteractions = (bubbleAnswer: HTMLElement | null) => {
+  if (!bubbleAnswer) {
+    return;
+  }
+
+  bubbleAnswer.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const control = target.closest<HTMLButtonElement>('[data-http-json-action]');
+    if (!control) {
+      return;
+    }
+
+    const block = control.closest<HTMLElement>('.http-json-block');
+    if (!block) {
+      return;
+    }
+
+    const action = control.getAttribute('data-http-json-action');
+    if (!action) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (action === JSON_TOGGLE_ACTION) {
+      const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
+      const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
+      block.setAttribute('data-json-view', nextMode);
+      updateToggleLabel(control, nextMode);
+    } else if (action === JSON_COPY_ACTION) {
+      const raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
+      void copyTextToClipboard(raw).then((success) => {
+        if (success) {
+          markButtonCopied(control);
+        }
+      });
+    }
+  });
+};
