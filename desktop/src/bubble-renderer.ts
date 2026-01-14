@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import type { HttpResponseResult } from '../../assistant/src/tools/web/http-core';
+import { renderIcon } from './icon';
 
 type BubbleFilePayload = {
   action: 'file';
@@ -193,28 +194,20 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   const isMarkdown = normalizedLanguage === 'markdown';
   if (isMarkdown) {
     const preview = marked.parse(code, { renderer: bubbleRenderer }) as string;
+    const previewIcon = renderIcon('markdown-preview', 'icon-preview');
+    const rawIcon = renderIcon('code-raw', 'icon-raw');
+    const copyIconSvg = renderIcon('copy');
     return `
       <div class="code-block code-block-markdown" data-markdown-view="preview" data-markdown-raw="${rawAttr}">
         <div class="code-block-header">
           <span class="code-block-lang">${escapeHtml(label)}</span>
           <div class="code-block-controls">
             <button type="button" class="code-block-button" data-markdown-action="toggle" aria-label="Toggle markdown view">
-              <svg class="icon-preview" viewBox="0 0 24 24" role="img" aria-hidden="true">
-                <path d="M2 6h20v12H2z" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M6 10h4v4H6z" fill="currentColor" />
-                <path d="M14 10h4M14 14h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <svg class="icon-raw" viewBox="0 0 24 24" role="img" aria-hidden="true">
-                <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+              ${previewIcon}
+              ${rawIcon}
             </button>
             <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-              <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <rect x="9" y="7" width="8" height="2" fill="currentColor" />
-              </svg>
+              ${copyIconSvg}
             </button>
           </div>
         </div>
@@ -245,29 +238,20 @@ const renderCodeBlock = (code: string, language: string | null): string => {
     if (viewer) {
       const pretty = JSON.stringify(parsed, null, 2);
       const prettyHighlighted = highlightCodeBlock(pretty, 'json');
+      const prettyIcon = renderIcon('json-pretty', 'icon-pretty');
+      const treeIcon = renderIcon('json-tree', 'icon-tree');
+      const copyIconSvg = renderIcon('copy');
       return `
         <div class="code-block code-block-json" data-json-view="viewer" data-json-raw="${rawAttr}">
           <div class="code-block-header">
             <span class="code-block-lang">${escapeHtml(label)}</span>
             <div class="code-block-controls">
               <button type="button" class="code-block-button" data-json-action="toggle" aria-label="Toggle JSON view">
-                <svg class="icon-pretty" viewBox="0 0 24 24" role="img" aria-hidden="true">
-                  <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                <svg class="icon-tree" viewBox="0 0 24 24" role="img" aria-hidden="true">
-                  <circle cx="6" cy="7" r="1.75" fill="currentColor" />
-                  <circle cx="12" cy="12" r="1.75" fill="currentColor" />
-                  <circle cx="18" cy="17" r="1.75" fill="currentColor" />
-                  <path d="M6 8.75v3.5h6v2.5h6v3.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
+                ${prettyIcon}
+                ${treeIcon}
               </button>
               <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                  <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                  <rect x="9" y="7" width="8" height="2" fill="currentColor" />
-                </svg>
+                ${copyIconSvg}
               </button>
             </div>
           </div>
@@ -290,11 +274,7 @@ const renderCodeBlock = (code: string, language: string | null): string => {
         <span class="code-block-lang">${escapeHtml(label)}</span>
         <div class="code-block-controls">
           <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-              <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              <rect x="9" y="7" width="8" height="2" fill="currentColor" />
-            </svg>
+            ${renderIcon('copy')}
           </button>
         </div>
       </div>
@@ -536,6 +516,9 @@ const renderHttpJsonPreview = (content: string): string => {
   const pretty = JSON.stringify(parsed, null, 2);
   const viewer = renderJsonViewer(parsed);
   const rawAttr = encodeJsonForAttribute(content);
+  const prettyIcon = renderIcon('json-pretty', 'icon-pretty');
+  const treeIcon = renderIcon('json-tree', 'icon-tree');
+  const copyIconSvg = renderIcon('copy');
 
   return `
     <div class="http-json-block" data-json-view="viewer" data-json-raw="${rawAttr}">
@@ -549,23 +532,11 @@ const renderHttpJsonPreview = (content: string): string => {
       </div>
       <div class="http-json-controls">
         <button type="button" class="http-json-button" data-http-json-action="toggle" aria-label="Show structured JSON view">
-          <svg class="icon-pretty" viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path d="M9 6 3 12l6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M15 6l6 6-6 6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          <svg class="icon-tree" viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <circle cx="6" cy="7" r="1.75" fill="currentColor" />
-            <circle cx="12" cy="12" r="1.75" fill="currentColor" />
-            <circle cx="18" cy="17" r="1.75" fill="currentColor" />
-            <path d="M6 8.75v3.5h6v2.5h6v3.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
+          ${prettyIcon}
+          ${treeIcon}
         </button>
         <button type="button" class="http-json-button" data-http-json-action="copy" aria-label="Copy JSON to clipboard">
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <rect x="7" y="4" width="12" height="16" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2" />
-            <path d="M7 8h-2a2 2 0 0 0-2 2v10h12v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <rect x="9" y="7" width="8" height="2" fill="currentColor" />
-          </svg>
+          ${copyIconSvg}
         </button>
       </div>
     </div>
