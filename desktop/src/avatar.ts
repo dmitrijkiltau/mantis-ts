@@ -52,7 +52,7 @@ export class AssistantAvatar {
 
   private readonly svg: SVGSVGElement;
 
-  private readonly pupils: SVGCircleElement[];
+  private readonly pupils: SVGGraphicsElement[];
 
   private readonly mouth: SVGPathElement | null;
 
@@ -82,8 +82,8 @@ export class AssistantAvatar {
     this.svg = svg;
     this.svg.style.overflow = 'visible';
 
-    const pupilNodes = this.svg.querySelectorAll<SVGCircleElement>('[data-pupil]');
-    const pupils: SVGCircleElement[] = [];
+    const pupilNodes = this.svg.querySelectorAll<SVGGraphicsElement>('[data-pupil]');
+    const pupils: SVGGraphicsElement[] = [];
     for (let index = 0; index < pupilNodes.length; index += 1) {
       pupils.push(pupilNodes[index]);
     }
@@ -164,9 +164,10 @@ export class AssistantAvatar {
     const relativeY = (event.clientY - centerY) / (this.bounds.height / 2);
     const clampedX = Math.max(-1, Math.min(1, relativeX));
     const clampedY = Math.max(-1, Math.min(1, relativeY));
-    const maxOffset = 3.2;
-    const x = Number((clampedX * maxOffset).toFixed(2));
-    const y = Number((clampedY * maxOffset).toFixed(2));
+    const maxOffsetX = 3.4;
+    const maxOffsetY = 1.8;
+    const x = Number((clampedX * maxOffsetX).toFixed(2));
+    const y = Number((clampedY * maxOffsetY).toFixed(2));
 
     for (let index = 0; index < this.pupils.length; index += 1) {
       this.pupils[index].style.transform = `translate(${x}px, ${y}px)`;
