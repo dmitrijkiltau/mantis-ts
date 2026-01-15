@@ -9,6 +9,13 @@ type MoodStyle = {
   accent2: string;
   mouth: string;
   faceHighlight: number;
+  browLeftY: number;
+  browRightY: number;
+  browLeftRotate: number;
+  browRightRotate: number;
+  eyeScale: number;
+  eyeShiftY: number;
+  pupilScale: number;
 };
 
 const moodStyles: Record<AvatarMood, MoodStyle> = {
@@ -17,30 +24,65 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
     accent2: '#22d3ee',
     mouth: 'M 65 102 C 72 107 88 107 95 102',
     faceHighlight: 0.25,
+    browLeftY: 0,
+    browRightY: 0,
+    browLeftRotate: 0,
+    browRightRotate: 0,
+    eyeScale: 1,
+    eyeShiftY: 0,
+    pupilScale: 1,
   },
   listening: {
     accent: '#22d3ee',
     accent2: '#00ff88',
     mouth: 'M 64 101 C 72 109 88 109 96 101',
     faceHighlight: 0.3,
+    browLeftY: -2,
+    browRightY: -2,
+    browLeftRotate: -6,
+    browRightRotate: 6,
+    eyeScale: 1.12,
+    eyeShiftY: 0,
+    pupilScale: 1.12,
   },
   thinking: {
     accent: '#f59e0b',
     accent2: '#00ff88',
     mouth: 'M 65 104 C 73 104 87 104 95 104',
     faceHighlight: 0.2,
+    browLeftY: -1,
+    browRightY: 1,
+    browLeftRotate: -2,
+    browRightRotate: 8,
+    eyeScale: 0.9,
+    eyeShiftY: 0.5,
+    pupilScale: 0.95,
   },
   speaking: {
     accent: '#00ff88',
     accent2: '#10b981',
     mouth: 'M 65 101 C 72 111 88 111 95 101',
     faceHighlight: 0.35,
+    browLeftY: -0.5,
+    browRightY: -0.5,
+    browLeftRotate: -3,
+    browRightRotate: 3,
+    eyeScale: 1.05,
+    eyeShiftY: 0,
+    pupilScale: 1,
   },
   concerned: {
     accent: '#f97316',
     accent2: '#00ff88',
     mouth: 'M 65 106 C 72 100 88 100 95 106',
     faceHighlight: 0.18,
+    browLeftY: 1.5,
+    browRightY: 1.5,
+    browLeftRotate: 10,
+    browRightRotate: -10,
+    eyeScale: 0.85,
+    eyeShiftY: 1,
+    pupilScale: 0.9,
   },
 };
 
@@ -51,8 +93,6 @@ export class AssistantAvatar {
   private readonly container: HTMLElement;
 
   private readonly svg: SVGSVGElement;
-
-  private readonly pupils: SVGGraphicsElement[];
 
   private readonly mouth: SVGPathElement | null;
 
@@ -82,12 +122,6 @@ export class AssistantAvatar {
     this.svg = svg;
     this.svg.style.overflow = 'visible';
 
-    const pupilNodes = this.svg.querySelectorAll<SVGGraphicsElement>('[data-pupil]');
-    const pupils: SVGGraphicsElement[] = [];
-    for (let index = 0; index < pupilNodes.length; index += 1) {
-      pupils.push(pupilNodes[index]);
-    }
-    this.pupils = pupils;
     this.mouth = this.svg.querySelector<SVGPathElement>('[data-mouth]');
     this.faceHighlight = this.svg.querySelector<SVGCircleElement>('[data-face-highlight]');
 
@@ -118,6 +152,13 @@ export class AssistantAvatar {
     this.container.setAttribute('data-mood', nextMood);
     this.svg.style.setProperty('--accent', style.accent);
     this.svg.style.setProperty('--accent2', style.accent2);
+    this.container.style.setProperty('--brow-left-y', `${style.browLeftY}px`);
+    this.container.style.setProperty('--brow-right-y', `${style.browRightY}px`);
+    this.container.style.setProperty('--brow-left-rotate', `${style.browLeftRotate}deg`);
+    this.container.style.setProperty('--brow-right-rotate', `${style.browRightRotate}deg`);
+    this.container.style.setProperty('--eye-scale', style.eyeScale.toString());
+    this.container.style.setProperty('--eye-shift-y', `${style.eyeShiftY}px`);
+    this.container.style.setProperty('--pupil-scale', style.pupilScale.toString());
 
     if (this.mouth) {
       this.mouth.setAttribute('d', style.mouth);
@@ -169,9 +210,8 @@ export class AssistantAvatar {
     const x = Number((clampedX * maxOffsetX).toFixed(2));
     const y = Number((clampedY * maxOffsetY).toFixed(2));
 
-    for (let index = 0; index < this.pupils.length; index += 1) {
-      this.pupils[index].style.transform = `translate(${x}px, ${y}px)`;
-    }
+    this.container.style.setProperty('--pupil-x', `${x}px`);
+    this.container.style.setProperty('--pupil-y', `${y}px`);
 
     this.svg.style.transform = `translate(${x * 0.12}px, ${y * 0.12}px)`;
   }
@@ -180,9 +220,8 @@ export class AssistantAvatar {
    * Returns the avatar gaze to neutral when the cursor exits the frame.
    */
   private resetGaze(): void {
-    for (let index = 0; index < this.pupils.length; index += 1) {
-      this.pupils[index].style.transform = 'translate(0px, 0px)';
-    }
+    this.container.style.setProperty('--pupil-x', '0px');
+    this.container.style.setProperty('--pupil-y', '0px');
     this.svg.style.transform = 'translate(0px, 0px)';
   }
 

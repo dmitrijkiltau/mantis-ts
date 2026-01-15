@@ -79,6 +79,9 @@
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
+    <clipPath id="faceClip" clipPathUnits="userSpaceOnUse">
+      <rect x="36" y="36" width="88" height="76" rx="10" />
+    </clipPath>
   </defs>
 
   <g class="idle">
@@ -94,8 +97,8 @@
 
     <!-- Eyes (glyph-like, trackable pupils) -->
     <g class="blink" filter="url(#crtGlow)">
-      <rect x="50" y="62" width="22" height="10" fill="var(--pip)" />
-      <rect x="88" y="62" width="22" height="10" fill="var(--pip)" />
+      <rect data-eye="left" x="50" y="62" width="22" height="10" fill="var(--pip)" />
+      <rect data-eye="right" x="88" y="62" width="22" height="10" fill="var(--pip)" />
 
       <rect data-pupil="" x="58" y="65" width="4" height="4" fill="#08110d" />
       <rect data-pupil="" x="96" y="65" width="4" height="4" fill="#08110d" />
@@ -115,9 +118,6 @@
     <!-- Status text bars -->
     <rect x="36" y="104" width="40" height="3" fill="var(--pip-dim)" />
     <rect x="36" y="110" width="64" height="3" fill="var(--pip-dim)" />
-
-    <!-- Scanline distortion -->
-    <rect class="scanline" x="28" y="0" width="104" height="3" fill="var(--pip)" />
   </g>
 
   <!-- HUD corner brackets -->

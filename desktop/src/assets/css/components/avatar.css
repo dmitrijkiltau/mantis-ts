@@ -10,10 +10,89 @@
   .avatar-canvas {
     @apply w-48 h-48 grid place-items-center;
     filter: var(--shadow-glow-primary);
+    --pupil-x: 0px;
+    --pupil-y: 0px;
+    --pupil-scale: 1;
+    --eye-scale: 1;
+    --eye-shift-y: 0px;
+    --brow-left-y: 0px;
+    --brow-right-y: 0px;
+    --brow-left-rotate: 0deg;
+    --brow-right-rotate: 0deg;
 
     .assistant-avatar-svg {
       @apply transition-transform duration-500 ease-out;
     }
+  }
+
+  .avatar-canvas .assistant-avatar-svg [data-pupil] {
+    transform: translate(var(--pupil-x), var(--pupil-y)) scale(var(--pupil-scale));
+    transform-origin: center;
+    transition: transform 160ms ease-out;
+  }
+
+  .avatar-canvas .assistant-avatar-svg [data-eye] {
+    transform: translateY(var(--eye-shift-y)) scaleY(var(--eye-scale));
+    transform-origin: center;
+    transform-box: fill-box;
+    transition: transform 220ms ease-out;
+  }
+
+  .avatar-canvas .assistant-avatar-svg [data-eyebrow='left'] {
+    transform: translateY(var(--brow-left-y)) rotate(var(--brow-left-rotate));
+    transform-origin: center;
+    transform-box: fill-box;
+    transition: transform 220ms ease-out;
+  }
+
+  .avatar-canvas .assistant-avatar-svg [data-eyebrow='right'] {
+    transform: translateY(var(--brow-right-y)) rotate(var(--brow-right-rotate));
+    transform-origin: center;
+    transform-box: fill-box;
+    transition: transform 220ms ease-out;
+  }
+
+  .avatar-canvas[data-mood='listening'] {
+    --brow-left-y: -2px;
+    --brow-right-y: -2px;
+    --brow-left-rotate: -6deg;
+    --brow-right-rotate: 6deg;
+    --eye-scale: 1.12;
+    --pupil-scale: 1.12;
+  }
+
+  .avatar-canvas[data-mood='thinking'] {
+    --brow-left-y: -1px;
+    --brow-right-y: 1px;
+    --brow-left-rotate: -2deg;
+    --brow-right-rotate: 8deg;
+    --eye-scale: 0.9;
+    --eye-shift-y: 0.5px;
+    --pupil-scale: 0.95;
+  }
+
+  .avatar-canvas[data-mood='speaking'] {
+    --brow-left-y: -0.5px;
+    --brow-right-y: -0.5px;
+    --brow-left-rotate: -3deg;
+    --brow-right-rotate: 3deg;
+    --eye-scale: 1.05;
+  }
+
+  .avatar-canvas[data-mood='speaking'] .assistant-avatar-svg [data-mouth] {
+    animation: mouthTalk 0.55s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+
+  .avatar-canvas[data-mood='concerned'] {
+    --brow-left-y: 1.5px;
+    --brow-right-y: 1.5px;
+    --brow-left-rotate: 10deg;
+    --brow-right-rotate: -10deg;
+    --eye-scale: 0.85;
+    --eye-shift-y: 1px;
+    --pupil-scale: 0.9;
   }
 
   .status-indicator {
@@ -45,5 +124,16 @@
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
+  }
+
+  @keyframes mouthTalk {
+    0%, 100% { transform: scaleY(0.9); opacity: 0.7; }
+    50% { transform: scaleY(1.2); opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .avatar-canvas .assistant-avatar-svg [data-mouth] {
+      animation: none !important;
+    }
   }
 }
