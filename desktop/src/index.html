@@ -9,33 +9,30 @@
 
 <body>
   <div class="app-shell">
-    <!-- Avatar with Speech Bubble -->
-    <section class="avatar-zone">
+    <section id="avatar-input-output">
+      <!-- Avatar -->
       <div id="assistant-avatar" class="avatar-canvas" aria-live="polite"></div>
+
+      <!-- Input Terminal -->
+      <div class="input-terminal">
+        <form id="prompt-form">
+          <div class="terminal-header">
+            <span class="terminal-title">[ QUERY_INPUT ]</span>
+            <span id="avatar-mood-label" class="status-indicator">IDLE</span>
+          </div>
+          <textarea id="prompt-input" rows="3" placeholder="> Enter query..." class="terminal-input"></textarea>
+          <button type="submit" class="terminal-button">
+            <span class="button-bracket">[</span> EXECUTE <span class="button-bracket">]</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Speech Bubble -->
       <div id="speech-bubble" class="speech-bubble hidden">
         <div class="bubble-content" id="bubble-answer"></div>
         <div class="bubble-tail"></div>
       </div>
     </section>
-
-    <!-- Input Terminal -->
-    <div class="input-terminal">
-      <form id="prompt-form">
-        <div class="terminal-header">
-          <span class="terminal-title">[ QUERY_INPUT ]</span>
-          <span id="avatar-mood-label" class="status-indicator">IDLE</span>
-        </div>
-        <textarea 
-          id="prompt-input" 
-          rows="3" 
-          placeholder="> Enter query..."
-          class="terminal-input"
-        ></textarea>
-        <button type="submit" class="terminal-button">
-          <span class="button-bracket">[</span> EXECUTE <span class="button-bracket">]</span>
-        </button>
-      </form>
-    </div>
 
     <!-- Fallout-Style Tablet -->
     <div class="pip-tablet">
@@ -49,7 +46,7 @@
           <span class="stat-item" id="stat-runtime">RT:0s</span>
         </div>
       </div>
-      
+
       <div class="tablet-tabs">
         <button class="tab-button active" data-tab="status">[ STATUS ]</button>
         <button class="tab-button" data-tab="history">[ HISTORY ]</button>
@@ -59,7 +56,7 @@
 
       <div class="tablet-screen">
         <div class="scan-line"></div>
-        
+
         <div class="tablet-panel active" id="panel-status">
           <div class="status-display">
             <div class="status-row">

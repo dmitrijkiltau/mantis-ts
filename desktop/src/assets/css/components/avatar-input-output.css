@@ -1,0 +1,11 @@
+#avatar-input-output {
+  @apply grid grid-cols-4 items-center justify-center gap-6;
+
+  .input-terminal {
+    @apply col-span-3;
+  }
+
+  #speech-bubble {
+    @apply col-span-4;
+  }
+}
