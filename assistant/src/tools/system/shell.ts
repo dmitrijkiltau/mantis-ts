@@ -346,7 +346,6 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   name: 'shell',
   description:
     'Executes safe shell commands for read-only inspection (ps, ls, pwd, etc.). ' +
-    'Blocks all destructive operations, file modifications, and command chaining. ' +
     'Windows: powershell, ps. POSIX: sh, bash, ps, cat, ls, pwd, echo, grep, find, which, env.',
   schema: {
     action: 'string',
