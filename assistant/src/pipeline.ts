@@ -574,10 +574,6 @@ export class Pipeline {
   }
 
   private isToolIntent(intent: string): boolean {
-    if (intent === 'unknown') {
-      return false;
-    }
-
     if (intent === GENERAL_ANSWER_INTENT) {
       return false;
     }

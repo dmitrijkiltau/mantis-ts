@@ -9,7 +9,7 @@ Contracts define strict input/output behavior for models and are enforced by val
 not trusted to the model itself.
 
 The `assistant/src/pipeline.ts` module implements the routing pipeline described below,
-deriving allowed intents from the tool registry (`tool.<name>` plus `unknown`).
+deriving allowed intents from the tool registry (`tool.<name>` plus `answer.general`).
 If a tool schema is empty, the pipeline skips argument extraction and executes the tool
 with `{}`. A predefined MANTIS personality tone preset is injected into strict answer and
 response formatting prompts without relying on any selection contract, keeping tone steady
@@ -63,8 +63,8 @@ Input
    -> Detected Language -> preserved through pipeline
    |
  -> Intent Classification
-   -> unknown -> Strict Answer (in user's language, MANTIS tone)
-   -> tool.* -> Tool Args (schema from tool registry)
+   -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone)
+   -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
        -> invalid -> Error Channel -> Abort or Re-route
        -> valid -> Execute Tool -> Format in user's language (MANTIS tone)
 ```
@@ -74,7 +74,7 @@ Input
 ```
 Intent -> invalid JSON
 Retry 1 -> valid JSON, confidence missing
-Retry 2 -> {"intent":"unknown","confidence":0.0}
+Retry 2 -> {"intent":"answer.general","confidence":0.0}
 -> accept fallback
 -> Orchestrator evaluates outcome and selects next contract
 ```
@@ -83,7 +83,7 @@ Retry 2 -> {"intent":"unknown","confidence":0.0}
 
 | Contract-Type            | Max Retries | On Failure                                              | Strategy              |
 | ------------------------ | ----------- | ------------------------------------------------------- | --------------------- |
-| Language Detection       | 2           | Default to "unknown"                                    | Best-Effort           |
+| Language Detection       | 2           | Default to "unknown" language                           | Best-Effort           |
 | Intent Classification    | 2           | Default Intent                                          | Constraint Tightening |
 | Tool Argument Extraction | 2           | Revalidate User or Cancel                               | Schema Reinforcement  |
 | Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |

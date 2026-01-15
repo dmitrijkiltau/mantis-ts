@@ -18,7 +18,8 @@ Tool intents reference:
 
 Guidelines:
 - Pick a tool intent only when the request matches that tool's capability.
-- Prefer answer.general when the user is asking general questions or no tool action is needed.
+- Use answer.general for general questions or when no tool action is needed.
+- Indicate uncertainty with a low confidence score, not by choosing a different intent.
 
 Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).
@@ -34,7 +35,7 @@ Input:
 Return exactly one intent from the allowed list.
 Return valid JSON only.`,
     1: `If you are unsure, return:
-{"intent":"unknown","confidence":0.0}`
+{"intent":"answer.general","confidence":0.0}`
   },
 };
 

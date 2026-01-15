@@ -29,12 +29,8 @@ export const GENERAL_ANSWER_INTENT = 'answer.general';
 /**
  * Returns intent labels derived from the tool registry.
  */
-export const getToolIntents = (includeUnknown = true): string[] => {
+export const getToolIntents = (): string[] => {
   const intents: string[] = [];
-
-  if (includeUnknown) {
-    intents.push('unknown');
-  }
 
   intents.push(GENERAL_ANSWER_INTENT);
 
