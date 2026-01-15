@@ -8,7 +8,7 @@ import {
   createQuestionHandler,
   renderToolCatalog,
   setupTabSwitching,
-  setupBubbleInteractions,
+  setupContentInteractions,
 } from './ui-handlers';
 
 import './styles.css';
@@ -59,7 +59,7 @@ const handleQuestion = promptInput && form && historyElement
 renderToolCatalog(toolList, toolCountBadge, uiState);
 
 setupTabSwitching(uiState);
-setupBubbleInteractions(bubbleAnswer);
+setupContentInteractions(bubbleAnswer, historyElement);
 
 form?.addEventListener('submit', (event) => handleQuestion?.(event));
 

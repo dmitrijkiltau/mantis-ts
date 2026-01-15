@@ -150,26 +150,78 @@
     }
   }
 
-  .answer-card {
-    @apply p-4 rounded border;
-    background: var(--color-primary-8);
-    border-color: var(--color-primary-30);
+  .history-entry {
+    @apply rounded border overflow-hidden border-primary-30 bg-primary-8;
+    box-shadow: var(--shadow-inset-glow);
+  }
 
-    h3 {
-      @apply text-sm font-bold mb-2 text-terminal-cyan;
-      text-shadow: var(--shadow-glow-cyan);
-    }
+  .history-entry[open] {
+    border-color: var(--color-primary-50);
+    box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
+  }
 
-    pre {
-      @apply text-xs whitespace-pre-wrap mt-2 p-2 rounded text-terminal-primary border;
-      background: var(--color-bg-black);
-      border-color: var(--color-primary-20);
-    }
+  .history-summary {
+    @apply flex items-center gap-3 px-4 py-3 cursor-pointer select-none;
+    background: linear-gradient(90deg, var(--color-bg-black), var(--color-primary-10));
+  }
 
-    p {
-      @apply text-xs mt-2;
-      color: var(--color-primary-70);
-    }
+  .history-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .history-summary::marker {
+    content: "";
+  }
+
+  .history-badge {
+    @apply text-[10px] font-bold uppercase tracking-[0.25em] px-2 py-1 rounded border;
+    @apply border-primary-40 text-terminal-cyan bg-primary-10;
+  }
+
+  .history-entry[data-kind='error'] .history-badge {
+    @apply border-amber-40 text-terminal-amber bg-amber-20;
+  }
+
+  .history-title {
+    @apply text-sm font-bold text-terminal-primary;
+  }
+
+  .history-question-snippet {
+    @apply flex-1 min-w-0 text-xs text-primary-70 truncate;
+  }
+
+  .history-meta {
+    @apply text-[11px] font-mono text-primary-60;
+  }
+
+  .history-body {
+    @apply flex flex-col gap-3 px-4 py-3 bg-bg-black-soft border-t border-primary-20;
+  }
+
+  .history-section {
+    @apply flex flex-col gap-2;
+  }
+
+  .history-section-label {
+    @apply text-[10px] font-semibold tracking-widest text-primary-60;
+  }
+
+  .history-text {
+    @apply text-sm text-terminal-primary font-mono whitespace-pre-wrap;
+    word-break: break-word;
+  }
+
+  .history-bubble-shell {
+    @apply p-3 rounded border border-primary-30 bg-bg-terminal max-w-none;
+    box-shadow: var(--shadow-inset-glow);
+    max-height: none;
+    overflow: visible;
+  }
+
+  .history-bubble-shell .bubble-content {
+    @apply pr-0;
+    max-height: none;
+    overflow: visible;
   }
 
   .logs-console {

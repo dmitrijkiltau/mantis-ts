@@ -1,4 +1,4 @@
-import { Pipeline } from '../../assistant/src/pipeline';
+import { Pipeline, type PipelineResult } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
 import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
@@ -144,6 +144,114 @@ export const renderToolCatalog = (
   uiState.addLog(`Tool catalog loaded (${tools.length})`);
 };
 
+const truncateText = (value: string, limit: number): string => {
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, limit - 3)}...`;
+};
+
+const renderHistoryContent = (value: unknown): string => {
+  const payload = typeof value === 'string' ? value : formatPayload(value);
+  return renderBubbleContent(payload);
+};
+
+const createHistoryContentShell = (contentHtml: string): HTMLDivElement => {
+  const shell = document.createElement('div');
+  shell.className = 'speech-bubble history-bubble-shell';
+
+  const content = document.createElement('div');
+  content.className = 'bubble-content history-content';
+  content.innerHTML = contentHtml;
+
+  shell.appendChild(content);
+  return shell;
+};
+
+const createHistorySection = (label: string, valueNode: HTMLElement): HTMLDivElement => {
+  const section = document.createElement('div');
+  section.className = 'history-section';
+
+  const heading = document.createElement('div');
+  heading.className = 'history-section-label';
+  heading.textContent = label;
+
+  section.appendChild(heading);
+  section.appendChild(valueNode);
+
+  return section;
+};
+
+const createHistoryText = (value: string): HTMLDivElement => {
+  const node = document.createElement('div');
+  node.className = 'history-text';
+  node.textContent = value;
+  return node;
+};
+
+const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetailsElement => {
+  const entry = document.createElement('details');
+  entry.className = 'history-entry';
+  entry.setAttribute('data-kind', result.ok ? result.kind : 'error');
+  entry.open = true;
+
+  const summary = document.createElement('summary');
+  summary.className = 'history-summary';
+
+  const badge = document.createElement('span');
+  badge.className = 'history-badge';
+  badge.textContent = result.ok
+    ? result.kind === 'tool'
+      ? 'TOOL'
+      : 'ANSWER'
+    : 'ERROR';
+
+  const title = document.createElement('span');
+  title.className = 'history-title';
+  title.textContent = result.ok
+    ? result.kind === 'tool'
+      ? result.tool
+      : 'Strict Answer'
+    : result.stage.toUpperCase();
+
+  const promptSnippet = document.createElement('span');
+  promptSnippet.className = 'history-question-snippet';
+  promptSnippet.textContent = truncateText(question, 72);
+
+  const meta = document.createElement('span');
+  meta.className = 'history-meta';
+  meta.textContent = `Attempts: ${result.attempts}`;
+
+  summary.appendChild(badge);
+  summary.appendChild(title);
+  summary.appendChild(promptSnippet);
+  summary.appendChild(meta);
+
+  const body = document.createElement('div');
+  body.className = 'history-body';
+
+  body.appendChild(createHistorySection('Prompt', createHistoryText(question)));
+
+  if (result.ok) {
+    if (result.kind === 'tool') {
+      body.appendChild(createHistorySection('Tool Output', createHistoryContentShell(renderHistoryContent(result.result))));
+      body.appendChild(createHistorySection('Tool Arguments', createHistoryContentShell(renderHistoryContent(result.args))));
+    } else {
+      body.appendChild(createHistorySection('Answer', createHistoryContentShell(renderHistoryContent(result.value))));
+    }
+  } else {
+    const errorDetail = result.error
+      ? `${result.error.code}: ${result.error.message}`
+      : 'No valid response after retries.';
+    body.appendChild(createHistorySection('Error', createHistoryContentShell(renderHistoryContent(errorDetail))));
+  }
+
+  entry.appendChild(summary);
+  entry.appendChild(body);
+
+  return entry;
+};
+
 export const createQuestionHandler = (
   pipeline: Pipeline,
   uiState: UIState,
@@ -184,8 +292,8 @@ export const createQuestionHandler = (
       uiState.addLog('Analyzing query with contracts...');
       const result = await pipeline.run(question);
 
-      const record = document.createElement('div');
-      record.className = 'answer-card';
+      const record = buildHistoryEntry(question, result);
+
       if (result.ok) {
         if (result.kind === 'tool') {
           Logger.info('ui', `Tool result received: ${result.tool}`);
@@ -195,13 +303,6 @@ export const createQuestionHandler = (
 
           const answerText = formatPayload(result.result);
           uiState.showBubble(renderBubbleContent(answerText));
-
-          record.innerHTML = `
-            <h3>Tool: ${result.tool}</h3>
-            <pre>${formatPayload(result.result)}</pre>
-            <p>Args: ${formatPayload(result.args)}</p>
-            <p>Attempts: ${result.attempts}</p>
-          `;
         } else {
           Logger.info('ui', 'Strict answer generated');
           uiState.setMood('speaking');
@@ -209,12 +310,6 @@ export const createQuestionHandler = (
           uiState.addLog('Answer generated successfully');
 
           uiState.showBubble(renderBubbleContent(result.value));
-
-          record.innerHTML = `
-            <h3>Answer</h3>
-            <pre>${result.value}</pre>
-            <p>Attempts: ${result.attempts}</p>
-          `;
         }
       } else {
         Logger.error('ui', `Pipeline failed at stage: ${result.stage}`);
@@ -226,13 +321,8 @@ export const createQuestionHandler = (
         uiState.addLog(`ERROR: ${errorDetail}`);
 
         uiState.showBubble(renderBubbleContent(`Error: ${errorDetail}`));
-
-        record.innerHTML = `
-          <h3>Error (${result.stage})</h3>
-          <pre>${errorDetail}</pre>
-          <p>Attempts: ${result.attempts}</p>
-        `;
       }
+
       historyElement.prepend(record);
     } catch (error) {
       Logger.error('ui', 'Unhandled exception in pipeline', error);
@@ -240,9 +330,16 @@ export const createQuestionHandler = (
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
       uiState.addLog(`FATAL ERROR: ${String(error)}`);
 
-      const errCard = document.createElement('div');
-      errCard.className = 'answer-card';
-      errCard.innerHTML = `<h3>Error</h3><pre>${String(error)}</pre>`;
+      const errCard = buildHistoryEntry(question, {
+        ok: false,
+        kind: 'error',
+        stage: 'error_channel',
+        attempts: 0,
+        error: {
+          code: 'unhandled_exception',
+          message: String(error),
+        },
+      });
       historyElement.prepend(errCard);
 
       uiState.showBubble(renderBubbleContent(`Critical Error: ${String(error)}`));
@@ -339,127 +436,139 @@ const markButtonCopied = (button: HTMLButtonElement): void => {
   }, COPY_FEEDBACK_DURATION);
 };
 
-export const setupBubbleInteractions = (bubbleAnswer: HTMLElement | null) => {
-  if (!bubbleAnswer) {
+const handleRichContentInteraction = (event: Event): void => {
+  const target = event.target as HTMLElement | null;
+  if (!target) {
     return;
   }
 
-  bubbleAnswer.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null;
-    if (!target) {
+  const root = target.closest<HTMLElement>('[data-history-root], #bubble-answer, #history');
+  if (!root) {
+    return;
+  }
+
+  // Handle HTTP JSON block interactions
+  const jsonControl = target.closest<HTMLButtonElement>('[data-http-json-action]');
+  if (jsonControl) {
+    const block = jsonControl.closest<HTMLElement>('.http-json-block');
+    if (!block) {
       return;
     }
 
-    // Handle HTTP JSON block interactions
-    const jsonControl = target.closest<HTMLButtonElement>('[data-http-json-action]');
-    if (jsonControl) {
-      const block = jsonControl.closest<HTMLElement>('.http-json-block');
-      if (!block) {
-        return;
-      }
+    const action = jsonControl.getAttribute('data-http-json-action');
+    if (!action) {
+      return;
+    }
 
-      const action = jsonControl.getAttribute('data-http-json-action');
-      if (!action) {
-        return;
-      }
+    event.preventDefault();
+    event.stopPropagation();
 
+    if (action === JSON_TOGGLE_ACTION) {
+      const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
+      const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
+      block.setAttribute('data-json-view', nextMode);
+      updateToggleLabel(jsonControl, nextMode);
+    } else if (action === JSON_COPY_ACTION) {
+      const raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
+      void copyTextToClipboard(raw).then((success) => {
+        if (success) {
+          markButtonCopied(jsonControl);
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle markdown preview toggle
+  const markdownControl = target.closest<HTMLButtonElement>('[data-markdown-action]');
+  if (markdownControl) {
+    const block = markdownControl.closest<HTMLElement>('.code-block-markdown');
+    if (!block) {
+      return;
+    }
+
+    const action = markdownControl.getAttribute('data-markdown-action');
+    if (action === JSON_TOGGLE_ACTION) {
       event.preventDefault();
       event.stopPropagation();
 
-      if (action === JSON_TOGGLE_ACTION) {
-        const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
-        const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
-        block.setAttribute('data-json-view', nextMode);
-        updateToggleLabel(jsonControl, nextMode);
-      } else if (action === JSON_COPY_ACTION) {
-        const raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
-        void copyTextToClipboard(raw).then((success) => {
-          if (success) {
-            markButtonCopied(jsonControl);
-          }
-        });
-      }
+      const current = block.getAttribute('data-markdown-view') === 'preview' ? 'preview' : 'raw';
+      const nextMode: 'preview' | 'raw' = current === 'preview' ? 'raw' : 'preview';
+      block.setAttribute('data-markdown-view', nextMode);
+      
+      const label = nextMode === 'preview' ? 'Show raw markdown' : 'Show markdown preview';
+      markdownControl.setAttribute('aria-label', label);
+    }
+    return;
+  }
+
+  // Handle JSON code block preview toggle
+  const jsonCodeControl = target.closest<HTMLButtonElement>('[data-json-action]');
+  if (jsonCodeControl) {
+    const block = jsonCodeControl.closest<HTMLElement>('.code-block-json');
+    if (!block) {
       return;
     }
 
-    // Handle markdown preview toggle
-    const markdownControl = target.closest<HTMLButtonElement>('[data-markdown-action]');
-    if (markdownControl) {
-      const block = markdownControl.closest<HTMLElement>('.code-block-markdown');
-      if (!block) {
-        return;
-      }
+    const action = jsonCodeControl.getAttribute('data-json-action');
+    if (action === JSON_TOGGLE_ACTION) {
+      event.preventDefault();
+      event.stopPropagation();
 
-      const action = markdownControl.getAttribute('data-markdown-action');
-      if (action === JSON_TOGGLE_ACTION) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const current = block.getAttribute('data-markdown-view') === 'preview' ? 'preview' : 'raw';
-        const nextMode: 'preview' | 'raw' = current === 'preview' ? 'raw' : 'preview';
-        block.setAttribute('data-markdown-view', nextMode);
-        
-        const label = nextMode === 'preview' ? 'Show raw markdown' : 'Show markdown preview';
-        markdownControl.setAttribute('aria-label', label);
-      }
-      return;
+      const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
+      const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
+      block.setAttribute('data-json-view', nextMode);
+      
+      const label = nextMode === 'viewer' ? 'Show pretty JSON' : 'Show structured JSON view';
+      jsonCodeControl.setAttribute('aria-label', label);
     }
+    return;
+  }
 
-    // Handle JSON code block preview toggle
-    const jsonCodeControl = target.closest<HTMLButtonElement>('[data-json-action]');
-    if (jsonCodeControl) {
-      const block = jsonCodeControl.closest<HTMLElement>('.code-block-json');
-      if (!block) {
-        return;
-      }
+  // Handle code block copy
+  const codeControl = target.closest<HTMLButtonElement>('[data-code-action]');
+  if (codeControl) {
+    const action = codeControl.getAttribute('data-code-action');
+    if (action === JSON_COPY_ACTION) {
+      event.preventDefault();
+      event.stopPropagation();
 
-      const action = jsonCodeControl.getAttribute('data-json-action');
-      if (action === JSON_TOGGLE_ACTION) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
-        const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
-        block.setAttribute('data-json-view', nextMode);
-        
-        const label = nextMode === 'viewer' ? 'Show pretty JSON' : 'Show structured JSON view';
-        jsonCodeControl.setAttribute('aria-label', label);
-      }
-      return;
-    }
-
-    // Handle code block copy
-    const codeControl = target.closest<HTMLButtonElement>('[data-code-action]');
-    if (codeControl) {
-      const action = codeControl.getAttribute('data-code-action');
-      if (action === JSON_COPY_ACTION) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        let raw = '';
-        const block = codeControl.closest<HTMLElement>('.code-block, .code-block-markdown, .code-block-json');
-        if (block) {
-          if (block.classList.contains('code-block-markdown')) {
-            raw = block.dataset.markdownRaw ? decodeURIComponent(block.dataset.markdownRaw) : '';
-          } else if (block.classList.contains('code-block-json')) {
-            raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
-          } else {
-            const codeElement = block.querySelector('code[data-raw]') as HTMLElement | null;
-            raw = codeElement?.dataset.raw ? decodeURIComponent(codeElement.dataset.raw) : '';
-            if (!raw) {
-              const codeNode = block.querySelector('code');
-              raw = codeNode?.textContent ?? '';
-            }
+      let raw = '';
+      const block = codeControl.closest<HTMLElement>('.code-block, .code-block-markdown, .code-block-json');
+      if (block) {
+        if (block.classList.contains('code-block-markdown')) {
+          raw = block.dataset.markdownRaw ? decodeURIComponent(block.dataset.markdownRaw) : '';
+        } else if (block.classList.contains('code-block-json')) {
+          raw = block.dataset.jsonRaw ? decodeURIComponent(block.dataset.jsonRaw) : '';
+        } else {
+          const codeElement = block.querySelector('code[data-raw]') as HTMLElement | null;
+          raw = codeElement?.dataset.raw ? decodeURIComponent(codeElement.dataset.raw) : '';
+          if (!raw) {
+            const codeNode = block.querySelector('code');
+            raw = codeNode?.textContent ?? '';
           }
         }
-
-        void copyTextToClipboard(raw).then((success) => {
-          if (success) {
-            markButtonCopied(codeControl);
-          }
-        });
       }
-      return;
+
+      void copyTextToClipboard(raw).then((success) => {
+        if (success) {
+          markButtonCopied(codeControl);
+        }
+      });
     }
-  });
+  }
+};
+
+export const setupContentInteractions = (...containers: Array<HTMLElement | null>) => {
+  for (let index = 0; index < containers.length; index += 1) {
+    const container = containers[index];
+    if (!container) {
+      continue;
+    }
+
+    container.dataset.historyRoot = 'true';
+    container.addEventListener('click', (event) => {
+      handleRichContentInteraction(event);
+    });
+  }
 };
