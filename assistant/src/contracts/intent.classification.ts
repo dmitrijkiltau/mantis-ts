@@ -16,6 +16,10 @@ Allowed intents (choose exactly one):
 Tool intents reference:
 {{TOOL_REFERENCE}}
 
+Guidelines:
+- Pick a tool intent only when the request matches that tool's capability.
+- Prefer answer.general when the user is asking general questions or no tool action is needed.
+
 Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).
 

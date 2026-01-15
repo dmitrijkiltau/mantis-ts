@@ -164,7 +164,13 @@ export class Pipeline {
         const toolResult = await tool.execute({});
         Logger.info('pipeline', `Tool ${toolName} executed successfully`);
         const formattedResult = typeof toolResult === 'string'
-          ? await this.formatResponse(toolResult, language, toneInstructions)
+          ? await this.formatResponse(
+              toolResult,
+              language,
+              toneInstructions,
+              userInput,
+              toolName,
+            )
           : toolResult;
         return {
           ok: true,
@@ -213,7 +219,7 @@ export class Pipeline {
       );
     }
 
-    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value)) {
+    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value, toolName)) {
       Logger.info(
         'pipeline',
         `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
@@ -237,7 +243,13 @@ export class Pipeline {
       );
       Logger.info('pipeline', `Tool ${toolName} executed successfully`);
       const formattedResult = typeof toolResult === 'string'
-        ? await this.formatResponse(toolResult, language, toneInstructions)
+        ? await this.formatResponse(
+            toolResult,
+            language,
+            toneInstructions,
+            userInput,
+            toolName,
+          )
         : toolResult;
       return {
         ok: true,
@@ -279,12 +291,21 @@ export class Pipeline {
     try {
       const tool = getToolDefinition(directMatch.tool);
       const toolResult = await tool.execute(directMatch.args);
+      const formattedResult = typeof toolResult === 'string'
+        ? await this.formatResponse(
+            toolResult,
+            DIRECT_LANGUAGE_FALLBACK,
+            DEFAULT_PERSONALITY.toneInstructions,
+            userInput,
+            directMatch.tool,
+          )
+        : toolResult;
       return {
         ok: true,
         kind: 'tool',
         tool: directMatch.tool,
         args: directMatch.args,
-        result: toolResult,
+        result: formattedResult,
         intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
         language: DIRECT_LANGUAGE_FALLBACK,
         attempts: 0,
@@ -312,6 +333,11 @@ export class Pipeline {
 
     if (trimmed.includes('\n')) {
       return null;
+    }
+
+    const datetime = this.parseDirectDatetimeCommand(trimmed);
+    if (datetime) {
+      return datetime;
     }
 
     const filesystem = this.parseDirectFilesystemCommand(trimmed);
@@ -375,6 +401,67 @@ export class Pipeline {
       },
       reason: 'direct_get_fetch',
     };
+  }
+
+  private parseDirectDatetimeCommand(input: string): DirectToolMatch | null {
+    const normalized = input.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    const timezoneMatch = /^time in ([A-Za-z0-9_\\/+-]+)$/i.exec(input);
+    if (timezoneMatch) {
+      return {
+        tool: 'datetime',
+        args: {
+          kind: 'time',
+          timezone: timezoneMatch[1],
+          format: null,
+        },
+        reason: 'direct_time_timezone',
+      };
+    }
+
+    const directTime = ['time', 'time?'].includes(normalized) || /^what time is it\??$/.test(normalized);
+    if (directTime) {
+      return {
+        tool: 'datetime',
+        args: {
+          kind: 'time',
+          timezone: null,
+          format: null,
+        },
+        reason: 'direct_time',
+      };
+    }
+
+    const directDate = ['date', 'date?'].includes(normalized) || /^what(?:'s| is) the date\b/.test(normalized);
+    if (directDate) {
+      return {
+        tool: 'datetime',
+        args: {
+          kind: 'date',
+          timezone: null,
+          format: null,
+        },
+        reason: 'direct_date',
+      };
+    }
+
+    const directWeekday = ['weekday', 'day', 'day?'].includes(normalized) || /^what day is it\??$/.test(normalized);
+    if (directWeekday) {
+      return {
+        tool: 'datetime',
+        args: {
+          kind: 'weekday',
+          timezone: null,
+          format: null,
+        },
+        reason: 'direct_weekday',
+      };
+    }
+
+    return null;
   }
 
   private stripWrappingQuotes(value: string): string {
@@ -462,7 +549,12 @@ export class Pipeline {
   private shouldSkipToolExecution(
     schema: Record<string, FieldType>,
     args: Record<string, unknown>,
+    toolName: ToolName,
   ): boolean {
+    if (toolName === 'datetime') {
+      return false;
+    }
+
     if (this.areAllArgumentsNull(args)) {
       return true;
     }
@@ -553,13 +645,17 @@ export class Pipeline {
   private async formatResponse(
     text: string,
     language: { language: string; name: string },
-    toneInstructions?: string,
+    toneInstructions: string | undefined,
+    requestContext: string,
+    toolName: ToolName,
   ): Promise<string> {
     try {
       const prompt = this.orchestrator.buildResponseFormattingPrompt(
         text,
         language,
         toneInstructions,
+        requestContext,
+        toolName,
       );
       const result = await this.runner.executeContract(
         'RESPONSE_FORMATTING',

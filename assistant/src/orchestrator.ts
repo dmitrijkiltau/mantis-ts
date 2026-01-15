@@ -165,11 +165,15 @@ export class Orchestrator {
     response: string,
     language: { language: string; name: string },
     toneInstructions?: string,
+    requestContext?: string,
+    toolName?: string,
   ): ContractPrompt {
     return this.buildPrompt('RESPONSE_FORMATTING', {
       RESPONSE: this.normalize(response),
       LANGUAGE: language.name,
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
+      REQUEST_CONTEXT: requestContext ? this.normalize(requestContext) : 'Not provided.',
+      TOOL_NAME: toolName ?? 'Not specified',
     });
   }
 
