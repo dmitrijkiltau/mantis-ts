@@ -22,6 +22,29 @@ Tone is fixed: the orchestrator injects the predefined MANTIS personality instru
 
 `assistant/src/runner.ts` glues the orchestrator to a model client (via the `LLMClient` interface) and replays the retry hints defined inside each contract. `Runner.executeContract` builds the `ModelInvocation`, waits for the client to return raw text, stores the result inside `AttemptRecord` entries, and re-renders the retry instructions before every new attempt using `getRetryInstruction`. That keeps the retry budget implicit, lets validators stay deterministic.
 
+## Tools
+
+`assistant/src/tools/registry.ts` exports the registry of available tools organized by category:
+
+- **Local**: `clipboard`, `filesystem`, `search`
+- **Web**: `fetch`, `http`
+- **System**: `datetime`
+
+Each tool definition includes a name, description, schema for arguments, and an execute function. The pipeline derives tool intents from this registry (e.g., `tool.fetch`, `tool.datetime`) and extracts arguments according to each tool's schema.
+
+## Contracts
+
+`assistant/src/contracts/registry.ts` aggregates all validators that enforce strict input/output behavior:
+
+- **Intent Classification**: Routes user input to appropriate tool or answer
+- **Language Detection**: Identifies user's language for preserved context
+- **Tool Argument Extraction**: Validates and extracts arguments for selected tool
+- **Text Transformation**: Optional text processing
+- **Scoring/Evaluation**: Evaluates and scores responses
+- **Strict Answer**: Generates answers without tool execution
+- **Response Formatting**: Optionally formats responses as concise sentences in user's language
+- **Error Channel**: Handles validation failures and routing errors
+
 ## Pipeline
 
 `assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning, with the predefined MANTIS tone applied to both strict answer and formatting prompts.

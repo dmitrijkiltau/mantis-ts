@@ -97,3 +97,22 @@ Retry 2 -> {"intent":"unknown","confidence":0.0}
 The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences in the user's detected language, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
 
 Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.
+
+## Tool Categories
+
+### Local Tools
+
+- **Clipboard**: Read from and write to the system clipboard
+- **Filesystem**: Read files and list directories with size and truncation limits
+- **Search**: Recursively search for files and directories by name pattern
+
+### Web Tools
+
+- **Fetch**: Execute HTTP requests with custom headers, query parameters, and body (JSON-encoded args)
+- **HTTP**: Execute HTTP requests with headers and query parameters (object-based args)
+
+### System Tools
+
+- **DateTime**: Retrieve current date/time in specified timezone with flexible formatting (ISO, local, weekday)
+
+All tool schemas are derived from their `ToolDefinition` types and validated before execution. Empty schemas skip argument extraction and execute the tool with `{}`.
