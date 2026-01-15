@@ -33,6 +33,22 @@ type BubbleSearchPayload = {
   truncated?: boolean;
 };
 
+type ProcessInfo = {
+  pid: number;
+  name: string;
+  cpu: number | null;
+  memoryBytes: number | null;
+  runtimeSeconds: number | null;
+  command: string | null;
+};
+
+type ProcessListResult = {
+  action: 'list';
+  total: number;
+  truncated: boolean;
+  processes: ProcessInfo[];
+};
+
 type FileTreeRow = {
   name: string;
   kind: 'file' | 'folder' | 'other';
@@ -431,6 +447,68 @@ const renderSearchPayload = (payload: BubbleSearchPayload): string => {
   });
 };
 
+const formatRuntime = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+};
+
+const renderProcessListPayload = (payload: ProcessListResult): string => {
+  const header = `
+    <div class="process-list-header">
+      <span class="process-list-title">RUNNING PROCESSES</span>
+      <span class="process-list-meta">${payload.processes.length} of ${payload.total} PROCESSES</span>
+      ${payload.truncated ? '<span class="process-list-warning">TRUNCATED</span>' : ''}
+    </div>
+  `;
+
+  const rows = payload.processes.map((proc) => {
+    const cpuBar = proc.cpu !== null ? Math.min(100, Math.max(0, proc.cpu)) : 0;
+    const cpuText = proc.cpu !== null ? `${proc.cpu.toFixed(1)}%` : 'N/A';
+    const memText = proc.memoryBytes !== null ? formatBytes(proc.memoryBytes) : 'N/A';
+    const runtimeText = proc.runtimeSeconds !== null ? formatRuntime(proc.runtimeSeconds) : 'N/A';
+    const commandText = proc.command ? `<span class="process-command">${escapeHtml(proc.command)}</span>` : '';
+
+    return `
+      <div class="process-row">
+        <div class="process-main">
+          <span class="process-pid">${proc.pid}</span>
+          <span class="process-name">${escapeHtml(proc.name)}</span>
+        </div>
+        <div class="process-stats">
+          <div class="process-stat">
+            <span class="process-stat-label">CPU</span>
+            <div class="process-cpu-bar">
+              <div class="process-cpu-fill" style="width: ${cpuBar}%"></div>
+              <span class="process-cpu-text">${cpuText}</span>
+            </div>
+          </div>
+          <div class="process-stat">
+            <span class="process-stat-label">MEM</span>
+            <span class="process-stat-value">${memText}</span>
+          </div>
+          <div class="process-stat">
+            <span class="process-stat-label">TIME</span>
+            <span class="process-stat-value">${runtimeText}</span>
+          </div>
+        </div>
+        ${commandText}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="process-list">
+      ${header}
+      <div class="process-list-body">
+        ${rows}
+      </div>
+    </div>
+  `;
+};
+
 const encodeJsonForAttribute = (value: string): string => encodeURIComponent(value);
 
 const renderJsonLiteral = (value: unknown): string => {
@@ -592,6 +670,18 @@ const isSearchPayload = (value: unknown): value is BubbleSearchPayload => {
     && Array.isArray(record.matches);
 };
 
+const isProcessListPayload = (value: unknown): value is ProcessListResult => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return record.action === 'list'
+    && typeof record.total === 'number'
+    && typeof record.truncated === 'boolean'
+    && Array.isArray(record.processes);
+};
+
 const parseBubbleJson = (text: string): unknown | null => {
   const trimmed = text.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
@@ -638,7 +728,12 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
   return null;
 };
 
-const formatBytes = (value: number): string => `${Math.max(0, Math.floor(value))} B`;
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
   const finalUrl = payload.finalUrl || payload.url;
@@ -752,6 +847,9 @@ export const renderBubbleContent = (text: string): string => {
     }
     if (isSearchPayload(payload)) {
       return renderSearchPayload(payload);
+    }
+    if (isProcessListPayload(payload)) {
+      return renderProcessListPayload(payload);
     }
     if (isHttpResponsePayload(payload)) {
       return renderHttpResponsePayload(payload);

@@ -133,4 +133,107 @@
   .schema-type {
     @apply text-[11px] text-primary-70;
   }
+
+  /* Process List Visualization */
+  .process-list {
+    @apply flex flex-col gap-2 rounded border p-3;
+    background: var(--color-bg-terminal);
+    border-color: var(--color-primary-30);
+    box-shadow: var(--shadow-glow-primary-soft);
+  }
+
+  .process-list-header {
+    @apply flex items-center justify-between gap-2 pb-2 mb-2 border-b;
+    border-color: var(--color-primary-20);
+  }
+
+  .process-list-title {
+    @apply text-sm font-bold tracking-wider text-terminal-cyan;
+  }
+
+  .process-list-meta {
+    @apply text-xs text-primary-70;
+  }
+
+  .process-list-warning {
+    @apply px-2 py-1 rounded text-[10px] font-bold tracking-wider;
+    background: var(--color-warning-20);
+    color: var(--color-warning);
+    box-shadow: 0 0 4px var(--color-warning);
+  }
+
+  .process-list-body {
+    @apply flex flex-col gap-2;
+  }
+
+  .process-row {
+    @apply flex flex-col gap-2 p-3 rounded border;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-20);
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: var(--color-primary-40);
+      box-shadow: var(--shadow-glow-primary-soft);
+    }
+  }
+
+  .process-main {
+    @apply flex items-center gap-3;
+  }
+
+  .process-pid {
+    @apply px-2 py-1 rounded text-xs font-mono font-bold;
+    background: var(--color-primary-10);
+    color: var(--color-terminal-cyan);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .process-name {
+    @apply text-sm font-bold text-terminal-primary;
+  }
+
+  .process-stats {
+    @apply grid gap-2;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .process-stat {
+    @apply flex flex-col gap-1;
+  }
+
+  .process-stat-label {
+    @apply text-[10px] font-bold uppercase tracking-widest text-primary-70;
+  }
+
+  .process-stat-value {
+    @apply text-xs font-mono text-terminal-primary;
+  }
+
+  .process-cpu-bar {
+    @apply relative h-5 rounded border overflow-hidden;
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-20);
+  }
+
+  .process-cpu-fill {
+    @apply absolute inset-y-0 left-0;
+    background: linear-gradient(90deg, var(--color-terminal-primary), var(--color-terminal-cyan));
+    box-shadow: 0 0 8px var(--color-terminal-primary);
+    transition: width 0.3s;
+  }
+
+  .process-cpu-text {
+    @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold z-10;
+    color: var(--color-terminal-primary);
+    text-shadow: 0 0 4px var(--color-bg-black), 0 0 8px var(--color-bg-black);
+  }
+
+  .process-command {
+    @apply text-[11px] font-mono text-primary-70 mt-1 px-2 py-1 rounded;
+    background: var(--color-primary-5);
+    border: 1px solid var(--color-primary-10);
+    word-break: break-all;
+  }
 }
