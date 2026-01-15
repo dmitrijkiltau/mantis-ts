@@ -23,6 +23,12 @@ export class OllamaClient implements LLMClient {
       throw new Error('OllamaClient requires at least one message');
     }
 
+    // Add assistant message with "{" prefill to force JSON output (only for JSON contracts)
+    const prefillJson = invocation.expectsJson === true;
+    if (prefillJson) {
+      messages.push({ role: 'assistant', content: '{' });
+    }
+
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
@@ -49,6 +55,10 @@ export class OllamaClient implements LLMClient {
       throw new Error('Ollama returned no assistant response');
     }
 
+    // Prepend the prefill "{" since it's not included in the response (only for JSON contracts)
+    if (prefillJson) {
+      return `{${message}`;
+    }
     return message;
   }
 
@@ -166,10 +176,10 @@ export class OllamaClient implements LLMClient {
   }
 
   private buildMessages(invocation: ModelInvocation): {
-    role: 'system' | 'user';
+    role: 'system' | 'user' | 'assistant';
     content: string;
   }[] {
-    const messages: { role: 'system' | 'user'; content: string }[] = [];
+    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
 
     if (invocation.systemPrompt) {
       messages.push({ role: 'system', content: invocation.systemPrompt });

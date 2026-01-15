@@ -6,6 +6,7 @@ import { extractFirstJsonObject } from "./parsing.js";
  */
 export const CONTRACT_ERROR_CHANNEL = {
   MODEL: 'gemma3:1b',
+  EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You output a JSON error.
 Do not attempt a partial answer.
 Output JSON only.

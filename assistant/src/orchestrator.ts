@@ -27,6 +27,7 @@ export type ContractPrompt = {
   systemPrompt: string;
   userPrompt?: string;
   retries?: Record<number, string>;
+  expectsJson?: boolean;
 };
 
 export type ToolSchema = Record<string, FieldType>;
@@ -55,6 +56,7 @@ export class Orchestrator {
       systemPrompt,
       userPrompt,
       retries: contract.RETRIES,
+      expectsJson: contract.EXPECTS_JSON,
     };
   }
 

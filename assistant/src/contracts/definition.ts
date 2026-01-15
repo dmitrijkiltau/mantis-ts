@@ -19,6 +19,7 @@ export type ContractDefinition = {
   SYSTEM_PROMPT: string;
   USER_PROMPT?: string;
   RETRIES?: Record<number, string>;
+  EXPECTS_JSON?: boolean;
 };
 
 /**

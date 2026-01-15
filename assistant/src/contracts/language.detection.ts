@@ -5,7 +5,8 @@ import { extractFirstJsonObject } from './parsing.js';
  * Contract for language detection.
  */
 export const CONTRACT_LANGUAGE_DETECTION = {
-  MODEL: 'gemma3:1b',
+  MODEL: 'qwen2.5:0.5b',
+  EXPECTS_JSON: true,
   SYSTEM_PROMPT: `Detect the language of the user input and return its ISO 639-1 code and full name.
 Output JSON only.
 

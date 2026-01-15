@@ -5,7 +5,8 @@ import { extractFirstJsonObject } from './parsing.js';
  * Contract for intent classification.
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
-  MODEL: 'qwen2.5:1.5b',
+  MODEL: 'llama3.2:1b',
+  EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Output JSON only.
 
@@ -15,9 +16,8 @@ Allowed intents (choose exactly one):
 Tool intents reference:
 {{TOOL_REFERENCE}}
 
-Guidelines:
-- Pick a tool intent only when the request matches that tool's capability.
-- Prefer answer.general when the user is asking general questions or no tool action is needed.
+Confidence range:
+0.0 (no confidence) to 1.0 (full confidence).
 
 Output exactly (no formatting):
 {"intent":"<intent>","confidence":<number>}`,

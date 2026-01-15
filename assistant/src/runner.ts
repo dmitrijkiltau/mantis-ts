@@ -13,6 +13,7 @@ export type ModelInvocation = {
   model: string;
   systemPrompt: string;
   userPrompt?: string;
+  expectsJson?: boolean;
 };
 
 /**
@@ -88,6 +89,7 @@ export class Runner {
         model: attemptPrompt.model,
         systemPrompt: attemptPrompt.systemPrompt,
         userPrompt: attemptPrompt.userPrompt,
+        expectsJson: attemptPrompt.expectsJson,
       });
 
       Logger.debug('runner', `Received response from ${attemptPrompt.model}`, {

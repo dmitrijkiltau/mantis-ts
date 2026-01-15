@@ -6,7 +6,8 @@ import { extractFirstJsonObject } from "./parsing.js";
  * Contract for scoring / evaluation.
  */
 export const CONTRACT_SCORING_EVALUATION = {
-  MODEL: 'ministral-3:3b',
+  MODEL: 'llama3.2:3b',
+  EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You evaluate content based on given criteria.
 You return numeric scores only.
 No explanations.`,

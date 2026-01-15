@@ -6,7 +6,8 @@ import { extractFirstJsonObject, stripMarkdownFences } from './parsing.js';
  * Contract for tool argument extraction.
  */
 export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
-  MODEL: 'qwen2.5:1.5b',
+  MODEL: 'granite3-dense:2b',
+  EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
 You do not validate permissions.
 You do not guess missing values.
