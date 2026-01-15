@@ -1,6 +1,7 @@
 import { Pipeline } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
-import { getToolDefinition } from '../../assistant/src/tools/registry';
+import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
+import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
 import { renderBubbleContent } from './bubble-renderer';
 
@@ -16,149 +17,131 @@ const formatPayload = (value: unknown): string => {
   }
 };
 
-const parseNumberField = (value: string | null | undefined): number | null => {
-  if (!value) {
-    return null;
+type ToolEntry = {
+  name: ToolName;
+  definition: ToolDefinitionBase;
+};
+
+const buildToolEntries = (): ToolEntry[] => {
+  const entries = Object.entries(TOOLS) as Array<[ToolName, ToolDefinitionBase]>;
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const tools: ToolEntry[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const [name, definition] = entries[index];
+    tools.push({ name, definition });
   }
 
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
+  return tools;
+};
+
+const createSchemaPill = (fieldName: string, fieldType: string): HTMLSpanElement => {
+  const pill = document.createElement('span');
+  pill.className = 'schema-pill';
+
+  const nameNode = document.createElement('span');
+  nameNode.className = 'schema-name';
+  nameNode.textContent = fieldName;
+
+  const typeNode = document.createElement('span');
+  typeNode.className = 'schema-type';
+  typeNode.textContent = fieldType;
+
+  pill.appendChild(nameNode);
+  pill.appendChild(typeNode);
+
+  return pill;
+};
+
+const renderSchemaSection = (schema: ToolSchema): HTMLElement => {
+  const section = document.createElement('div');
+  section.className = 'tool-schema';
+
+  const label = document.createElement('div');
+  label.className = 'tool-schema-label';
+  label.textContent = 'Arguments';
+  section.appendChild(label);
+
+  const list = document.createElement('div');
+  list.className = 'tool-schema-list';
+
+  const fields = Object.entries(schema);
+  if (fields.length === 0) {
+    const noArgs = document.createElement('div');
+    noArgs.className = 'tool-subtext';
+    noArgs.textContent = 'No parameters required.';
+    list.appendChild(noArgs);
+  } else {
+    for (let index = 0; index < fields.length; index += 1) {
+      const [fieldName, fieldType] = fields[index];
+      list.appendChild(createSchemaPill(fieldName, fieldType));
+    }
   }
 
-  return parsed;
+  section.appendChild(list);
+  return section;
 };
 
-export const createToolResultRenderer = (toolResults: HTMLElement | null) => {
-  return (title: string, payload: unknown, meta?: Record<string, unknown>) => {
-    if (!toolResults) {
-      return;
-    }
+const renderToolCard = (tool: ToolEntry): HTMLDivElement => {
+  const card = document.createElement('div');
+  card.className = 'tool-card';
 
-    const placeholder = toolResults.querySelector('.tool-placeholder');
-    if (placeholder) {
-      placeholder.remove();
-    }
+  const header = document.createElement('div');
+  header.className = 'tool-card-header';
 
-    const card = document.createElement('div');
-    card.className = 'tool-result-card';
+  const label = document.createElement('div');
+  label.className = 'tool-label';
+  label.textContent = tool.name === tool.definition.name ? `[${tool.name}]` : `[${tool.name}] ${tool.definition.name}`;
+  header.appendChild(label);
 
-    const heading = document.createElement('div');
-    heading.className = 'tool-result-title';
-    heading.textContent = title;
-    card.appendChild(heading);
+  const description = document.createElement('div');
+  description.className = 'tool-subtext';
+  description.textContent = tool.definition.description;
+  header.appendChild(description);
 
-    if (meta && Object.keys(meta).length > 0) {
-      const metaBlock = document.createElement('div');
-      metaBlock.className = 'tool-result-meta';
-      metaBlock.textContent = formatPayload(meta);
-      card.appendChild(metaBlock);
-    }
+  card.appendChild(header);
+  card.appendChild(renderSchemaSection(tool.definition.schema));
 
-    const body = document.createElement('pre');
-    body.textContent = formatPayload(payload);
-    card.appendChild(body);
-
-    toolResults.prepend(card);
-  };
+  return card;
 };
 
-export const createSearchToolHandler = (uiState: UIState, renderToolResult: ReturnType<typeof createToolResultRenderer>) => {
-  return async (event: Event) => {
-    event.preventDefault();
+/**
+ * Renders the registered tools inside the Tools tab.
+ */
+export const renderToolCatalog = (
+  listContainer: HTMLElement | null,
+  countBadge: HTMLElement | null,
+  uiState: UIState,
+): void => {
+  if (!listContainer) {
+    return;
+  }
 
-    const queryInput = document.getElementById('search-query') as HTMLInputElement | null;
-    const baseInput = document.getElementById('search-base') as HTMLInputElement | null;
-    const startInput = document.getElementById('search-start') as HTMLInputElement | null;
-    const maxResultsInput = document.getElementById('search-max-results') as HTMLInputElement | null;
-    const maxDepthInput = document.getElementById('search-max-depth') as HTMLInputElement | null;
-    const filesInput = document.getElementById('search-files') as HTMLInputElement | null;
-    const dirsInput = document.getElementById('search-dirs') as HTMLInputElement | null;
+  const tools = buildToolEntries();
+  listContainer.innerHTML = '';
 
-    const query = queryInput?.value.trim() ?? '';
-    const baseDir = baseInput?.value.trim() ?? '';
-    if (!query || !baseDir) {
-      return;
+  if (tools.length === 0) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'tool-placeholder';
+    placeholder.textContent = 'No tools registered.';
+    listContainer.appendChild(placeholder);
+    if (countBadge) {
+      countBadge.textContent = '0 tools';
     }
+    return;
+  }
 
-    const args = {
-      query,
-      baseDir,
-      startPath: startInput?.value.trim() || null,
-      maxResults: parseNumberField(maxResultsInput?.value),
-      maxDepth: parseNumberField(maxDepthInput?.value),
-      includeFiles: filesInput ? filesInput.checked : true,
-      includeDirectories: dirsInput ? dirsInput.checked : true,
-    };
+  for (let index = 0; index < tools.length; index += 1) {
+    const card = renderToolCard(tools[index]);
+    listContainer.appendChild(card);
+  }
 
-    try {
-      uiState.setMood('thinking');
-      uiState.setStatus('OPERATIONAL', 'PROCESSING', 'TOOL_SEARCH');
-      uiState.addLog('Executing filesystem search tool...');
+  if (countBadge) {
+    const suffix = tools.length === 1 ? '' : 's';
+    countBadge.textContent = `${tools.length} tool${suffix}`;
+  }
 
-      const tool = getToolDefinition('search');
-      const result = await tool.execute(args as Record<string, unknown>);
-
-      uiState.setMood('speaking');
-      uiState.setStatus('OPERATIONAL', 'COMPLETE', 'TOOL_SEARCH');
-      uiState.addLog(`Search completed (${(result as { matches?: unknown[] }).matches?.length ?? 0} matches)`);
-
-      renderToolResult('Filesystem Search', result, { args });
-    } catch (error) {
-      uiState.setMood('concerned');
-      uiState.setStatus('ERROR', 'FAILED', 'TOOL_SEARCH');
-      uiState.addLog(`Search error: ${String(error)}`);
-      renderToolResult('Filesystem Search Error', String(error));
-    } finally {
-      window.setTimeout(() => uiState.setMood('idle'), 500);
-    }
-  };
-};
-
-export const createOpenToolHandler = (uiState: UIState, renderToolResult: ReturnType<typeof createToolResultRenderer>) => {
-  return async (event: Event) => {
-    event.preventDefault();
-
-    const actionSelect = document.getElementById('open-action') as HTMLSelectElement | null;
-    const pathInput = document.getElementById('open-path') as HTMLInputElement | null;
-    const limitInput = document.getElementById('open-limit') as HTMLInputElement | null;
-    const maxBytesInput = document.getElementById('open-max-bytes') as HTMLInputElement | null;
-
-    const action = actionSelect?.value ?? '';
-    const path = pathInput?.value.trim() ?? '';
-    if (!action || !path) {
-      return;
-    }
-
-    const args = {
-      action,
-      path,
-      limit: parseNumberField(limitInput?.value),
-      maxBytes: parseNumberField(maxBytesInput?.value),
-    };
-
-    try {
-      uiState.setMood('thinking');
-      uiState.setStatus('OPERATIONAL', 'PROCESSING', 'TOOL_FILESYSTEM');
-      uiState.addLog(`Executing filesystem tool (${action})...`);
-
-      const tool = getToolDefinition('filesystem');
-      const result = await tool.execute(args as Record<string, unknown>);
-
-      uiState.setMood('speaking');
-      uiState.setStatus('OPERATIONAL', 'COMPLETE', 'TOOL_FILESYSTEM');
-      uiState.addLog(`Filesystem ${action} completed`);
-
-      renderToolResult('Filesystem Open', result, { args });
-    } catch (error) {
-      uiState.setMood('concerned');
-      uiState.setStatus('ERROR', 'FAILED', 'TOOL_FILESYSTEM');
-      uiState.addLog(`Filesystem error: ${String(error)}`);
-      renderToolResult('Filesystem Open Error', String(error));
-    } finally {
-      window.setTimeout(() => uiState.setMood('idle'), 500);
-    }
-  };
+  uiState.addLog(`Tool catalog loaded (${tools.length})`);
 };
 
 export const createQuestionHandler = (

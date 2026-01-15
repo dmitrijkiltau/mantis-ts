@@ -3,6 +3,10 @@
     @apply flex flex-col gap-4;
   }
 
+  .tool-panel-header {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+  }
+
   .tool-grid {
     @apply grid gap-4;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -17,6 +21,14 @@
 
   .tool-card-header {
     @apply flex flex-col gap-1;
+  }
+
+  .tool-count-badge {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold tracking-widest;
+    background: var(--color-primary-10);
+    border-color: var(--color-primary-30);
+    color: var(--color-terminal-primary);
+    box-shadow: var(--shadow-glow-primary-soft);
   }
 
   .tool-label {
@@ -93,5 +105,32 @@
     background: var(--color-bg-black);
     border-color: var(--color-primary-20);
     color: var(--color-terminal-primary);
+  }
+
+  .tool-schema {
+    @apply flex flex-col gap-2;
+  }
+
+  .tool-schema-label {
+    @apply text-[11px] font-bold uppercase tracking-[0.25em] text-primary-70;
+  }
+
+  .tool-schema-list {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .schema-pill {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs leading-none font-semibold;
+    background: var(--color-primary-8);
+    border-color: var(--color-primary-30);
+    color: var(--color-terminal-primary);
+  }
+
+  .schema-name {
+    @apply text-[11px] uppercase tracking-[0.1em] text-terminal-cyan;
+  }
+
+  .schema-type {
+    @apply text-[11px] text-primary-70;
   }
 }
