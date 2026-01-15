@@ -83,36 +83,19 @@ export class Pipeline {
 
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
-    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
-    const [languageResult, intentResult] = await Promise.all([
-      this.runner.executeContract(
-        'LANGUAGE_DETECTION',
-        languagePrompt,
-        (raw) => this.orchestrator.validateLanguageDetection(raw),
-      ),
-      this.runner.executeContract(
-        'INTENT_CLASSIFICATION',
-        intentPrompt,
-        (raw) => this.orchestrator.validateIntentClassification(raw),
-      ),
-    ]);
-
-    const language = languageResult.ok
-      ? languageResult.value
-      : { language: 'unknown', name: 'Unknown' };
-
-    Logger.info('pipeline', 'Language detected:', language);
-
-    const tentativeIntent = intentResult.ok ? intentResult.value : undefined;
+    const intentResult = await this.runner.executeContract(
+      'INTENT_CLASSIFICATION',
+      intentPrompt,
+      (raw) => this.orchestrator.validateIntentClassification(raw),
+    );
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
       return this.runStrictAnswer(
         userInput,
-        tentativeIntent,
+        undefined,
         intentResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -128,7 +111,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -139,7 +121,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -151,7 +132,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -160,36 +140,57 @@ export class Pipeline {
     const schemaKeys = Object.keys(tool.schema);
     if (schemaKeys.length === 0) {
       Logger.info('pipeline', `Executing tool: ${toolName} (no arguments)`);
-      try {
-        const toolResult = await tool.execute({});
-        Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-        const formattedResult = typeof toolResult === 'string'
-          ? await this.formatResponse(
-              toolResult,
-              language,
-              toneInstructions,
-              userInput,
-              toolName,
-            )
-          : toolResult;
-        return {
-          ok: true,
-          kind: 'tool',
-          tool: toolName,
-          args: {},
-          result: formattedResult,
-          intent,
-          language,
-          attempts: intentResult.attempts,
-        };
-      } catch (error) {
-        Logger.error('pipeline', `Tool ${toolName} execution failed`, error);
+      // Fetch language in parallel with tool execution since we'll need it for formatting
+      const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+      const [languageResult, toolExecResult] = await Promise.all([
+        this.runner.executeContract(
+          'LANGUAGE_DETECTION',
+          languagePrompt,
+          (raw) => this.orchestrator.validateLanguageDetection(raw),
+        ),
+        (async () => {
+          try {
+            return { ok: true, result: await tool.execute({}) };
+          } catch (error) {
+            return { ok: false, error };
+          }
+        })(),
+      ]);
+
+      const language = languageResult.ok
+        ? languageResult.value
+        : { language: 'unknown', name: 'Unknown' };
+
+      if (!toolExecResult.ok) {
+        Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
         return this.runErrorChannel(
           'tool_execution',
           intentResult.attempts,
-          error,
+          toolExecResult.error,
         );
       }
+
+      const toolResult = toolExecResult.result;
+      Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+      const formattedResult = typeof toolResult === 'string'
+        ? await this.formatResponse(
+            toolResult,
+            language,
+            toneInstructions,
+            userInput,
+            toolName,
+          )
+        : toolResult;
+      return {
+        ok: true,
+        kind: 'tool',
+        tool: toolName,
+        args: {},
+        result: formattedResult,
+        intent,
+        language,
+        attempts: intentResult.attempts + (languageResult.ok ? 0 : languageResult.attempts),
+      };
     }
 
     Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
@@ -214,7 +215,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -228,7 +228,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
-        language,
         toneInstructions,
       );
     }
@@ -237,44 +236,64 @@ export class Pipeline {
       args: toolArgResult.value,
     });
 
-    try {
-      const toolResult = await tool.execute(
-        toolArgResult.value as Record<string, unknown>,
-      );
-      Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-      const formattedResult = typeof toolResult === 'string'
-        ? await this.formatResponse(
-            toolResult,
-            language,
-            toneInstructions,
-            userInput,
-            toolName,
-          )
-        : toolResult;
-      return {
-        ok: true,
-        kind: 'tool',
-        tool: toolName,
-        args: toolArgResult.value,
-        result: formattedResult,
-        intent,
-        language,
-        attempts: intentResult.attempts + toolArgResult.attempts,
-      };
-    } catch (error) {
+    // Fetch language in parallel with tool execution since we'll need it for formatting
+    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+    const [languageResult, toolExecResult] = await Promise.all([
+      this.runner.executeContract(
+        'LANGUAGE_DETECTION',
+        languagePrompt,
+        (raw) => this.orchestrator.validateLanguageDetection(raw),
+      ),
+      (async () => {
+        try {
+          return { ok: true, result: await tool.execute(
+            toolArgResult.value as Record<string, unknown>,
+          ) };
+        } catch (error) {
+          return { ok: false, error };
+        }
+      })(),
+    ]);
+
+    const language = languageResult.ok
+      ? languageResult.value
+      : { language: 'unknown', name: 'Unknown' };
+
+    if (!toolExecResult.ok) {
       Logger.error(
         'pipeline',
         `Tool ${toolName} execution failed, falling back to strict answer`,
-        error,
+        toolExecResult.error,
       );
       return this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
-        language,
         toneInstructions,
       );
     }
+
+    const toolResult = toolExecResult.result;
+    Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+    const formattedResult = typeof toolResult === 'string'
+      ? await this.formatResponse(
+          toolResult,
+          language,
+          toneInstructions,
+          userInput,
+          toolName,
+        )
+      : toolResult;
+    return {
+      ok: true,
+      kind: 'tool',
+      tool: toolName,
+      args: toolArgResult.value,
+      result: formattedResult,
+      intent,
+      language,
+      attempts: intentResult.attempts + toolArgResult.attempts + (languageResult.ok ? 0 : languageResult.attempts),
+    };
   }
 
   private async tryRunDirectTool(userInput: string): Promise<PipelineResult | null> {
@@ -642,7 +661,6 @@ export class Pipeline {
     userInput: string,
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
-    language: { language: string; name: string },
     toneInstructions?: string,
   ): Promise<PipelineResult> {
     Logger.info('pipeline', 'Running strict answer contract');
@@ -672,7 +690,7 @@ export class Pipeline {
       kind: 'strict_answer',
       value: result.value,
       intent,
-      language,
+      language: DIRECT_LANGUAGE_FALLBACK,
       attempts: attempts + result.attempts,
     };
   }
