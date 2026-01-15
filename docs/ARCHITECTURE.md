@@ -114,5 +114,6 @@ Formatting failures are graceful: the original response is returned unchanged an
 ### System Tools
 
 - **DateTime**: Retrieve current date/time in specified timezone with flexible formatting (ISO, local, weekday)
+- **Process**: Read-only process inspection with optional name filter and result limit
 
 All tool schemas are derived from their `ToolDefinition` types and validated before execution. Empty schemas skip argument extraction and execute the tool with `{}`.

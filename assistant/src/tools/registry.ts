@@ -5,6 +5,7 @@ import { SEARCH_TOOL } from './local/search.js';
 import { FETCH_TOOL } from './web/fetch.js';
 import { HTTP_TOOL } from './web/http.js';
 import { DATETIME_TOOL } from './system/datetime.js';
+import { PROCESS_TOOL } from './system/process.js';
 
 /**
  * Registry of available tools keyed by name.
@@ -16,6 +17,7 @@ export const TOOLS = {
   fetch: FETCH_TOOL,
   http: HTTP_TOOL,
   datetime: DATETIME_TOOL,
+  process: PROCESS_TOOL,
 };
 
 export type ToolName = keyof typeof TOOLS;

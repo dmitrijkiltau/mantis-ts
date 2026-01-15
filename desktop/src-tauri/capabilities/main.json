@@ -21,6 +21,21 @@
       ]
     },
     "dialog:default",
-    "shell:default"
+    "shell:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "powershell",
+          "cmd": "powershell",
+          "args": true
+        },
+        {
+          "name": "ps",
+          "cmd": "ps",
+          "args": true
+        }
+      ]
+    }
   ]
 }

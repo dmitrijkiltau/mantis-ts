@@ -345,9 +345,52 @@ export class Pipeline {
       return filesystem;
     }
 
+    const process = this.parseDirectProcessCommand(trimmed);
+    if (process) {
+      return process;
+    }
+
     const fetch = this.parseDirectFetchCommand(trimmed);
     if (fetch) {
       return fetch;
+    }
+
+    return null;
+  }
+
+  private parseDirectProcessCommand(input: string): DirectToolMatch | null {
+    const normalized = input.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    const psWithFilter = /^(?:ps|processes)\s+(.+)$/.exec(normalized);
+    if (psWithFilter) {
+      return {
+        tool: 'process',
+        args: {
+          action: 'list',
+          query: psWithFilter[1],
+          limit: null,
+        },
+        reason: 'direct_process_with_filter',
+      };
+    }
+
+    if (
+      normalized === 'ps' ||
+      normalized === 'processes' ||
+      normalized === 'list processes'
+    ) {
+      return {
+        tool: 'process',
+        args: {
+          action: 'list',
+          query: null,
+          limit: null,
+        },
+        reason: 'direct_process',
+      };
     }
 
     return null;
