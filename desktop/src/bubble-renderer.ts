@@ -465,11 +465,24 @@ const renderProcessListPayload = (payload: ProcessListResult): string => {
   `;
 
   const rows = payload.processes.map((proc) => {
-    const cpuBar = proc.cpu !== null ? Math.min(100, Math.max(0, proc.cpu)) : 0;
-    const cpuText = proc.cpu !== null ? `${proc.cpu.toFixed(1)}%` : 'N/A';
+    // Normalize CPU: if > 100, it's cumulative seconds, convert to display percentage
+    // Use log scale for better visualization of high CPU time values
+    let cpuBar = 0;
+    let cpuText = 'N/A';
+    if (proc.cpu !== null) {
+      if (proc.cpu <= 100) {
+        cpuBar = Math.max(0, proc.cpu);
+        cpuText = `${proc.cpu.toFixed(1)}%`;
+      } else {
+        // Cumulative CPU seconds - use log scale for visualization (max at ~10000s = 100%)
+        cpuBar = Math.min(100, (Math.log10(proc.cpu + 1) / 4) * 100);
+        cpuText = `${proc.cpu.toFixed(1)}s`;
+      }
+    }
     const memText = proc.memoryBytes !== null ? formatBytes(proc.memoryBytes) : 'N/A';
     const runtimeText = proc.runtimeSeconds !== null ? formatRuntime(proc.runtimeSeconds) : 'N/A';
     const commandText = proc.command ? `<span class="process-command">${escapeHtml(proc.command)}</span>` : '';
+    const cpuTextClass = cpuBar > 50 ? 'process-cpu-text-filled' : 'process-cpu-text-empty';
 
     return `
       <div class="process-row">
@@ -482,7 +495,7 @@ const renderProcessListPayload = (payload: ProcessListResult): string => {
             <span class="process-stat-label">CPU</span>
             <div class="process-cpu-bar">
               <div class="process-cpu-fill" style="width: ${cpuBar}%"></div>
-              <span class="process-cpu-text">${cpuText}</span>
+              <span class="process-cpu-text ${cpuTextClass}">${cpuText}</span>
             </div>
           </div>
           <div class="process-stat">

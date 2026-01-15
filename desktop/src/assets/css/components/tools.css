@@ -219,15 +219,24 @@
 
   .process-cpu-fill {
     @apply absolute inset-y-0 left-0;
-    background: linear-gradient(90deg, var(--color-terminal-primary), var(--color-terminal-cyan));
-    box-shadow: 0 0 8px var(--color-terminal-primary);
+    background: var(--color-terminal-primary);
+    box-shadow: 0 0 6px var(--color-terminal-primary);
     transition: width 0.3s;
   }
 
   .process-cpu-text {
     @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold z-10;
+    transition: color 0.3s;
+  }
+
+  .process-cpu-text-empty {
     color: var(--color-terminal-primary);
-    text-shadow: 0 0 4px var(--color-bg-black), 0 0 8px var(--color-bg-black);
+    text-shadow: 0 0 2px var(--color-bg-black);
+  }
+
+  .process-cpu-text-filled {
+    color: var(--color-bg-black);
+    text-shadow: 0 0 2px var(--color-terminal-primary);
   }
 
   .process-command {
