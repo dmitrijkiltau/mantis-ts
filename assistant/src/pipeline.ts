@@ -227,7 +227,7 @@ export class Pipeline {
       return result;
     }
 
-    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value, toolName)) {
+    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value)) {
       Logger.info(
         'pipeline',
         `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
@@ -329,11 +329,6 @@ export class Pipeline {
 
     if (trimmed.includes('\n')) {
       return null;
-    }
-
-    const datetime = this.parseDirectDatetimeCommand(trimmed);
-    if (datetime) {
-      return datetime;
     }
 
     const filesystem = this.parseDirectFilesystemCommand(trimmed);
@@ -442,67 +437,6 @@ export class Pipeline {
     };
   }
 
-  private parseDirectDatetimeCommand(input: string): DirectToolMatch | null {
-    const normalized = input.trim().toLowerCase();
-    if (!normalized) {
-      return null;
-    }
-
-    const timezoneMatch = /^time in ([A-Za-z0-9_\\/+-]+)$/i.exec(input);
-    if (timezoneMatch) {
-      return {
-        tool: 'datetime',
-        args: {
-          kind: 'time',
-          timezone: timezoneMatch[1],
-          format: null,
-        },
-        reason: 'direct_time_timezone',
-      };
-    }
-
-    const directTime = ['time', 'time?'].includes(normalized) || /^what time is it\??$/.test(normalized);
-    if (directTime) {
-      return {
-        tool: 'datetime',
-        args: {
-          kind: 'time',
-          timezone: null,
-          format: null,
-        },
-        reason: 'direct_time',
-      };
-    }
-
-    const directDate = ['date', 'date?'].includes(normalized) || /^what(?:'s| is) the date\b/.test(normalized);
-    if (directDate) {
-      return {
-        tool: 'datetime',
-        args: {
-          kind: 'date',
-          timezone: null,
-          format: null,
-        },
-        reason: 'direct_date',
-      };
-    }
-
-    const directWeekday = ['weekday', 'day', 'day?'].includes(normalized) || /^what day is it\??$/.test(normalized);
-    if (directWeekday) {
-      return {
-        tool: 'datetime',
-        args: {
-          kind: 'weekday',
-          timezone: null,
-          format: null,
-        },
-        reason: 'direct_weekday',
-      };
-    }
-
-    return null;
-  }
-
   private stripWrappingQuotes(value: string): string {
     const trimmed = value.trim();
     if (trimmed.length < 2) {
@@ -584,12 +518,7 @@ export class Pipeline {
   private shouldSkipToolExecution(
     schema: Record<string, FieldType>,
     args: Record<string, unknown>,
-    toolName: ToolName,
   ): boolean {
-    if (toolName === 'datetime') {
-      return false;
-    }
-
     let requiredFields = 0;
     let nullRequired = 0;
     const entries = Object.entries(schema);

@@ -100,6 +100,35 @@ export class Orchestrator {
     return `${normalized}\n`;
   }
 
+  /**
+   * Builds a local timestamp string with weekday name.
+   */
+  private formatLocalTimestamp(): string {
+    const now = new Date();
+    const weekdayNames = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    const weekday = weekdayNames[now.getDay()] ?? 'Unknown';
+    const pad2 = (value: number): string => String(value).padStart(2, '0');
+    const year = now.getFullYear();
+    const month = pad2(now.getMonth() + 1);
+    const day = pad2(now.getDate());
+    const hours = pad2(now.getHours());
+    const minutes = pad2(now.getMinutes());
+    const seconds = pad2(now.getSeconds());
+
+    return `If asked:
+- Current date: ${year}-${month}-${day}
+- Current time: ${hours}:${minutes}:${seconds}
+- Current weekday: ${weekday}`;
+  }
+
   private formatToolSchema(schema: ToolSchema): string {
     // Create a cache key from schema keys for lightweight lookup
     const schemaKeyStr = Object.keys(schema).sort().join('|');
@@ -127,10 +156,10 @@ export class Orchestrator {
     }
 
     lines.push(
-      `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool action is required.`,
+      `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool intent action can be used.`,
     );
     lines.push(
-      `- ${CONVERSATION_INTENT}: Short conversational or social responses without tool usage.`,
+      `- ${CONVERSATION_INTENT}: Short conversational or social responses without if no tool usage is needed.`,
     );
 
     const formatted = lines.join('\n');
@@ -194,6 +223,7 @@ export class Orchestrator {
       QUESTION: this.normalize(question),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
+      LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
     });
   }
 
@@ -211,6 +241,7 @@ export class Orchestrator {
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
+      LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
     });
   }
 

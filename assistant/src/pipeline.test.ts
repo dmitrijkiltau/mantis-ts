@@ -50,97 +50,6 @@ describe('Pipeline', () => {
       expect(result).toBeNull();
     });
 
-    it('should parse direct datetime: "time" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('time');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('time');
-      expect(result?.args.timezone).toBeNull();
-      expect(result?.reason).toBe('direct_time');
-    });
-
-    it('should parse direct datetime: "time?" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('time?');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('time');
-      expect(result?.reason).toBe('direct_time');
-    });
-
-    it('should parse direct datetime: "what time is it" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('what time is it');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('time');
-    });
-
-    it('should parse direct datetime: "what time is it?" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('what time is it?');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('time');
-    });
-
-    it('should parse direct datetime: "date" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('date');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('date');
-      expect(result?.reason).toBe('direct_date');
-    });
-
-    it('should parse direct datetime: "date?" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('date?');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('date');
-    });
-
-    it("should parse direct datetime: \"what's the date\" command", () => {
-      const result = (pipeline as any).parseDirectToolRequest("what's the date");
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('date');
-    });
-
-    it('should parse direct datetime: "what is the date" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('what is the date');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('date');
-    });
-
-    it('should parse direct datetime: "weekday" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('weekday');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('weekday');
-      expect(result?.reason).toBe('direct_weekday');
-    });
-
-    it('should parse direct datetime: "day" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('day');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('weekday');
-    });
-
-    it('should parse direct datetime: "what day is it" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('what day is it');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('weekday');
-    });
-
-    it('should parse direct datetime: "time in <timezone>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('time in America/New_York');
-      expect(result).not.toBeNull();
-      expect(result?.tool).toBe('datetime');
-      expect(result?.args.kind).toBe('time');
-      expect(result?.args.timezone).toBe('America/New_York');
-      expect(result?.reason).toBe('direct_time_timezone');
-    });
-
     it('should parse direct filesystem: "read <path>" command', () => {
       const result = (pipeline as any).parseDirectToolRequest('read /etc/hosts');
       expect(result).not.toBeNull();
@@ -367,38 +276,31 @@ describe('Pipeline', () => {
   });
 
   describe('shouldSkipToolExecution', () => {
-    it('should not skip datetime tool regardless of arguments', () => {
-      const schema = { kind: 'string', timezone: 'string|null', format: 'string|null' };
-      const args = { kind: null, timezone: null, format: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'datetime');
-      expect(result).toBe(false);
-    });
-
     it('should skip when all arguments are null', () => {
       const schema = { query: 'string', limit: 'number|null' };
       const args = { query: null, limit: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(true);
     });
 
     it('should skip when all required arguments are null', () => {
       const schema = { path: 'string', action: 'string' };
       const args = { path: null, action: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(true);
     });
 
     it('should not skip when at least one required argument is present', () => {
       const schema = { path: 'string', action: 'string' };
       const args = { path: '/etc/hosts', action: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(false);
     });
 
     it('should allow optional arguments (string|null) to be null', () => {
       const schema = { path: 'string', maxBytes: 'number|null' };
       const args = { path: '/etc/hosts', maxBytes: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(false);
     });
 
@@ -411,7 +313,7 @@ describe('Pipeline', () => {
       };
       const args = { arg1: 'value', arg2: null, arg3: null, arg4: null };
       // 2 required args, 1 null = 50% threshold, should NOT skip (needs > 50%)
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(false);
     });
 
@@ -425,21 +327,21 @@ describe('Pipeline', () => {
       };
       // 4 required args, 3 null = 75% null
       const args = { arg1: 'value', arg2: null, arg3: null, arg4: null, arg5: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(true);
     });
 
     it('should return false for empty schema', () => {
       const schema = {};
       const args = {};
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(false);
     });
 
     it('should treat undefined same as null', () => {
       const schema = { path: 'string', limit: 'number|null' };
       const args = { path: undefined, limit: undefined };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
       expect(result).toBe(true);
     });
   });
@@ -500,7 +402,7 @@ describe('Pipeline', () => {
     });
 
     it('should return true for tool intents with prefix', () => {
-      const result = (pipeline as any).isToolIntent('tool.datetime');
+      const result = (pipeline as any).isToolIntent('tool.search');
       expect(result).toBe(true);
     });
 
@@ -522,8 +424,8 @@ describe('Pipeline', () => {
     });
 
     it('should extract tool name from tool intent', () => {
-      const result = (pipeline as any).resolveToolName('tool.datetime');
-      expect(result).toBe('datetime');
+      const result = (pipeline as any).resolveToolName('tool.search');
+      expect(result).toBe('search');
     });
 
     it('should return null for unknown tool', () => {

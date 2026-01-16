@@ -4,7 +4,6 @@ import { FILESYSTEM_TOOL } from './local/filesystem.js';
 import { SEARCH_TOOL } from './local/search.js';
 import { FETCH_TOOL } from './web/fetch.js';
 import { HTTP_TOOL } from './web/http.js';
-import { DATETIME_TOOL } from './system/datetime.js';
 import { PROCESS_TOOL } from './system/process.js';
 import { SHELL_TOOL } from './system/shell.js';
 
@@ -17,7 +16,6 @@ export const TOOLS = {
   search: SEARCH_TOOL,
   fetch: FETCH_TOOL,
   http: HTTP_TOOL,
-  datetime: DATETIME_TOOL,
   process: PROCESS_TOOL,
   shell: SHELL_TOOL,
 };

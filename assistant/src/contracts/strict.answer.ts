@@ -6,8 +6,9 @@ import { type ContractValidator } from "../types";
 export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
+{{LOCAL_TIMESTAMP}}
 No preamble, no instructions, no bullet points, no formatting. Up to two sentences only, preferably one.
-If the request is really ambiguous or missing required details, clarify instead of guessing.
+Clarify only if necessary.
 Always respond in {{LANGUAGE}}.
 Output only your answer.`,
   USER_PROMPT: `Question:
