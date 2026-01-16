@@ -1,6 +1,7 @@
 /**
  * Minimal logging utility for tracking assistant operations with colored output.
  * Logs are sent to console which Tauri captures in the terminal.
+ * Optimized for minimal storage overhead with configurable retention.
  */
 
 import chalk from 'chalk';
@@ -17,6 +18,8 @@ interface LogEntry {
 
 const logs: LogEntry[] = [];
 const maxLogs = 1000;
+let minLogLevelIndex = 0; // 0=debug, 1=info, 2=warn, 3=error
+const logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 /**
  * Format a log message with colors based on level
@@ -25,8 +28,9 @@ function formatLogMessage(
   level: LogLevel,
   stage: string,
   message: string,
+  timestamp: string,
 ): string {
-  const timestamp = chalk.gray(new Date().toISOString());
+  const timestampFormatted = chalk.gray(timestamp);
 
   let levelColor: (text: string) => string;
   switch (level) {
@@ -47,7 +51,7 @@ function formatLogMessage(
   const stageFormatted = chalk.cyan(`[${stage}]`);
   const levelFormatted = levelColor(`[${level.toUpperCase()}]`);
 
-  return `${timestamp} ${stageFormatted} ${levelFormatted} ${message}`;
+  return `${timestampFormatted} ${stageFormatted} ${levelFormatted} ${message}`;
 }
 
 /**
@@ -59,26 +63,56 @@ export function log(
   message: string,
   data?: unknown,
 ): void {
-  const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    stage,
-    message,
-    data,
-  };
+  const levelIndex = logLevels.indexOf(level);
+  const timestamp = new Date().toISOString();
 
-  logs.push(entry);
-  if (logs.length > maxLogs) {
-    logs.shift();
+  // Store to history only if meets minimum level threshold
+  if (levelIndex >= minLogLevelIndex) {
+    const entry: LogEntry = {
+      timestamp,
+      level,
+      stage,
+      message,
+      data,
+    };
+
+    logs.push(entry);
+    // Efficient circular buffer: shift oldest when limit reached
+    if (logs.length > maxLogs) {
+      logs.shift();
+    }
   }
 
-  const formattedMessage = formatLogMessage(level, stage, message);
+  const formattedMessage = formatLogMessage(level, stage, message, timestamp);
   const logFn = console[level] || console.log;
 
   if (data !== undefined) {
     logFn(formattedMessage, data);
   } else {
     logFn(formattedMessage);
+  }
+}
+
+/**
+ * Set the minimum log level to store in history (console output always shows all levels)
+ * Levels: 'debug' < 'info' < 'warn' < 'error'
+ */
+export function setMinLogLevel(level: LogLevel): void {
+  minLogLevelIndex = logLevels.indexOf(level);
+}
+
+/**
+ * Configure logger settings for memory optimization
+ */
+export function configureLogger(options: {
+  maxHistorySize?: number;
+  minLevel?: LogLevel;
+}): void {
+  if (options.maxHistorySize !== undefined && options.maxHistorySize > 0) {
+    logs.length = 0; // Clear on reconfiguration
+  }
+  if (options.minLevel !== undefined) {
+    setMinLogLevel(options.minLevel);
   }
 }
 

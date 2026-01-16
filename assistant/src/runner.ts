@@ -31,18 +31,25 @@ export interface LLMClient {
 }
 
 /**
- * Execution options that tweak retry behavior.
+ * Controls how much history is retained about execution attempts
+ */
+export type HistoryRetention = 'none' | 'minimal' | 'full';
+
+/**
+ * Execution options that tweak retry behavior and history retention.
  */
 export type RunnerOptions = {
   maxAttempts?: number;
+  historyRetention?: HistoryRetention;
 };
 
 /**
  * Captures what happened during a single prompt attempt.
+ * raw is omitted for 'minimal' retention to save memory on large responses.
  */
 export type AttemptRecord<T, E> = {
   attempt: number;
-  raw: string;
+  raw?: string;
   validation: ValidationResult<T, E>;
 };
 
@@ -72,7 +79,28 @@ export class Runner {
   ) {}
 
   /**
-   * Executes a prompt + validator loop while respecting the orchestrator’s retry guidance.
+   * Filter history based on retention policy to reduce memory overhead
+   */
+  private filterHistory<T, E>(
+    history: AttemptRecord<T, E>[],
+    retention: HistoryRetention,
+  ): AttemptRecord<T, E>[] {
+    if (retention === 'none') {
+      return [];
+    }
+
+    if (retention === 'minimal') {
+      // Keep validation results but discard large raw responses
+      for (const record of history) {
+        delete record.raw;
+      }
+    }
+
+    return history;
+  }
+
+  /**
+   * Executes a prompt + validator loop while respecting the orchestrator's retry guidance.
    */
   public async executeContract<T, E>(
     contractName: ContractName,
@@ -116,7 +144,13 @@ export class Runner {
           attemptDurationMs: llmDurationMs,
           totalDurationMs,
         });
-        return { ok: true, value: validation.value, attempts: attempt + 1, history };
+        const retention: HistoryRetention = options?.historyRetention ?? 'minimal';
+        return {
+          ok: true,
+          value: validation.value,
+          attempts: attempt + 1,
+          history: this.filterHistory(history, retention),
+        };
       }
 
       Logger.warn('runner', `Validation failed on attempt ${attempt + 1}`, {
@@ -129,7 +163,8 @@ export class Runner {
     Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`, {
       totalDurationMs,
     });
-    return { ok: false, attempts: history.length, history };
+    const retention: HistoryRetention = options?.historyRetention ?? 'minimal';
+    return { ok: false, attempts: history.length, history: this.filterHistory(history, retention) };
   }
 
   private deriveAttemptsLimit(prompt: ContractPrompt, override?: number): number {
