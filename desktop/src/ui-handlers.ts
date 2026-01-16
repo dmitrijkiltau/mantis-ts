@@ -442,6 +442,52 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
   return fallbackCopy(text);
 };
 
+/**
+ * Applies the selected view to the root container and its view buttons.
+ */
+const applyViewSelection = (
+  root: HTMLElement,
+  group: HTMLElement | null,
+  viewTarget: string,
+): void => {
+  root.setAttribute('data-view', viewTarget);
+
+  const scope = group ?? root;
+  const buttons = scope.querySelectorAll<HTMLButtonElement>('[data-view-target]');
+  for (const button of buttons) {
+    const target = button.getAttribute('data-view-target');
+    const pressed = target === viewTarget;
+    button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  }
+};
+
+/**
+ * Handles clicks on view switcher buttons.
+ */
+const handleViewSwitch = (event: Event, target: HTMLElement): boolean => {
+  const button = target.closest<HTMLButtonElement>('[data-view-target]');
+  if (!button) {
+    return false;
+  }
+
+  const viewTarget = button.getAttribute('data-view-target');
+  if (!viewTarget) {
+    return false;
+  }
+
+  const root = button.closest<HTMLElement>('[data-view-root]');
+  if (!root) {
+    return false;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const group = button.closest<HTMLElement>('[data-view-group]');
+  applyViewSelection(root, group, viewTarget);
+  return true;
+};
+
 const markButtonCopied = (button: HTMLButtonElement): void => {
   const isBubbleButton = button.classList.contains('code-block-button');
   const copiedClass = isBubbleButton ? 'code-block-button--copied' : 'http-json-button--copied';
@@ -459,6 +505,10 @@ const handleRichContentInteraction = (event: Event): void => {
 
   const root = target.closest<HTMLElement>('[data-history-root], #bubble-answer, #history');
   if (!root) {
+    return;
+  }
+
+  if (handleViewSwitch(event, target)) {
     return;
   }
 
@@ -490,52 +540,6 @@ const handleRichContentInteraction = (event: Event): void => {
           markButtonCopied(jsonControl);
         }
       });
-    }
-    return;
-  }
-
-  // Handle markdown preview toggle
-  const markdownControl = target.closest<HTMLButtonElement>('[data-markdown-action]');
-  if (markdownControl) {
-    const block = markdownControl.closest<HTMLElement>('.code-block-markdown');
-    if (!block) {
-      return;
-    }
-
-    const action = markdownControl.getAttribute('data-markdown-action');
-    if (action === JSON_TOGGLE_ACTION) {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const current = block.getAttribute('data-markdown-view') === 'preview' ? 'preview' : 'raw';
-      const nextMode: 'preview' | 'raw' = current === 'preview' ? 'raw' : 'preview';
-      block.setAttribute('data-markdown-view', nextMode);
-      
-      const label = nextMode === 'preview' ? 'Show raw markdown' : 'Show markdown preview';
-      markdownControl.setAttribute('aria-label', label);
-    }
-    return;
-  }
-
-  // Handle JSON code block preview toggle
-  const jsonCodeControl = target.closest<HTMLButtonElement>('[data-json-action]');
-  if (jsonCodeControl) {
-    const block = jsonCodeControl.closest<HTMLElement>('.code-block-json');
-    if (!block) {
-      return;
-    }
-
-    const action = jsonCodeControl.getAttribute('data-json-action');
-    if (action === JSON_TOGGLE_ACTION) {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const current = block.getAttribute('data-json-view') === 'viewer' ? 'viewer' : 'pretty';
-      const nextMode: 'pretty' | 'viewer' = current === 'pretty' ? 'viewer' : 'pretty';
-      block.setAttribute('data-json-view', nextMode);
-      
-      const label = nextMode === 'viewer' ? 'Show pretty JSON' : 'Show structured JSON view';
-      jsonCodeControl.setAttribute('aria-label', label);
     }
     return;
   }

@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import type { HttpResponseResult } from '../../assistant/src/tools/web/http-core';
 import { renderIcon } from './icon';
+import type { IconName } from './icon';
 
 type BubbleFilePayload = {
   action: 'file';
@@ -54,6 +55,13 @@ type FileTreeRow = {
   kind: 'file' | 'folder' | 'other';
   depth: number;
   path?: string;
+};
+
+type ViewButtonConfig = {
+  target: string;
+  icon: IconName;
+  label: string;
+  pressed: boolean;
 };
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
@@ -126,6 +134,25 @@ const normalizeLanguage = (language: string | null | undefined): string | null =
   }
 
   return LANGUAGE_ALIASES[trimmed] ?? trimmed;
+};
+
+/**
+ * Renders a set of icon buttons that switch the active view for a container.
+ */
+const renderViewButtons = (buttons: ViewButtonConfig[], className: string): string => {
+  let html = '';
+
+  for (const button of buttons) {
+    const pressed = button.pressed ? 'true' : 'false';
+    const iconSvg = renderIcon(button.icon);
+    html += `
+      <button type="button" class="${className}" data-view-target="${button.target}" aria-pressed="${pressed}" aria-label="${escapeHtml(button.label)}">
+        ${iconSvg}
+      </button>
+    `;
+  }
+
+  return html;
 };
 
 const inferLanguageFromPath = (path: string): string | null => {
@@ -210,28 +237,43 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   const isMarkdown = normalizedLanguage === 'markdown';
   if (isMarkdown) {
     const preview = marked.parse(code, { renderer: bubbleRenderer }) as string;
-    const previewIcon = renderIcon('markdown-preview', 'icon-preview');
-    const rawIcon = renderIcon('code-raw', 'icon-raw');
     const copyIconSvg = renderIcon('copy');
+    const viewButtons = renderViewButtons(
+      [
+        {
+          target: 'preview',
+          icon: 'markdown-preview',
+          label: 'Markdown preview',
+          pressed: true,
+        },
+        {
+          target: 'raw',
+          icon: 'code-raw',
+          label: 'Raw markdown',
+          pressed: false,
+        },
+      ],
+      'code-block-button view-switcher-button',
+    );
+
     return `
-      <div class="code-block code-block-markdown" data-markdown-view="preview" data-markdown-raw="${rawAttr}">
+      <div class="code-block code-block-markdown" data-view-root="true" data-view="preview" data-markdown-raw="${rawAttr}">
         <div class="code-block-header">
           <span class="code-block-lang">${escapeHtml(label)}</span>
           <div class="code-block-controls">
-            <button type="button" class="code-block-button" data-markdown-action="toggle" aria-label="Toggle markdown view">
-              ${previewIcon}
-              ${rawIcon}
-            </button>
+            <div class="view-switcher" data-view-group="true" role="group" aria-label="Markdown view">
+              ${viewButtons}
+            </div>
             <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
               ${copyIconSvg}
             </button>
           </div>
         </div>
         <div class="code-block-body">
-          <div class="code-block-preview" data-markdown-mode="preview">
+          <div class="code-block-preview" data-view-panel="preview">
             <div class="markdown-preview-content">${preview}</div>
           </div>
-          <div class="code-block-raw" data-markdown-mode="raw">
+          <div class="code-block-raw" data-view-panel="raw">
             <pre><code class="${languageClass}">${highlighted}</code></pre>
           </div>
         </div>
@@ -254,28 +296,42 @@ const renderCodeBlock = (code: string, language: string | null): string => {
     if (viewer) {
       const pretty = JSON.stringify(parsed, null, 2);
       const prettyHighlighted = highlightCodeBlock(pretty, 'json');
-      const prettyIcon = renderIcon('json-pretty', 'icon-pretty');
-      const treeIcon = renderIcon('json-tree', 'icon-tree');
       const copyIconSvg = renderIcon('copy');
+      const viewButtons = renderViewButtons(
+        [
+          {
+            target: 'pretty',
+            icon: 'json-pretty',
+            label: 'Pretty JSON view',
+            pressed: false,
+          },
+          {
+            target: 'viewer',
+            icon: 'json-tree',
+            label: 'Structured JSON view',
+            pressed: true,
+          },
+        ],
+        'code-block-button view-switcher-button',
+      );
       return `
-        <div class="code-block code-block-json" data-json-view="viewer" data-json-raw="${rawAttr}">
+        <div class="code-block code-block-json" data-view-root="true" data-view="viewer" data-json-raw="${rawAttr}">
           <div class="code-block-header">
             <span class="code-block-lang">${escapeHtml(label)}</span>
             <div class="code-block-controls">
-              <button type="button" class="code-block-button" data-json-action="toggle" aria-label="Toggle JSON view">
-                ${prettyIcon}
-                ${treeIcon}
-              </button>
+              <div class="view-switcher" data-view-group="true" role="group" aria-label="JSON view">
+                ${viewButtons}
+              </div>
               <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
                 ${copyIconSvg}
               </button>
             </div>
           </div>
           <div class="code-block-body">
-            <div class="code-block-json-pretty" data-json-mode="pretty">
+            <div class="code-block-json-pretty" data-view-panel="pretty">
               <pre><code class="${languageClass}">${prettyHighlighted}</code></pre>
             </div>
-            <div class="code-block-json-viewer" data-json-mode="viewer">
+            <div class="code-block-json-viewer" data-view-panel="viewer">
               ${viewer}
             </div>
           </div>
@@ -873,19 +929,41 @@ const renderToolJsonAccordion = (raw: unknown): string => {
   const rawBlock = serialized
     ? renderHttpJsonPreview(serialized) || renderCodeBlock(serialized, 'json')
     : renderCodeBlock(String(raw), 'text');
+  const viewButtons = renderViewButtons(
+    [
+      {
+        target: 'preview',
+        icon: 'markdown-preview',
+        label: 'Preview output',
+        pressed: true,
+      },
+      {
+        target: 'raw',
+        icon: 'code-raw',
+        label: 'Raw JSON output',
+        pressed: false,
+      },
+    ],
+    'code-block-button view-switcher-button',
+  );
 
   return `
-    <details class="tool-output-accordion">
-      <summary>
-        <span class="tool-output-accordion-label">OUTPUT DATA</span>
-        <span class="tool-output-accordion-hint">Preview + raw JSON</span>
+    <details class="tool-output-accordion" data-view-root="true" data-view="preview">
+      <summary class="tool-output-accordion-summary">
+        <div class="tool-output-accordion-title">
+          <span class="tool-output-accordion-label">OUTPUT DATA</span>
+          <span class="tool-output-accordion-hint">Preview / raw JSON</span>
+        </div>
+        <div class="tool-output-accordion-controls view-switcher" data-view-group="true" role="group" aria-label="Output view">
+          ${viewButtons}
+        </div>
       </summary>
       <div class="tool-output-accordion-body">
-        <div class="tool-output-panel">
+        <div class="tool-output-panel" data-view-panel="preview">
           <div class="tool-output-panel-label">PREVIEW</div>
           ${preview}
         </div>
-        <div class="tool-output-panel">
+        <div class="tool-output-panel" data-view-panel="raw">
           <div class="tool-output-panel-label">RAW JSON</div>
           ${rawBlock}
         </div>
