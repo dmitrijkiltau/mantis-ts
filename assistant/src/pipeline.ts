@@ -564,10 +564,6 @@ export class Pipeline {
       return false;
     }
 
-    if (this.areAllArgumentsNull(args)) {
-      return true;
-    }
-
     let requiredFields = 0;
     let nullRequired = 0;
     const entries = Object.entries(schema);
@@ -587,6 +583,10 @@ export class Pipeline {
 
     if (requiredFields === 0) {
       return false;
+    }
+
+    if (this.areAllArgumentsNull(args)) {
+      return true;
     }
 
     const nullRatio = nullRequired / requiredFields;

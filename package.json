@@ -4,7 +4,8 @@
   "version": "0.0.1",
   "description": "Minimal Adaptive Neural Tool-Integrated System AI Assistant",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
   },
   "devDependencies": {
     "@tauri-apps/plugin-fs": "^2.4.5",
