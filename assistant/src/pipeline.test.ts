@@ -1,0 +1,561 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { Orchestrator } from './orchestrator.js';
+import type { Runner } from './runner.js';
+import { Pipeline } from './pipeline.js';
+
+/**
+ * Unit tests for Pipeline class, focusing on:
+ * - Direct tool parsing logic
+ * - Null-argument skip logic
+ * - Tool execution and formatting
+ */
+
+describe('Pipeline', () => {
+  let pipeline: Pipeline;
+  let mockOrchestrator: Orchestrator;
+  let mockRunner: Runner;
+
+  beforeEach(() => {
+    // Create minimal mocks for orchestrator and runner
+    mockOrchestrator = {
+      buildIntentClassificationPrompt: vi.fn(),
+      buildLanguageDetectionPrompt: vi.fn(),
+      buildToolArgumentPrompt: vi.fn(),
+      buildStrictAnswerPrompt: vi.fn(),
+      buildResponseFormattingPrompt: vi.fn(),
+      buildErrorChannelPrompt: vi.fn(),
+      validateIntentClassification: vi.fn(),
+      validateLanguageDetection: vi.fn(),
+      validateToolArguments: vi.fn(),
+      validateStrictAnswer: vi.fn(),
+      validateResponseFormatting: vi.fn(),
+      validateErrorChannel: vi.fn(),
+    } as any;
+
+    mockRunner = {
+      executeContract: vi.fn(),
+    } as any;
+
+    pipeline = new Pipeline(mockOrchestrator, mockRunner);
+  });
+
+  describe('parseDirectToolRequest', () => {
+    it('should return null for empty input', () => {
+      const result = (pipeline as any).parseDirectToolRequest('');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for multiline input', () => {
+      const result = (pipeline as any).parseDirectToolRequest('line1\nline2');
+      expect(result).toBeNull();
+    });
+
+    it('should parse direct datetime: "time" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('time');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('time');
+      expect(result?.args.timezone).toBeNull();
+      expect(result?.reason).toBe('direct_time');
+    });
+
+    it('should parse direct datetime: "time?" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('time?');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('time');
+      expect(result?.reason).toBe('direct_time');
+    });
+
+    it('should parse direct datetime: "what time is it" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('what time is it');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('time');
+    });
+
+    it('should parse direct datetime: "what time is it?" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('what time is it?');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('time');
+    });
+
+    it('should parse direct datetime: "date" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('date');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('date');
+      expect(result?.reason).toBe('direct_date');
+    });
+
+    it('should parse direct datetime: "date?" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('date?');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('date');
+    });
+
+    it("should parse direct datetime: \"what's the date\" command", () => {
+      const result = (pipeline as any).parseDirectToolRequest("what's the date");
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('date');
+    });
+
+    it('should parse direct datetime: "what is the date" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('what is the date');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('date');
+    });
+
+    it('should parse direct datetime: "weekday" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('weekday');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('weekday');
+      expect(result?.reason).toBe('direct_weekday');
+    });
+
+    it('should parse direct datetime: "day" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('day');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('weekday');
+    });
+
+    it('should parse direct datetime: "what day is it" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('what day is it');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('weekday');
+    });
+
+    it('should parse direct datetime: "time in <timezone>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('time in America/New_York');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('datetime');
+      expect(result?.args.kind).toBe('time');
+      expect(result?.args.timezone).toBe('America/New_York');
+      expect(result?.reason).toBe('direct_time_timezone');
+    });
+
+    it('should parse direct filesystem: "read <path>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('read /etc/hosts');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('filesystem');
+      expect(result?.args.action).toBe('read');
+      expect(result?.args.path).toBe('/etc/hosts');
+      expect(result?.reason).toBe('direct_read_filesystem');
+    });
+
+    it('should parse direct filesystem: "read <quoted path>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('read "/path/with spaces"');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('filesystem');
+      expect(result?.args.action).toBe('read');
+      expect(result?.args.path).toBe('/path/with spaces');
+    });
+
+    it('should parse direct filesystem: "list <path>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('list C:\\Users\\Documents');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('filesystem');
+      expect(result?.args.action).toBe('list');
+      expect(result?.args.path).toBe('C:\\Users\\Documents');
+      expect(result?.reason).toBe('direct_list_filesystem');
+    });
+
+    it('should return null for filesystem command with invalid path', () => {
+      const result = (pipeline as any).parseDirectToolRequest('read notapath');
+      expect(result).toBeNull();
+    });
+
+    it('should parse direct fetch: "get <url>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('get https://example.com');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('fetch');
+      expect(result?.args.method).toBe('GET');
+      expect(result?.args.url).toBe('https://example.com');
+      expect(result?.reason).toBe('direct_get_fetch');
+    });
+
+    it('should parse direct fetch: "fetch <url>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('fetch http://example.com');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('fetch');
+      expect(result?.args.method).toBe('GET');
+      expect(result?.args.url).toBe('http://example.com');
+    });
+
+    it('should parse direct fetch: "get <quoted url>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('get "https://example.com/path?param=value"');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('fetch');
+      expect(result?.args.url).toBe('https://example.com/path?param=value');
+    });
+
+    it('should return null for fetch command with invalid URL', () => {
+      const result = (pipeline as any).parseDirectToolRequest('get notaurl');
+      expect(result).toBeNull();
+    });
+
+    it('should parse direct process: "ps" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('ps');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+      expect(result?.args.action).toBe('list');
+      expect(result?.args.query).toBeNull();
+      expect(result?.reason).toBe('direct_process');
+    });
+
+    it('should parse direct process: "processes" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('processes');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+      expect(result?.args.action).toBe('list');
+      expect(result?.reason).toBe('direct_process');
+    });
+
+    it('should parse direct process: "list processes" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('list processes');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+      expect(result?.args.action).toBe('list');
+    });
+
+    it('should parse direct process: "ps <filter>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('ps node');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+      expect(result?.args.action).toBe('list');
+      expect(result?.args.query).toBe('node');
+      expect(result?.reason).toBe('direct_process_with_filter');
+    });
+
+    it('should parse direct process: "processes <filter>" command', () => {
+      const result = (pipeline as any).parseDirectToolRequest('processes chrome');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+      expect(result?.args.query).toBe('chrome');
+    });
+
+    it('should be case-insensitive for process commands', () => {
+      const result = (pipeline as any).parseDirectToolRequest('PS');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('process');
+    });
+
+    it('should be case-insensitive for filesystem commands', () => {
+      const result = (pipeline as any).parseDirectToolRequest('READ ./file.txt');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('filesystem');
+      expect(result?.args.action).toBe('read');
+    });
+  });
+
+  describe('stripWrappingQuotes', () => {
+    it('should strip double quotes', () => {
+      const result = (pipeline as any).stripWrappingQuotes('"hello world"');
+      expect(result).toBe('hello world');
+    });
+
+    it('should strip single quotes', () => {
+      const result = (pipeline as any).stripWrappingQuotes("'hello world'");
+      expect(result).toBe('hello world');
+    });
+
+    it('should strip backticks', () => {
+      const result = (pipeline as any).stripWrappingQuotes('`hello world`');
+      expect(result).toBe('hello world');
+    });
+
+    it('should not strip mismatched quotes', () => {
+      const result = (pipeline as any).stripWrappingQuotes('"hello world\'');
+      expect(result).toBe('"hello world\'');
+    });
+
+    it('should return as-is for unquoted strings', () => {
+      const result = (pipeline as any).stripWrappingQuotes('hello world');
+      expect(result).toBe('hello world');
+    });
+
+    it('should trim whitespace after stripping', () => {
+      const result = (pipeline as any).stripWrappingQuotes('"  hello  "  ');
+      expect(result).toBe('hello');
+    });
+  });
+
+  describe('looksLikePath', () => {
+    it('should return true for Unix-style absolute path', () => {
+      const result = (pipeline as any).looksLikePath('/etc/hosts');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for Unix-style relative path', () => {
+      const result = (pipeline as any).looksLikePath('./file.txt');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for Windows-style path', () => {
+      const result = (pipeline as any).looksLikePath('C:\\Users\\Documents');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for path with dots', () => {
+      const result = (pipeline as any).looksLikePath('file.txt');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for relative path starting with dot', () => {
+      const result = (pipeline as any).looksLikePath('../../file.txt');
+      expect(result).toBe(true);
+    });
+
+    it('should return false for HTTP URLs', () => {
+      const result = (pipeline as any).looksLikePath('http://example.com');
+      expect(result).toBe(false);
+    });
+
+    it('should return false for HTTPS URLs', () => {
+      const result = (pipeline as any).looksLikePath('https://example.com');
+      expect(result).toBe(false);
+    });
+
+    it('should return false for empty string', () => {
+      const result = (pipeline as any).looksLikePath('');
+      expect(result).toBe(false);
+    });
+
+    it('should return false for plain word without extension', () => {
+      const result = (pipeline as any).looksLikePath('notapath');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isHttpUrl', () => {
+    it('should recognize valid HTTP URL', () => {
+      const result = (pipeline as any).isHttpUrl('http://example.com');
+      expect(result).toBe(true);
+    });
+
+    it('should recognize valid HTTPS URL', () => {
+      const result = (pipeline as any).isHttpUrl('https://example.com');
+      expect(result).toBe(true);
+    });
+
+    it('should recognize HTTPS URL with path and query', () => {
+      const result = (pipeline as any).isHttpUrl('https://example.com/path?query=value');
+      expect(result).toBe(true);
+    });
+
+    it('should reject invalid URLs', () => {
+      const result = (pipeline as any).isHttpUrl('not a url');
+      expect(result).toBe(false);
+    });
+
+    it('should reject file:// protocol', () => {
+      const result = (pipeline as any).isHttpUrl('file:///etc/hosts');
+      expect(result).toBe(false);
+    });
+
+    it('should reject ftp:// protocol', () => {
+      const result = (pipeline as any).isHttpUrl('ftp://example.com');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('shouldSkipToolExecution', () => {
+    it('should not skip datetime tool regardless of arguments', () => {
+      const schema = { kind: 'string', timezone: 'string|null', format: 'string|null' };
+      const args = { kind: null, timezone: null, format: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'datetime');
+      expect(result).toBe(false);
+    });
+
+    it('should skip when all arguments are null', () => {
+      const schema = { query: 'string', limit: 'number|null' };
+      const args = { query: null, limit: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      expect(result).toBe(true);
+    });
+
+    it('should skip when all required arguments are null', () => {
+      const schema = { path: 'string', action: 'string' };
+      const args = { path: null, action: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      expect(result).toBe(true);
+    });
+
+    it('should not skip when at least one required argument is present', () => {
+      const schema = { path: 'string', action: 'string' };
+      const args = { path: '/etc/hosts', action: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      expect(result).toBe(false);
+    });
+
+    it('should allow optional arguments (string|null) to be null', () => {
+      const schema = { path: 'string', maxBytes: 'number|null' };
+      const args = { path: '/etc/hosts', maxBytes: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'filesystem');
+      expect(result).toBe(false);
+    });
+
+    it('should skip when more than 50% of required arguments are null', () => {
+      const schema = {
+        arg1: 'string',
+        arg2: 'string',
+        arg3: 'string|null',
+        arg4: 'string|null',
+      };
+      const args = { arg1: 'value', arg2: null, arg3: null, arg4: null };
+      // 2 required args, 1 null = 50% threshold, should NOT skip (needs > 50%)
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      expect(result).toBe(false);
+    });
+
+    it('should skip when more than 50% of required arguments are null (60% case)', () => {
+      const schema = {
+        arg1: 'string',
+        arg2: 'string',
+        arg3: 'string',
+        arg4: 'string',
+        arg5: 'string|null',
+      };
+      // 4 required args, 3 null = 75% null
+      const args = { arg1: 'value', arg2: null, arg3: null, arg4: null, arg5: null };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      expect(result).toBe(true);
+    });
+
+    it('should return false for empty schema', () => {
+      const schema = {};
+      const args = {};
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      expect(result).toBe(false);
+    });
+
+    it('should treat undefined same as null', () => {
+      const schema = { path: 'string', limit: 'number|null' };
+      const args = { path: undefined, limit: undefined };
+      const result = (pipeline as any).shouldSkipToolExecution(schema, args, 'search');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('areAllArgumentsNull', () => {
+    it('should return true for empty object', () => {
+      const result = (pipeline as any).areAllArgumentsNull({});
+      expect(result).toBe(true);
+    });
+
+    it('should return true when all values are null', () => {
+      const args = { a: null, b: null, c: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(true);
+    });
+
+    it('should return true when all values are undefined', () => {
+      const args = { a: undefined, b: undefined };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when at least one value is present', () => {
+      const args = { a: null, b: 'value', c: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when any value is truthy', () => {
+      const args = { a: 0, b: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(false);
+    });
+
+    it('should return false for empty string', () => {
+      const args = { a: '', b: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(false);
+    });
+
+    it('should return false for false value', () => {
+      const args = { a: false, b: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(false);
+    });
+
+    it('should return false for object value', () => {
+      const args = { a: {}, b: null };
+      const result = (pipeline as any).areAllArgumentsNull(args);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isToolIntent', () => {
+    it('should return false for GENERAL_ANSWER intent', () => {
+      const result = (pipeline as any).isToolIntent('general_answer');
+      expect(result).toBe(false);
+    });
+
+    it('should return true for tool intents with prefix', () => {
+      const result = (pipeline as any).isToolIntent('tool.datetime');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for tool.search intent', () => {
+      const result = (pipeline as any).isToolIntent('tool.search');
+      expect(result).toBe(true);
+    });
+
+    it('should return false for non-tool intents', () => {
+      const result = (pipeline as any).isToolIntent('other_intent');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('resolveToolName', () => {
+    it('should return null for non-tool intent', () => {
+      const result = (pipeline as any).resolveToolName('general_answer');
+      expect(result).toBeNull();
+    });
+
+    it('should extract tool name from tool intent', () => {
+      const result = (pipeline as any).resolveToolName('tool.datetime');
+      expect(result).toBe('datetime');
+    });
+
+    it('should return null for unknown tool', () => {
+      const result = (pipeline as any).resolveToolName('tool.unknownTool');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('meetsToolConfidence', () => {
+    it('should return true for confidence >= 0.6', () => {
+      const result = (pipeline as any).meetsToolConfidence(0.6);
+      expect(result).toBe(true);
+    });
+
+    it('should return true for confidence > 0.6', () => {
+      const result = (pipeline as any).meetsToolConfidence(0.9);
+      expect(result).toBe(true);
+    });
+
+    it('should return false for confidence < 0.6', () => {
+      const result = (pipeline as any).meetsToolConfidence(0.59);
+      expect(result).toBe(false);
+    });
+
+    it('should return true for confidence = 1', () => {
+      const result = (pipeline as any).meetsToolConfidence(1);
+      expect(result).toBe(true);
+    });
+
+    it('should return false for confidence = 0', () => {
+      const result = (pipeline as any).meetsToolConfidence(0);
+      expect(result).toBe(false);
+    });
+  });
+});

@@ -167,67 +167,17 @@ export class Pipeline {
     const schemaKeys = Object.keys(tool.schema);
     if (schemaKeys.length === 0) {
       Logger.info('pipeline', `Executing tool: ${toolName} (no arguments)`);
-      // Fetch language in parallel with tool execution since we'll need it for formatting
-      const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-      const parallelStartMs = Date.now();
-      const [languageResult, toolExecResult] = await Promise.all([
-        this.runner.executeContract(
-          'LANGUAGE_DETECTION',
-          languagePrompt,
-          (raw) => this.orchestrator.validateLanguageDetection(raw),
-        ),
-        (async () => {
-          try {
-            return { ok: true, result: await tool.execute({}) };
-          } catch (error) {
-            return { ok: false, error };
-          }
-        })(),
-      ]);
-      const parallelDurationMs = measureDurationMs(parallelStartMs);
-      Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
-        durationMs: parallelDurationMs,
-      });
-
-      const language = languageResult.ok
-        ? languageResult.value
-        : { language: 'unknown', name: 'Unknown' };
-
-      if (!toolExecResult.ok) {
-        Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
-        return this.runErrorChannel(
-          'tool_execution',
-          intentResult.attempts,
-          toolExecResult.error,
-        );
-      }
-
-      const toolResult = toolExecResult.result;
-      Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-      const formattedResult = typeof toolResult === 'string'
-        ? await this.formatResponse(
-            toolResult,
-            language,
-            toneInstructions,
-            userInput,
-            toolName,
-          )
-        : toolResult;
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (tool, no args)', {
-        tool: toolName,
-        durationMs,
-      });
-      return {
-        ok: true,
-        kind: 'tool',
-        tool: toolName,
-        args: {},
-        result: formattedResult,
+      const toolResult = await this.executeAndFormatTool(
+        toolName,
+        tool,
+        {},
+        userInput,
+        toneInstructions,
         intent,
-        language,
-        attempts: intentResult.attempts + (languageResult.ok ? 0 : languageResult.attempts),
-      };
+        intentResult.attempts,
+        pipelineStartMs,
+      );
+      return toolResult;
     }
 
     Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
@@ -284,77 +234,17 @@ export class Pipeline {
       args: toolArgResult.value,
     });
 
-    // Fetch language in parallel with tool execution since we'll need it for formatting
-    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-    const parallelStartMs = Date.now();
-    const [languageResult, toolExecResult] = await Promise.all([
-      this.runner.executeContract(
-        'LANGUAGE_DETECTION',
-        languagePrompt,
-        (raw) => this.orchestrator.validateLanguageDetection(raw),
-      ),
-      (async () => {
-        try {
-          return { ok: true, result: await tool.execute(
-            toolArgResult.value as Record<string, unknown>,
-          ) };
-        } catch (error) {
-          return { ok: false, error };
-        }
-      })(),
-    ]);
-    const parallelDurationMs = measureDurationMs(parallelStartMs);
-    Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
-      durationMs: parallelDurationMs,
-    });
-
-    const language = languageResult.ok
-      ? languageResult.value
-      : { language: 'unknown', name: 'Unknown' };
-
-    if (!toolExecResult.ok) {
-      Logger.error(
-        'pipeline',
-        `Tool ${toolName} execution failed, falling back to strict answer`,
-        toolExecResult.error,
-      );
-      const result = await this.runStrictAnswer(
-        userInput,
-        intent,
-        intentResult.attempts + toolArgResult.attempts,
-        toneInstructions,
-      );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (tool exec failed)', { durationMs });
-      return result;
-    }
-
-    const toolResult = toolExecResult.result;
-    Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-    const formattedResult = typeof toolResult === 'string'
-      ? await this.formatResponse(
-          toolResult,
-          language,
-          toneInstructions,
-          userInput,
-          toolName,
-        )
-      : toolResult;
-    const durationMs = measureDurationMs(pipelineStartMs);
-    Logger.info('pipeline', 'Pipeline completed (tool with args)', {
-      tool: toolName,
-      durationMs,
-    });
-    return {
-      ok: true,
-      kind: 'tool',
-      tool: toolName,
-      args: toolArgResult.value,
-      result: formattedResult,
+    const toolResult = await this.executeAndFormatTool(
+      toolName,
+      tool,
+      toolArgResult.value as Record<string, unknown>,
+      userInput,
+      toneInstructions,
       intent,
-      language,
-      attempts: intentResult.attempts + toolArgResult.attempts + (languageResult.ok ? 0 : languageResult.attempts),
-    };
+      intentResult.attempts + toolArgResult.attempts,
+      pipelineStartMs,
+    );
+    return toolResult;
   }
 
   private async tryRunDirectTool(userInput: string): Promise<PipelineResult | null> {
@@ -836,6 +726,84 @@ export class Pipeline {
       stage,
       attempts: attempts + result.attempts,
       error: this.buildErrorPayload(result, error),
+    };
+  }
+
+  /**
+   * Executes a tool and formats its response.
+   * Fetches language detection in parallel with tool execution.
+   * Handles formatting, error cases, and logging.
+   */
+  private async executeAndFormatTool(
+    toolName: ToolName,
+    tool: ReturnType<typeof getToolDefinition>,
+    args: Record<string, unknown>,
+    userInput: string,
+    toneInstructions: string | undefined,
+    intent: { intent: string; confidence: number },
+    baseAttempts: number,
+    pipelineStartMs: number,
+  ): Promise<PipelineResult> {
+    // Fetch language in parallel with tool execution since we'll need it for formatting
+    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+    const parallelStartMs = Date.now();
+    const [languageResult, toolExecResult] = await Promise.all([
+      this.runner.executeContract(
+        'LANGUAGE_DETECTION',
+        languagePrompt,
+        (raw) => this.orchestrator.validateLanguageDetection(raw),
+      ),
+      (async () => {
+        try {
+          return { ok: true, result: await tool.execute(args) };
+        } catch (error) {
+          return { ok: false, error };
+        }
+      })(),
+    ]);
+    const parallelDurationMs = measureDurationMs(parallelStartMs);
+    Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
+      durationMs: parallelDurationMs,
+    });
+
+    const language = languageResult.ok
+      ? languageResult.value
+      : { language: 'unknown', name: 'Unknown' };
+
+    if (!toolExecResult.ok) {
+      Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
+      return this.runErrorChannel(
+        'tool_execution',
+        baseAttempts,
+        toolExecResult.error,
+      );
+    }
+
+    const toolResult = toolExecResult.result;
+    Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+    const formattedResult = typeof toolResult === 'string'
+      ? await this.formatResponse(
+          toolResult,
+          language,
+          toneInstructions,
+          userInput,
+          toolName,
+        )
+      : toolResult;
+    const durationMs = measureDurationMs(pipelineStartMs);
+    Logger.info('pipeline', 'Pipeline completed (tool execution)', {
+      tool: toolName,
+      durationMs,
+    });
+    return {
+      ok: true,
+      kind: 'tool',
+      tool: toolName,
+      args,
+      result: formattedResult,
+      intent,
+      language,
+      attempts: baseAttempts + (languageResult.ok ? 0 : languageResult.attempts),
     };
   }
 
