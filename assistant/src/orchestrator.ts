@@ -35,6 +35,16 @@ export type ToolSchema = Record<string, FieldType>;
 type ContractEntry = ContractWithExtras;
 
 /**
+ * Cached tool reference string to avoid per-request allocation.
+ */
+let toolReferenceCache: string | null = null;
+
+/**
+ * Cached formatted tool schemas to avoid per-request allocation.
+ */
+const toolSchemaCache = new Map<string, string>();
+
+/**
  * Lightweight orchestrator that renders prompts and exposes validators for each contract.
  */
 export class Orchestrator {
@@ -85,10 +95,23 @@ export class Orchestrator {
   }
 
   private formatToolSchema(schema: ToolSchema): string {
-    return JSON.stringify(schema, undefined, 2);
+    // Create a cache key from schema keys for lightweight lookup
+    const schemaKeyStr = Object.keys(schema).sort().join('|');
+    const cached = toolSchemaCache.get(schemaKeyStr);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const formatted = JSON.stringify(schema, undefined, 2);
+    toolSchemaCache.set(schemaKeyStr, formatted);
+    return formatted;
   }
 
   private formatToolReference(): string {
+    if (toolReferenceCache !== null) {
+      return toolReferenceCache;
+    }
+
     const toolEntries = Object.entries(TOOLS);
     const lines: string[] = [];
 
@@ -101,7 +124,9 @@ export class Orchestrator {
       `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool action is required.`,
     );
 
-    return lines.join('\n');
+    const formatted = lines.join('\n');
+    toolReferenceCache = formatted;
+    return formatted;
   }
 
   public buildIntentClassificationPrompt(

@@ -27,9 +27,18 @@ export type ToolName = keyof typeof TOOLS;
 export const GENERAL_ANSWER_INTENT = 'answer.general';
 
 /**
- * Returns intent labels derived from the tool registry.
+ * Cached intent labels to avoid per-request allocation.
+ */
+let toolIntentsCache: string[] | null = null;
+
+/**
+ * Returns intent labels derived from the tool registry (cached).
  */
 export const getToolIntents = (): string[] => {
+  if (toolIntentsCache !== null) {
+    return toolIntentsCache;
+  }
+
   const intents: string[] = [];
 
   intents.push(GENERAL_ANSWER_INTENT);
@@ -39,6 +48,7 @@ export const getToolIntents = (): string[] => {
     intents.push(`tool.${toolNames[index]}`);
   }
 
+  toolIntentsCache = intents;
   return intents;
 };
 
