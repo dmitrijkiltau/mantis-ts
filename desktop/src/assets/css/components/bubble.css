@@ -265,6 +265,48 @@
       @apply bg-emerald-20 border-emerald-40 text-terminal-emerald;
     }
 
+    .tool-output {
+      @apply flex flex-col gap-4;
+    }
+
+    .tool-output-summary {
+      @apply text-terminal-primary;
+    }
+
+    .tool-output-accordion {
+      @apply rounded border border-primary-30 bg-bg-terminal;
+      box-shadow: var(--shadow-inset-glow);
+    }
+
+    .tool-output-accordion summary {
+      @apply list-none flex items-center justify-between gap-3 px-3 py-2 cursor-pointer;
+      @apply text-[10px] font-bold tracking-widest text-terminal-cyan bg-primary-10;
+    }
+
+    .tool-output-accordion summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .tool-output-accordion-label {
+      @apply text-terminal-cyan;
+    }
+
+    .tool-output-accordion-hint {
+      @apply text-[10px] font-mono text-primary-60;
+    }
+
+    .tool-output-accordion-body {
+      @apply flex flex-col gap-4 p-3;
+    }
+
+    .tool-output-panel {
+      @apply flex flex-col gap-2;
+    }
+
+    .tool-output-panel-label {
+      @apply text-[10px] font-semibold tracking-widest text-primary-70;
+    }
+
     .code-block-markdown .code-block-body {
       @apply relative;
     }

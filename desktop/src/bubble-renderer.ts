@@ -829,6 +829,87 @@ const isHttpResponsePayload = (value: unknown): value is HttpResponseResult => {
   );
 };
 
+const safeJsonStringify = (value: unknown): string | null => {
+  try {
+    const serialized = JSON.stringify(value, null, 2);
+    return typeof serialized === 'string' ? serialized : null;
+  } catch {
+    return null;
+  }
+};
+
+const renderToolOutputPreview = (raw: unknown): string => {
+  if (isFilePayload(raw)) {
+    return renderFilePayload(raw);
+  }
+
+  if (isDirectoryPayload(raw)) {
+    return renderDirectoryPayload(raw);
+  }
+
+  if (isSearchPayload(raw)) {
+    return renderSearchPayload(raw);
+  }
+
+  if (isProcessListPayload(raw)) {
+    return renderProcessListPayload(raw);
+  }
+
+  if (isHttpResponsePayload(raw)) {
+    return renderHttpResponsePayload(raw);
+  }
+
+  const serialized = safeJsonStringify(raw);
+  if (serialized) {
+    return renderCodeBlock(serialized, 'json');
+  }
+
+  return renderCodeBlock(String(raw), 'text');
+};
+
+const renderToolJsonAccordion = (raw: unknown): string => {
+  const serialized = safeJsonStringify(raw);
+  const preview = renderToolOutputPreview(raw);
+  const rawBlock = serialized
+    ? renderHttpJsonPreview(serialized) || renderCodeBlock(serialized, 'json')
+    : renderCodeBlock(String(raw), 'text');
+
+  return `
+    <details class="tool-output-accordion">
+      <summary>
+        <span class="tool-output-accordion-label">OUTPUT DATA</span>
+        <span class="tool-output-accordion-hint">Preview + raw JSON</span>
+      </summary>
+      <div class="tool-output-accordion-body">
+        <div class="tool-output-panel">
+          <div class="tool-output-panel-label">PREVIEW</div>
+          ${preview}
+        </div>
+        <div class="tool-output-panel">
+          <div class="tool-output-panel-label">RAW JSON</div>
+          ${rawBlock}
+        </div>
+      </div>
+    </details>
+  `;
+};
+
+/**
+ * Renders a summary plus expandable JSON preview for structured tool output.
+ */
+export const renderToolOutputContent = (summary: string, raw: unknown): string => {
+  const trimmed = summary.trim();
+  const summaryHtml = marked.parse(trimmed, { renderer: bubbleRenderer }) as string;
+  const jsonAccordion = renderToolJsonAccordion(raw);
+
+  return `
+    <div class="tool-output">
+      <div class="tool-output-summary">${summaryHtml}</div>
+      ${jsonAccordion}
+    </div>
+  `;
+};
+
 const bubbleRenderer = new marked.Renderer();
 
 bubbleRenderer.code = ({ text, lang }) => {

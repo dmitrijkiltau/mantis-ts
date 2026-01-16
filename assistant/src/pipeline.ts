@@ -48,6 +48,7 @@ export type PipelineResult =
       tool: ToolName;
       args: Record<string, unknown>;
       result: unknown;
+      summary?: string;
       intent: { intent: string; confidence: number };
       language: { language: string; name: string };
       attempts: number;
@@ -261,21 +262,33 @@ export class Pipeline {
     try {
       const tool = getToolDefinition(directMatch.tool);
       const toolResult = await tool.execute(directMatch.args);
-      const formattedResult = typeof toolResult === 'string'
-        ? await this.formatResponse(
-            toolResult,
-            DIRECT_LANGUAGE_FALLBACK,
-            DEFAULT_PERSONALITY.toneInstructions,
-            userInput,
-            directMatch.tool,
-          )
-        : toolResult;
+      let formattedResult = toolResult;
+      let summary: string | undefined;
+
+      if (typeof toolResult === 'string') {
+        formattedResult = await this.formatResponse(
+          toolResult,
+          DIRECT_LANGUAGE_FALLBACK,
+          DEFAULT_PERSONALITY.toneInstructions,
+          userInput,
+          directMatch.tool,
+        );
+      } else {
+        summary = await this.summarizeToolResult(
+          toolResult,
+          DIRECT_LANGUAGE_FALLBACK,
+          DEFAULT_PERSONALITY.toneInstructions,
+          userInput,
+          directMatch.tool,
+        );
+      }
       return {
         ok: true,
         kind: 'tool',
         tool: directMatch.tool,
         args: directMatch.args,
         result: formattedResult,
+        summary,
         intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
         language: DIRECT_LANGUAGE_FALLBACK,
         attempts: 0,
@@ -652,7 +665,7 @@ export class Pipeline {
   }
 
   /**
-   * Optionally formats response text as a single concise sentence in the user's language.
+   * Optionally formats response text as a concise response in the user's language.
    * This is a best-effort operation; formatting failures do not block the result.
    */
   private async formatResponse(
@@ -661,8 +674,10 @@ export class Pipeline {
     toneInstructions: string | undefined,
     requestContext: string,
     toolName: ToolName,
+    fallbackText?: string,
   ): Promise<string> {
     const stageStartMs = Date.now();
+    const fallback = fallbackText ?? text;
     try {
       const prompt = this.orchestrator.buildResponseFormattingPrompt(
         text,
@@ -686,16 +701,58 @@ export class Pipeline {
         return result.value;
       }
 
-      Logger.warn('pipeline', 'Response formatting failed, returning original text');
-      return text;
+      Logger.warn('pipeline', 'Response formatting failed, returning fallback text');
+      return fallback;
     } catch (error) {
       const stageDurationMs = measureDurationMs(stageStartMs);
-      Logger.warn('pipeline', 'Response formatting error, returning original text', {
+      Logger.warn('pipeline', 'Response formatting error, returning fallback text', {
         error,
         durationMs: stageDurationMs,
       });
-      return text;
+      return fallback;
     }
+  }
+
+  /**
+   * Serializes tool output into a string for summarization prompts.
+   */
+  private stringifyToolResult(toolResult: unknown): string {
+    if (typeof toolResult === 'string') {
+      return toolResult;
+    }
+
+    try {
+      const serialized = JSON.stringify(toolResult, null, 2);
+      if (typeof serialized === 'string') {
+        return serialized;
+      }
+    } catch {
+      // Fall through to String conversion.
+    }
+
+    return String(toolResult);
+  }
+
+  /**
+   * Summarizes structured tool output using the response formatting contract.
+   */
+  private async summarizeToolResult(
+    toolResult: unknown,
+    language: { language: string; name: string },
+    toneInstructions: string | undefined,
+    requestContext: string,
+    toolName: ToolName,
+  ): Promise<string> {
+    const payload = this.stringifyToolResult(toolResult);
+    const fallback = `Tool ${toolName} output is ready. Raw data below.`;
+    return this.formatResponse(
+      payload,
+      language,
+      toneInstructions,
+      requestContext,
+      toolName,
+      fallback,
+    );
   }
 
   private async runErrorChannel(
@@ -781,15 +838,26 @@ export class Pipeline {
 
     const toolResult = toolExecResult.result;
     Logger.info('pipeline', `Tool ${toolName} executed successfully`);
-    const formattedResult = typeof toolResult === 'string'
-      ? await this.formatResponse(
-          toolResult,
-          language,
-          toneInstructions,
-          userInput,
-          toolName,
-        )
-      : toolResult;
+    let formattedResult = toolResult;
+    let summary: string | undefined;
+
+    if (typeof toolResult === 'string') {
+      formattedResult = await this.formatResponse(
+        toolResult,
+        language,
+        toneInstructions,
+        userInput,
+        toolName,
+      );
+    } else {
+      summary = await this.summarizeToolResult(
+        toolResult,
+        language,
+        toneInstructions,
+        userInput,
+        toolName,
+      );
+    }
     const durationMs = measureDurationMs(pipelineStartMs);
     Logger.info('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,
@@ -801,6 +869,7 @@ export class Pipeline {
       tool: toolName,
       args,
       result: formattedResult,
+      summary,
       intent,
       language,
       attempts: baseAttempts + (languageResult.ok ? 0 : languageResult.attempts),

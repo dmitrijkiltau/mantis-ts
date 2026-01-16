@@ -5,16 +5,16 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_STRICT_ANSWER = {
  MODEL: 'ministral-3:3b',
-  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a single, short sentence answering the question.
-No preamble, no instructions, no bullet points, no formatting.
-If you do not know the answer, output exactly: I don't know.
-Output only that one sentence.`,
+  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
+No preamble, no instructions, no bullet points, no formatting. Up to two sentences only, preferably one.
+If the request is really ambiguous or missing required details, clarify instead of guessing.
+If the request is conversational, answer concisely.
+Output only your answer.`,
   USER_PROMPT: `Question:
 {{QUESTION}}`,
   RETRIES: {
-    0: `Answer with one short sentence only.
-No lists, no extra lines, no formatting.
-If unsure, respond exactly: I don't know.`,
+    0: `Answer with one or two short sentences only.
+No preamble, no instructions, no bullet points, no formatting.`
   },
 };
 
@@ -29,18 +29,27 @@ export type StrictAnswerValidationError =
  * Validator for strict answer contract output.
  */
 export const validateStrictAnswer: ContractValidator<string, StrictAnswerValidationError> = (raw) => {
-  const text = raw.trim();
+  let text = raw.trim();
+
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text) as { message?: { content?: unknown } };
+      if (typeof parsed?.message?.content === 'string') {
+        text = parsed.message.content.trim();
+      }
+    } catch {
+      // Keep original text if it is not JSON.
+    }
+  }
 
   if (!text) {
     return { ok: false, error: 'EMPTY_OUTPUT' };
   }
 
-  const paragraphs = text
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
-
-  const normalized = (paragraphs[0] ?? '').replace(/\s+/g, ' ').trim();
+  const normalized = text
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized) {
     return { ok: false, error: 'EMPTY_OUTPUT' };
   }

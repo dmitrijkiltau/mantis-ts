@@ -3,7 +3,7 @@ import { Logger } from '../../assistant/src/logger';
 import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
-import { renderBubbleContent } from './bubble-renderer';
+import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -15,6 +15,14 @@ const formatPayload = (value: unknown): string => {
   } catch {
     return String(value);
   }
+};
+
+const hasToolSummary = (
+  result: PipelineResult,
+): result is PipelineResult & { kind: 'tool'; summary: string } => {
+  return result.kind === 'tool'
+    && typeof result.summary === 'string'
+    && result.summary.trim().length > 0;
 };
 
 type ToolEntry = {
@@ -156,6 +164,14 @@ const renderHistoryContent = (value: unknown): string => {
   return renderBubbleContent(payload);
 };
 
+const renderToolOutput = (result: PipelineResult & { kind: 'tool' }): string => {
+  if (hasToolSummary(result) && typeof result.result !== 'string') {
+    return renderToolOutputContent(result.summary, result.result);
+  }
+
+  return renderHistoryContent(result.result);
+};
+
 const createHistoryContentShell = (contentHtml: string): HTMLDivElement => {
   const shell = document.createElement('div');
   shell.className = 'speech-bubble history-bubble-shell';
@@ -234,7 +250,7 @@ const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetail
 
   if (result.ok) {
     if (result.kind === 'tool') {
-      body.appendChild(createHistorySection('Tool Output', createHistoryContentShell(renderHistoryContent(result.result))));
+      body.appendChild(createHistorySection('Tool Output', createHistoryContentShell(renderToolOutput(result))));
       body.appendChild(createHistorySection('Tool Arguments', createHistoryContentShell(renderHistoryContent(result.args))));
     } else {
       body.appendChild(createHistorySection('Answer', createHistoryContentShell(renderHistoryContent(result.value))));
@@ -295,17 +311,16 @@ export const createQuestionHandler = (
       const record = buildHistoryEntry(question, result);
 
       if (result.ok) {
-        if (result.kind === 'tool') {
-          Logger.info('ui', `Tool result received: ${result.tool}`);
-          uiState.setMood('speaking');
-          uiState.setStatus('OPERATIONAL', 'COMPLETE', `TOOL_${result.tool.toUpperCase()}`);
-          uiState.addLog(`Tool executed: ${result.tool}`);
+      if (result.kind === 'tool') {
+        Logger.info('ui', `Tool result received: ${result.tool}`);
+        uiState.setMood('speaking');
+        uiState.setStatus('OPERATIONAL', 'COMPLETE', `TOOL_${result.tool.toUpperCase()}`);
+        uiState.addLog(`Tool executed: ${result.tool}`);
 
-          const answerText = formatPayload(result.result);
-          uiState.showBubble(renderBubbleContent(answerText));
-        } else {
-          Logger.info('ui', 'Strict answer generated');
-          uiState.setMood('speaking');
+        uiState.showBubble(renderToolOutput(result));
+      } else {
+        Logger.info('ui', 'Strict answer generated');
+        uiState.setMood('speaking');
           uiState.setStatus('OPERATIONAL', 'COMPLETE', 'ANSWER_GENERATED');
           uiState.addLog('Answer generated successfully');
 

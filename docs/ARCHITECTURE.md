@@ -11,9 +11,10 @@ not trusted to the model itself.
 The `assistant/src/pipeline.ts` module implements the routing pipeline described below,
 deriving allowed intents from the tool registry (`tool.<name>` plus `answer.general`).
 If a tool schema is empty, the pipeline skips argument extraction and executes the tool
-with `{}`. A predefined MANTIS personality tone preset is injected into strict answer and
-response formatting prompts without relying on any selection contract, keeping tone steady
-while avoiding extra model calls.
+with `{}`. A predefined MANTIS personality tone preset (interactive, professional, slightly
+cynical when warranted, creative, natural) is injected into strict answer and response
+formatting prompts without relying on any selection contract, keeping tone steady while
+avoiding extra model calls.
 
 ## Decision logic
 
@@ -63,10 +64,10 @@ Input
    -> Detected Language -> preserved through pipeline
    |
  -> Intent Classification
-   -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone)
+   -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone, may ask a short clarifying question)
    -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
        -> invalid -> Error Channel -> Abort or Re-route
-       -> valid -> Execute Tool -> Format in user's language (MANTIS tone)
+       -> valid -> Execute Tool -> Format/Summarize in user's language (MANTIS tone)
 ```
 
 ## Retry Pipeline
@@ -94,7 +95,7 @@ Retry 2 -> {"intent":"answer.general","confidence":0.0}
 
 ## Response Formatting
 
-The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise single sentences in the user's detected language, suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
+The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise answers in the user's detected language (one sentence preferred, two max), suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. When tool outputs are structured JSON, the formatter produces a brief summary while the raw output remains available in the UI. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
 
 Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.
 
