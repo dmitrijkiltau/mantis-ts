@@ -17,6 +17,13 @@ export type ModelInvocation = {
 };
 
 /**
+ * Helper to measure execution duration in milliseconds.
+ */
+function measureDurationMs(startMs: number): number {
+  return Math.round((Date.now() - startMs) * 100) / 100;
+}
+
+/**
  * Minimal interface that a model client needs to fulfill.
  */
 export interface LLMClient {
@@ -75,6 +82,7 @@ export class Runner {
   ): Promise<ContractExecutionResult<T, E>> {
     const history: AttemptRecord<T, E>[] = [];
     const attemptsLimit = this.deriveAttemptsLimit(prompt, options?.maxAttempts);
+    const contractStartMs = Date.now();
 
     Logger.info('runner', `Starting contract execution: ${contractName}`, {
       model: prompt.model,
@@ -85,31 +93,42 @@ export class Runner {
       Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit}`);
 
       const attemptPrompt = this.applyRetryInstruction(prompt, contractName, attempt);
+      const llmStartMs = Date.now();
       const raw = await this.llm.sendPrompt({
         model: attemptPrompt.model,
         systemPrompt: attemptPrompt.systemPrompt,
         userPrompt: attemptPrompt.userPrompt,
         expectsJson: attemptPrompt.expectsJson,
       });
+      const llmDurationMs = measureDurationMs(llmStartMs);
 
       Logger.debug('runner', `Received response from ${attemptPrompt.model}`, {
         length: raw.length,
+        durationMs: llmDurationMs,
       });
 
       const validation = validator(raw);
       history.push({ attempt, raw, validation });
 
       if (validation.ok) {
-        Logger.info('runner', `Contract ${contractName} succeeded on attempt ${attempt + 1}`);
+        const totalDurationMs = measureDurationMs(contractStartMs);
+        Logger.info('runner', `Contract ${contractName} succeeded on attempt ${attempt + 1}`, {
+          attemptDurationMs: llmDurationMs,
+          totalDurationMs,
+        });
         return { ok: true, value: validation.value, attempts: attempt + 1, history };
       }
 
       Logger.warn('runner', `Validation failed on attempt ${attempt + 1}`, {
         error: validation.error,
+        attemptDurationMs: llmDurationMs,
       });
     }
 
-    Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`);
+    const totalDurationMs = measureDurationMs(contractStartMs);
+    Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`, {
+      totalDurationMs,
+    });
     return { ok: false, attempts: history.length, history };
   }
 

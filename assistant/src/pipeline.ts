@@ -14,6 +14,13 @@ const DIRECT_LANGUAGE_FALLBACK: { language: string; name: string } = {
   name: 'Unknown',
 };
 
+/**
+ * Helper to measure execution duration in milliseconds.
+ */
+function measureDurationMs(startMs: number): number {
+  return Math.round((Date.now() - startMs) * 100) / 100;
+}
+
 export type PipelineStage =
   | 'intent'
   | 'tool_arguments'
@@ -72,32 +79,43 @@ export class Pipeline {
    * Routes a user input through intent classification, tool execution, or strict answer.
    */
   public async run(userInput: string): Promise<PipelineResult> {
+    const pipelineStartMs = Date.now();
     Logger.info('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
     });
 
     const directResult = await this.tryRunDirectTool(userInput);
     if (directResult) {
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (direct tool)', { durationMs });
       return directResult;
     }
 
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
+    const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
       intentPrompt,
       (raw) => this.orchestrator.validateIntentClassification(raw),
     );
+    const intentDurationMs = measureDurationMs(intentStartMs);
+    Logger.debug('pipeline', 'Intent classification stage completed', {
+      durationMs: intentDurationMs,
+    });
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         undefined,
         intentResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (intent failed)', { durationMs });
+      return result;
     }
 
     const intent = intentResult.value;
@@ -107,33 +125,42 @@ export class Pipeline {
 
     if (!this.isToolIntent(intent.intent)) {
       Logger.info('pipeline', 'Non-tool intent selected, using strict answer');
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (non-tool intent)', { durationMs });
+      return result;
     }
 
     if (!this.meetsToolConfidence(intent.confidence)) {
       Logger.info('pipeline', 'Tool intent below confidence threshold, using strict answer');
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (low confidence)', { durationMs });
+      return result;
     }
 
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
       Logger.info('pipeline', 'No matching tool for intent, using strict answer');
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (no matching tool)', { durationMs });
+      return result;
     }
 
     const tool = getToolDefinition(toolName);
@@ -142,6 +169,7 @@ export class Pipeline {
       Logger.info('pipeline', `Executing tool: ${toolName} (no arguments)`);
       // Fetch language in parallel with tool execution since we'll need it for formatting
       const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+      const parallelStartMs = Date.now();
       const [languageResult, toolExecResult] = await Promise.all([
         this.runner.executeContract(
           'LANGUAGE_DETECTION',
@@ -156,6 +184,10 @@ export class Pipeline {
           }
         })(),
       ]);
+      const parallelDurationMs = measureDurationMs(parallelStartMs);
+      Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
+        durationMs: parallelDurationMs,
+      });
 
       const language = languageResult.ok
         ? languageResult.value
@@ -181,6 +213,11 @@ export class Pipeline {
             toolName,
           )
         : toolResult;
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (tool, no args)', {
+        tool: toolName,
+        durationMs,
+      });
       return {
         ok: true,
         kind: 'tool',
@@ -194,6 +231,7 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
+    const toolArgStartMs = Date.now();
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
       tool.description,
@@ -205,18 +243,25 @@ export class Pipeline {
       toolArgPrompt,
       (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
     );
+    const toolArgDurationMs = measureDurationMs(toolArgStartMs);
+    Logger.debug('pipeline', 'Tool argument extraction stage completed', {
+      durationMs: toolArgDurationMs,
+    });
 
     if (!toolArgResult.ok) {
       Logger.warn(
         'pipeline',
         `Tool argument extraction failed for ${toolName}, falling back to strict answer`,
       );
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (arg extraction failed)', { durationMs });
+      return result;
     }
 
     if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value, toolName)) {
@@ -224,12 +269,15 @@ export class Pipeline {
         'pipeline',
         `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
       );
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (args mostly null)', { durationMs });
+      return result;
     }
 
     Logger.info('pipeline', `Executing tool: ${toolName}`, {
@@ -238,6 +286,7 @@ export class Pipeline {
 
     // Fetch language in parallel with tool execution since we'll need it for formatting
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+    const parallelStartMs = Date.now();
     const [languageResult, toolExecResult] = await Promise.all([
       this.runner.executeContract(
         'LANGUAGE_DETECTION',
@@ -254,6 +303,10 @@ export class Pipeline {
         }
       })(),
     ]);
+    const parallelDurationMs = measureDurationMs(parallelStartMs);
+    Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
+      durationMs: parallelDurationMs,
+    });
 
     const language = languageResult.ok
       ? languageResult.value
@@ -265,12 +318,15 @@ export class Pipeline {
         `Tool ${toolName} execution failed, falling back to strict answer`,
         toolExecResult.error,
       );
-      return this.runStrictAnswer(
+      const result = await this.runStrictAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
       );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (tool exec failed)', { durationMs });
+      return result;
     }
 
     const toolResult = toolExecResult.result;
@@ -284,6 +340,11 @@ export class Pipeline {
           toolName,
         )
       : toolResult;
+    const durationMs = measureDurationMs(pipelineStartMs);
+    Logger.info('pipeline', 'Pipeline completed (tool with args)', {
+      tool: toolName,
+      durationMs,
+    });
     return {
       ok: true,
       kind: 'tool',
@@ -664,6 +725,7 @@ export class Pipeline {
     toneInstructions?: string,
   ): Promise<PipelineResult> {
     Logger.info('pipeline', 'Running strict answer contract');
+    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildStrictAnswerPrompt(
       userInput,
       toneInstructions,
@@ -673,6 +735,10 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateStrictAnswer(raw),
     );
+    const stageDurationMs = measureDurationMs(stageStartMs);
+    Logger.debug('pipeline', 'Strict answer stage completed', {
+      durationMs: stageDurationMs,
+    });
 
     if (!result.ok) {
       Logger.error('pipeline', 'Strict answer contract failed');
@@ -706,6 +772,7 @@ export class Pipeline {
     requestContext: string,
     toolName: ToolName,
   ): Promise<string> {
+    const stageStartMs = Date.now();
     try {
       const prompt = this.orchestrator.buildResponseFormattingPrompt(
         text,
@@ -719,6 +786,10 @@ export class Pipeline {
         prompt,
         (raw) => this.orchestrator.validateResponseFormatting(raw),
       );
+      const stageDurationMs = measureDurationMs(stageStartMs);
+      Logger.debug('pipeline', 'Response formatting stage completed', {
+        durationMs: stageDurationMs,
+      });
 
       if (result.ok) {
         Logger.info('pipeline', 'Response formatted successfully');
@@ -728,7 +799,11 @@ export class Pipeline {
       Logger.warn('pipeline', 'Response formatting failed, returning original text');
       return text;
     } catch (error) {
-      Logger.warn('pipeline', 'Response formatting error, returning original text', error);
+      const stageDurationMs = measureDurationMs(stageStartMs);
+      Logger.warn('pipeline', 'Response formatting error, returning original text', {
+        error,
+        durationMs: stageDurationMs,
+      });
       return text;
     }
   }
