@@ -54,25 +54,14 @@ export const validateLanguageDetection: ContractValidator<
 
   const parsed = parsedCandidate as { language: unknown; name: unknown };
 
-  // Validate shape
-  if (typeof parsed.language !== 'string' || typeof parsed.name !== 'string') {
-    return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsed)}` };
+  // Validate and extract values in a single pass
+  if (typeof parsed.language !== 'string' || !parsed.language) {
+    return { ok: false, error: parsed.language ? `INVALID_SHAPE:${JSON.stringify(parsed)}` : 'MISSING_LANGUAGE_CODE' };
   }
 
-  const value = {
-    language: parsed.language,
-    name: parsed.name,
-  };
-
-  // Validate language code is not empty
-  if (!value.language) {
-    return { ok: false, error: 'MISSING_LANGUAGE_CODE' };
+  if (typeof parsed.name !== 'string' || !parsed.name) {
+    return { ok: false, error: parsed.name ? `INVALID_SHAPE:${JSON.stringify(parsed)}` : 'MISSING_LANGUAGE_NAME' };
   }
 
-  // Validate language name is not empty
-  if (!value.name) {
-    return { ok: false, error: 'MISSING_LANGUAGE_NAME' };
-  }
-
-  return { ok: true, value };
+  return { ok: true, value: { language: parsed.language, name: parsed.name } };
 };

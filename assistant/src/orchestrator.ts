@@ -9,10 +9,16 @@ import {
 import { validateTextTransformation } from './contracts/text.transformation.js';
 import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
+import { validateConversationalAnswer } from './contracts/conversational.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
-import { GENERAL_ANSWER_INTENT, TOOLS, getToolIntents } from './tools/registry.js';
+import {
+  GENERAL_ANSWER_INTENT,
+  CONVERSATION_INTENT,
+  TOOLS,
+  getToolIntents,
+} from './tools/registry.js';
 import type {
   ContractWithExtras,
   FieldType,
@@ -123,6 +129,9 @@ export class Orchestrator {
     lines.push(
       `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool action is required.`,
     );
+    lines.push(
+      `- ${CONVERSATION_INTENT}: Short conversational or social responses without tool usage.`,
+    );
 
     const formatted = lines.join('\n');
     toolReferenceCache = formatted;
@@ -179,10 +188,29 @@ export class Orchestrator {
   public buildStrictAnswerPrompt(
     question: string,
     toneInstructions?: string,
+    language?: { language: string; name: string },
   ): ContractPrompt {
     return this.buildPrompt('STRICT_ANSWER', {
       QUESTION: this.normalize(question),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
+      LANGUAGE: language?.name ?? 'Unknown',
+    });
+  }
+
+  /**
+   * Builds a prompt for short conversational replies.
+   */
+  public buildConversationalAnswerPrompt(
+    userInput: string,
+    toneInstructions?: string,
+    language?: { language: string; name: string },
+    personalityDescription?: string,
+  ): ContractPrompt {
+    return this.buildPrompt('CONVERSATIONAL_ANSWER', {
+      USER_INPUT: this.normalize(userInput),
+      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
+      LANGUAGE: language?.name ?? 'Unknown',
+      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
     });
   }
 
@@ -250,6 +278,10 @@ export class Orchestrator {
 
   public validateStrictAnswer(raw: string): ValidationResult<string> {
     return validateStrictAnswer(raw);
+  }
+
+  public validateConversationalAnswer(raw: string): ValidationResult<string> {
+    return validateConversationalAnswer(raw);
   }
 
   public validateResponseFormatting(

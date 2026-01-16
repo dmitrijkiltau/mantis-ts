@@ -10,16 +10,15 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Output JSON only.
 
-Allowed intents (choose exactly one):
+Guidelines:
+- Pick one tool intent only when the request matches that tool's capability.
+- Before deciding, do a quick self-check: tool action needed vs. conversational response.
+
+Allowed intents:
 {{ALLOWED_INTENTS}}
 
 Tool intents reference:
 {{TOOL_REFERENCE}}
-
-Guidelines:
-- Pick a tool intent only when the request matches that tool's capability.
-- Use answer.general for general questions or when no tool action is needed.
-- Indicate uncertainty with a low confidence score, not by choosing a different intent.
 
 Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).

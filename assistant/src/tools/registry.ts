@@ -25,6 +25,7 @@ export const TOOLS = {
 export type ToolName = keyof typeof TOOLS;
 
 export const GENERAL_ANSWER_INTENT = 'answer.general';
+export const CONVERSATION_INTENT = 'answer.conversation';
 
 /**
  * Cached intent labels to avoid per-request allocation.
@@ -42,6 +43,7 @@ export const getToolIntents = (): string[] => {
   const intents: string[] = [];
 
   intents.push(GENERAL_ANSWER_INTENT);
+  intents.push(CONVERSATION_INTENT);
 
   const toolNames = Object.keys(TOOLS) as ToolName[];
   for (let index = 0; index < toolNames.length; index += 1) {

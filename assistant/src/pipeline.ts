@@ -1,7 +1,13 @@
 import type { ContractExecutionResult } from './runner.js';
 import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
-import { TOOLS, GENERAL_ANSWER_INTENT, getToolDefinition, type ToolName } from './tools/registry.js';
+import {
+  TOOLS,
+  GENERAL_ANSWER_INTENT,
+  CONVERSATION_INTENT,
+  getToolDefinition,
+  type ToolName,
+} from './tools/registry.js';
 import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
@@ -9,7 +15,7 @@ import { DEFAULT_PERSONALITY } from './personality.js';
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-const DIRECT_LANGUAGE_FALLBACK: { language: string; name: string } = {
+const LANGUAGE_FALLBACK: { language: string; name: string } = {
   language: 'unknown',
   name: 'Unknown',
 };
@@ -77,7 +83,7 @@ export class Pipeline {
   ) {}
 
   /**
-   * Routes a user input through intent classification, tool execution, or strict answer.
+   * Routes a user input through intent classification, tool execution, or non-tool answer.
    */
   public async run(userInput: string): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
@@ -93,6 +99,7 @@ export class Pipeline {
     }
 
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
+    const personalityDescription = DEFAULT_PERSONALITY.description;
     Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
     const intentStartMs = Date.now();
@@ -108,11 +115,12 @@ export class Pipeline {
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
-      const result = await this.runStrictAnswer(
+      const result = await this.runNonToolAnswer(
         userInput,
         undefined,
         intentResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (intent failed)', { durationMs });
@@ -125,12 +133,13 @@ export class Pipeline {
     });
 
     if (!this.isToolIntent(intent.intent)) {
-      Logger.info('pipeline', 'Non-tool intent selected, using strict answer');
-      const result = await this.runStrictAnswer(
+      Logger.info('pipeline', 'Non-tool intent selected, using non-tool answer');
+      const result = await this.runNonToolAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (non-tool intent)', { durationMs });
@@ -139,11 +148,12 @@ export class Pipeline {
 
     if (!this.meetsToolConfidence(intent.confidence)) {
       Logger.info('pipeline', 'Tool intent below confidence threshold, using strict answer');
-      const result = await this.runStrictAnswer(
+      const result = await this.runNonToolAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (low confidence)', { durationMs });
@@ -153,11 +163,12 @@ export class Pipeline {
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
       Logger.info('pipeline', 'No matching tool for intent, using strict answer');
-      const result = await this.runStrictAnswer(
+      const result = await this.runNonToolAnswer(
         userInput,
         intent,
         intentResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (no matching tool)', { durationMs });
@@ -204,11 +215,12 @@ export class Pipeline {
         'pipeline',
         `Tool argument extraction failed for ${toolName}, falling back to strict answer`,
       );
-      const result = await this.runStrictAnswer(
+      const result = await this.runNonToolAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (arg extraction failed)', { durationMs });
@@ -220,11 +232,12 @@ export class Pipeline {
         'pipeline',
         `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
       );
-      const result = await this.runStrictAnswer(
+      const result = await this.runNonToolAnswer(
         userInput,
         intent,
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
+        personalityDescription,
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (args mostly null)', { durationMs });
@@ -268,7 +281,7 @@ export class Pipeline {
       if (typeof toolResult === 'string') {
         formattedResult = await this.formatResponse(
           toolResult,
-          DIRECT_LANGUAGE_FALLBACK,
+          LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
           userInput,
           directMatch.tool,
@@ -276,7 +289,7 @@ export class Pipeline {
       } else {
         summary = await this.summarizeToolResult(
           toolResult,
-          DIRECT_LANGUAGE_FALLBACK,
+          LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
           userInput,
           directMatch.tool,
@@ -290,7 +303,7 @@ export class Pipeline {
         result: formattedResult,
         summary,
         intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
-        language: DIRECT_LANGUAGE_FALLBACK,
+        language: LANGUAGE_FALLBACK,
         attempts: 0,
       };
     } catch (error) {
@@ -621,17 +634,145 @@ export class Pipeline {
     return true;
   }
 
+  /**
+   * Detects the user's language for non-tool responses.
+   */
+  private async detectLanguage(
+    userInput: string,
+  ): Promise<{
+    ok: boolean;
+    language: { language: string; name: string };
+    attempts: number;
+  }> {
+    const stageStartMs = Date.now();
+    const prompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
+    const result = await this.runner.executeContract(
+      'LANGUAGE_DETECTION',
+      prompt,
+      (raw) => this.orchestrator.validateLanguageDetection(raw),
+    );
+    const stageDurationMs = measureDurationMs(stageStartMs);
+    Logger.debug('pipeline', 'Language detection stage completed', {
+      durationMs: stageDurationMs,
+    });
+
+    if (result.ok) {
+      return {
+        ok: true,
+        language: result.value,
+        attempts: result.attempts,
+      };
+    }
+
+    Logger.warn('pipeline', 'Language detection failed, using fallback language');
+    return {
+      ok: false,
+      language: LANGUAGE_FALLBACK,
+      attempts: result.attempts,
+    };
+  }
+
+  /**
+   * Runs a non-tool response after resolving language detection.
+   */
+  private async runNonToolAnswer(
+    userInput: string,
+    intent: { intent: string; confidence: number } | undefined,
+    attempts: number,
+    toneInstructions: string | undefined,
+    personalityDescription: string,
+  ): Promise<PipelineResult> {
+    const languageResult = await this.detectLanguage(userInput);
+    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
+    const language = languageResult.language;
+
+    if (intent?.intent === CONVERSATION_INTENT) {
+      return this.runConversationalAnswer(
+        userInput,
+        intent,
+        attempts + attemptOffset,
+        toneInstructions,
+        personalityDescription,
+        language,
+      );
+    }
+
+    return this.runStrictAnswer(
+      userInput,
+      intent,
+      attempts + attemptOffset,
+      toneInstructions,
+      language,
+    );
+  }
+
+  /**
+   * Runs the conversational answer contract for simple dialogue.
+   */
+  private async runConversationalAnswer(
+    userInput: string,
+    intent: { intent: string; confidence: number } | undefined,
+    attempts: number,
+    toneInstructions: string | undefined,
+    personalityDescription: string,
+    language: { language: string; name: string },
+  ): Promise<PipelineResult> {
+    Logger.info('pipeline', 'Running conversational answer contract');
+    const stageStartMs = Date.now();
+    const prompt = this.orchestrator.buildConversationalAnswerPrompt(
+      userInput,
+      toneInstructions,
+      language,
+      personalityDescription,
+    );
+    const result = await this.runner.executeContract(
+      'CONVERSATIONAL_ANSWER',
+      prompt,
+      (raw) => this.orchestrator.validateConversationalAnswer(raw),
+    );
+    const stageDurationMs = measureDurationMs(stageStartMs);
+    Logger.debug('pipeline', 'Conversational answer stage completed', {
+      durationMs: stageDurationMs,
+    });
+
+    if (!result.ok) {
+      Logger.warn(
+        'pipeline',
+        'Conversational answer contract failed, falling back to strict answer',
+      );
+      return this.runStrictAnswer(
+        userInput,
+        intent,
+        attempts + result.attempts,
+        toneInstructions,
+        language,
+      );
+    }
+
+    Logger.info('pipeline', 'Conversational answer generated successfully');
+    return {
+      ok: true,
+      kind: 'strict_answer',
+      value: result.value,
+      intent,
+      language,
+      attempts: attempts + result.attempts,
+    };
+  }
+
   private async runStrictAnswer(
     userInput: string,
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
     toneInstructions?: string,
+    language?: { language: string; name: string },
   ): Promise<PipelineResult> {
     Logger.info('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildStrictAnswerPrompt(
       userInput,
       toneInstructions,
+      language,
     );
     const result = await this.runner.executeContract(
       'STRICT_ANSWER',
@@ -659,7 +800,7 @@ export class Pipeline {
       kind: 'strict_answer',
       value: result.value,
       intent,
-      language: DIRECT_LANGUAGE_FALLBACK,
+      language: language ?? LANGUAGE_FALLBACK,
       attempts: attempts + result.attempts,
     };
   }
@@ -825,7 +966,7 @@ export class Pipeline {
 
     const language = languageResult.ok
       ? languageResult.value
-      : { language: 'unknown', name: 'Unknown' };
+      : LANGUAGE_FALLBACK;
 
     if (!toolExecResult.ok) {
       Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
