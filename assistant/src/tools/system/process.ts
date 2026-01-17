@@ -218,8 +218,13 @@ const parseElapsedSeconds = (value: string): number | null => {
   let timePart = normalized;
 
   if (daySplit.length === 2) {
-    days = Number.parseInt(daySplit[0], 10);
-    timePart = daySplit[1];
+    const dayToken = daySplit[0];
+    const timeToken = daySplit[1];
+    if (!dayToken || !timeToken) {
+      return null;
+    }
+    days = Number.parseInt(dayToken, 10);
+    timePart = timeToken;
   }
 
   const segments = timePart.split(':');
@@ -233,12 +238,23 @@ const parseElapsedSeconds = (value: string): number | null => {
 
   if (segments.length === 2) {
     hours = 0;
-    minutes = Number.parseInt(segments[0], 10);
-    seconds = Number.parseInt(segments[1], 10);
+    const minuteToken = segments[0];
+    const secondToken = segments[1];
+    if (!minuteToken || !secondToken) {
+      return null;
+    }
+    minutes = Number.parseInt(minuteToken, 10);
+    seconds = Number.parseInt(secondToken, 10);
   } else {
-    hours = Number.parseInt(segments[0], 10);
-    minutes = Number.parseInt(segments[1], 10);
-    seconds = Number.parseInt(segments[2], 10);
+    const hourToken = segments[0];
+    const minuteToken = segments[1];
+    const secondToken = segments[2];
+    if (!hourToken || !minuteToken || !secondToken) {
+      return null;
+    }
+    hours = Number.parseInt(hourToken, 10);
+    minutes = Number.parseInt(minuteToken, 10);
+    seconds = Number.parseInt(secondToken, 10);
   }
 
   if (Number.isNaN(minutes) || Number.isNaN(seconds) || Number.isNaN(hours) || Number.isNaN(days)) {
@@ -256,22 +272,35 @@ const parsePosixProcessLines = (output: string): ProcessInfo[] => {
 
   const processes: ProcessInfo[] = [];
   for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index].trim();
+    const line = lines[index];
     if (!line) {
+      continue;
+    }
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
       continue;
     }
 
     // Expected columns: PID COMMAND %CPU RSS ETIME
-    const match = /^(\d+)\s+(\S+)\s+([\d.]+)\s+(\d+)\s+([\d:-]+)$/.exec(line);
+    const match = /^(\d+)\s+(\S+)\s+([\d.]+)\s+(\d+)\s+([\d:-]+)$/.exec(trimmedLine);
     if (!match) {
       continue;
     }
 
-    const pid = Number.parseInt(match[1], 10);
-    const name = match[2];
-    const cpu = Number.parseFloat(match[3]);
-    const rssKb = Number.parseInt(match[4], 10);
-    const etime = match[5];
+    const pidToken = match[1];
+    const nameToken = match[2];
+    const cpuToken = match[3];
+    const rssToken = match[4];
+    const etimeToken = match[5];
+    if (!pidToken || !nameToken || !cpuToken || !rssToken || !etimeToken) {
+      continue;
+    }
+
+    const pid = Number.parseInt(pidToken, 10);
+    const name = nameToken;
+    const cpu = Number.parseFloat(cpuToken);
+    const rssKb = Number.parseInt(rssToken, 10);
+    const etime = etimeToken;
 
     processes.push({
       pid,
@@ -301,6 +330,9 @@ const runPosixProcessList = async (query: string | null, limit: number): Promise
 
   for (let index = 0; index < allProcesses.length; index += 1) {
     const proc = allProcesses[index];
+    if (!proc) {
+      continue;
+    }
     if (normalizedQuery && !proc.name.toLowerCase().includes(normalizedQuery)) {
       continue;
     }

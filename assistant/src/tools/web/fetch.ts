@@ -6,12 +6,12 @@ import {
   DEFAULT_MAX_BYTES,
   DEFAULT_TIMEOUT_MS,
   executeHttpRequest,
-  HttpResponseResult,
   MAX_ALLOWED_BYTES,
   MAX_TIMEOUT_MS,
   normalizeMethod,
   ensureHttpUrl,
 } from './http-core.js';
+import type { HttpResponseResult } from './http-core.js';
 
 /* ------------------------------------------------------------------------- *
  * TYPES
@@ -89,6 +89,9 @@ const buildQueryParamEntries = (
     const keys = Object.keys(parsedRecord);
     for (let index = 0; index < keys.length; index += 1) {
       const key = keys[index];
+      if (!key) {
+        continue;
+      }
       const value = parsedRecord[key];
       if (value === null || value === undefined) {
         continue;

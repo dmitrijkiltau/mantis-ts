@@ -403,6 +403,9 @@ const parseFileTreeText = (text: string): FileTreeRow[] => {
   const result: FileTreeRow[] = [];
   for (let index = 0; index < rows.length; index += 1) {
     const current = rows[index];
+    if (!current) {
+      continue;
+    }
     const next = rows[index + 1];
     const hasChildren = next ? next.depth > current.depth : false;
     const isFolder = current.hasTrailingSlash || hasChildren;
@@ -797,7 +800,7 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
     return null;
   }
 
-  const normalized = contentType.split(';')[0].trim().toLowerCase();
+  const normalized = (contentType.split(';')[0] ?? '').trim().toLowerCase();
   if (!normalized) {
     return null;
   }

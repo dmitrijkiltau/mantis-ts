@@ -36,7 +36,11 @@ const buildToolEntries = (): ToolEntry[] => {
 
   const tools: ToolEntry[] = [];
   for (let index = 0; index < entries.length; index += 1) {
-    const [name, definition] = entries[index];
+    const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
+    const [name, definition] = entry;
     tools.push({ name, definition });
   }
 
@@ -81,7 +85,11 @@ const renderSchemaSection = (schema: ToolSchema): HTMLElement => {
     list.appendChild(noArgs);
   } else {
     for (let index = 0; index < fields.length; index += 1) {
-      const [fieldName, fieldType] = fields[index];
+      const entry = fields[index];
+      if (!entry) {
+        continue;
+      }
+      const [fieldName, fieldType] = entry;
       list.appendChild(createSchemaPill(fieldName, fieldType));
     }
   }
@@ -140,7 +148,11 @@ export const renderToolCatalog = (
   }
 
   for (let index = 0; index < tools.length; index += 1) {
-    const card = renderToolCard(tools[index]);
+    const tool = tools[index];
+    if (!tool) {
+      continue;
+    }
+    const card = renderToolCard(tool);
     listContainer.appendChild(card);
   }
 

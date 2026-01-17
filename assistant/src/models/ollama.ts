@@ -71,6 +71,9 @@ export class OllamaClient implements LLMClient {
 
     for (let index = 0; index < chunks.length; index += 1) {
       const chunk = chunks[index];
+      if (!chunk) {
+        continue;
+      }
 
       if (chunk.error) {
         throw new Error(`Ollama response error: ${chunk.error}`);
@@ -102,13 +105,17 @@ export class OllamaClient implements LLMClient {
     const lineChunks: OllamaChatResponse[] = [];
     const lines = trimmed.split(/\r?\n/);
     for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index].trim();
+      const line = lines[index];
       if (!line) {
+        continue;
+      }
+      const trimmedLine = line.trim();
+      if (!trimmedLine) {
         continue;
       }
 
       try {
-        lineChunks.push(JSON.parse(line) as OllamaChatResponse);
+        lineChunks.push(JSON.parse(trimmedLine) as OllamaChatResponse);
       } catch {
         lineChunks.length = 0;
         break;

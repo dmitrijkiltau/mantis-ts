@@ -195,7 +195,11 @@ const validateNoDestructiveTokens = (program: string, args: string[]): void => {
   const allTokens = [program, ...args];
 
   for (let index = 0; index < allTokens.length; index += 1) {
-    const token = allTokens[index].toLowerCase();
+    const tokenValue = allTokens[index];
+    if (!tokenValue) {
+      continue;
+    }
+    const token = tokenValue.toLowerCase();
 
     // Check against destructive token set
     for (const destructive of DESTRUCTIVE_TOKENS) {
@@ -210,6 +214,9 @@ const validateNoDestructiveTokens = (program: string, args: string[]): void => {
     // Check against destructive patterns
     for (let patternIndex = 0; patternIndex < DESTRUCTIVE_PATTERNS.length; patternIndex += 1) {
       const pattern = DESTRUCTIVE_PATTERNS[patternIndex];
+      if (!pattern) {
+        continue;
+      }
       if (pattern.test(token)) {
         throw new Error(
           `Destructive pattern detected in "${allTokens[index]}". ` +

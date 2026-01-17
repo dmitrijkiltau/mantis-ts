@@ -110,13 +110,49 @@
   }
 
   .status-display {
-    @apply flex flex-col gap-3;
+    @apply flex flex-col gap-5;
   }
 
-  .status-row {
-    @apply flex items-center gap-3 px-4 py-3 rounded border-l-[3px];
-    background: var(--color-primary-5);
+  .status-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .status-card {
+    @apply flex flex-col gap-2 px-4 py-3 rounded border-l-[3px];
+    background: var(--color-status-neutral);
     border-color: var(--color-primary-50);
+    box-shadow: var(--shadow-inset-glow);
+  }
+
+  .status-card[data-state='OPERATIONAL'],
+  .status-card[data-state='COMPLETE'],
+  .status-card[data-state='AWAITING_INPUT'],
+  .status-card[data-state='ANSWER_GENERATED'] {
+    background: var(--color-status-ok);
+    border-color: var(--color-emerald-40);
+  }
+
+  .status-card[data-state='PROCESSING'],
+  .status-card[data-state='ANALYZING'],
+  .status-card[data-state='QUERY_RECEIVED'],
+  .status-card[data-state='CONTRACT_VALIDATION'],
+  .status-card[data-state^='TOOL_'] {
+    background: var(--color-status-active);
+    border-color: var(--color-cyan-50);
+  }
+
+  .status-card[data-state='FAILED'],
+  .status-card[data-state='ERROR'],
+  .status-card[data-state='EXCEPTION'],
+  .status-card[data-state='UNHANDLED'] {
+    background: var(--color-status-error);
+    border-color: var(--color-status-error-border);
+  }
+
+  .status-card[data-state='NONE'] {
+    background: var(--color-status-neutral);
+    border-color: var(--color-primary-40);
   }
 
   .status-label {
@@ -127,6 +163,38 @@
   .status-value {
     @apply text-sm font-mono text-terminal-primary;
     text-shadow: var(--shadow-text-primary-soft);
+  }
+
+  .status-contracts {
+    @apply flex flex-col gap-3;
+  }
+
+  .status-section-label {
+    @apply text-[10px] font-semibold tracking-widest text-primary-60;
+  }
+
+  .contract-model-list {
+    @apply grid gap-2;
+  }
+
+  .contract-model-row {
+    @apply grid items-center gap-3 px-3 py-2 rounded border;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    background: var(--color-bg-black-soft);
+    border-color: var(--color-primary-20);
+  }
+
+  .contract-model-name {
+    @apply text-[11px] font-semibold tracking-wider text-primary-70;
+  }
+
+  .contract-model-value {
+    @apply text-xs font-mono text-terminal-primary;
+  }
+
+  .contract-model-placeholder {
+    @apply text-xs text-primary-60 font-mono px-3 py-2 rounded border border-primary-20;
+    background: var(--color-bg-black-soft);
   }
 
   .history-list {

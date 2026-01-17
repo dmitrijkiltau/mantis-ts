@@ -182,6 +182,9 @@ const resolveLinuxDriver = async (): Promise<ClipboardDriver> => {
   for (let i = 0; i < LINUX_READS.length; i++) {
     const readCmd = LINUX_READS[i];
     const writeCmd = LINUX_WRITES[i];
+    if (!readCmd || !writeCmd) {
+      continue;
+    }
     try {
       // Test read command (safest way to check existence)
       // We assume if read works, write works for the same suite (e.g. wl-paste + wl-copy)

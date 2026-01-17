@@ -70,6 +70,9 @@ export const validateToolArguments = (
   const parsedKeys = Object.keys(parsed);
   for (let index = 0; index < parsedKeys.length; index += 1) {
     const parsedKey = parsedKeys[index];
+    if (!parsedKey) {
+      continue;
+    }
     // Validate unexpected fields
     if (!(parsedKey in schema)) {
       return { ok: false, error: `UNEXPECTED_FIELD:${parsedKey}` };
@@ -78,7 +81,11 @@ export const validateToolArguments = (
 
   const schemaEntries = Object.entries(schema);
   for (let index = 0; index < schemaEntries.length; index += 1) {
-    const [schemaKey, type] = schemaEntries[index];
+    const entry = schemaEntries[index];
+    if (!entry) {
+      continue;
+    }
+    const [schemaKey, type] = entry;
     // Validate missing fields
     if (!Object.prototype.hasOwnProperty.call(parsed, schemaKey)) {
       return { ok: false, error: `MISSING_FIELD:${schemaKey}` };

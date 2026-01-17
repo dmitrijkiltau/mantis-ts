@@ -46,6 +46,13 @@
   /* Emerald Accent - Various Opacities */
   --color-emerald-20: rgba(16, 185, 129, 0.2);
   --color-emerald-40: rgba(16, 185, 129, 0.4);
+
+  /* Status Colors */
+  --color-status-neutral: rgba(0, 255, 136, 0.08);
+  --color-status-ok: rgba(16, 185, 129, 0.18);
+  --color-status-active: rgba(34, 211, 238, 0.16);
+  --color-status-error: rgba(239, 68, 68, 0.2);
+  --color-status-error-border: rgba(239, 68, 68, 0.5);
   
   /* Gradient Colors */
   --color-gradient-top: rgba(16, 185, 129, 0.15);

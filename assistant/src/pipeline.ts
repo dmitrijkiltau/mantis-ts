@@ -393,8 +393,13 @@ export class Pipeline {
       return null;
     }
 
-    const action = match[1].toLowerCase();
-    const path = this.stripWrappingQuotes(match[2]);
+    const actionToken = match[1];
+    const pathToken = match[2];
+    if (!actionToken || !pathToken) {
+      return null;
+    }
+    const action = actionToken.toLowerCase();
+    const path = this.stripWrappingQuotes(pathToken);
     if (!path || !this.looksLikePath(path)) {
       return null;
     }
@@ -417,7 +422,11 @@ export class Pipeline {
       return null;
     }
 
-    const url = this.stripWrappingQuotes(match[2]);
+    const urlToken = match[2];
+    if (!urlToken) {
+      return null;
+    }
+    const url = this.stripWrappingQuotes(urlToken);
     if (!url || !this.isHttpUrl(url)) {
       return null;
     }
@@ -523,7 +532,11 @@ export class Pipeline {
     let nullRequired = 0;
     const entries = Object.entries(schema);
     for (let index = 0; index < entries.length; index += 1) {
-      const [key, type] = entries[index];
+      const entry = entries[index];
+      if (!entry) {
+        continue;
+      }
+      const [key, type] = entry;
       const allowsNull = type.endsWith('|null');
       if (allowsNull) {
         continue;

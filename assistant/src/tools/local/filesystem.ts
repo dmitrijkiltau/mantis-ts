@@ -183,6 +183,9 @@ const listDirectory = async (
     }
 
     const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
     let type: DirectoryEntrySummary['type'] = 'other';
     let sizeBytes: number | null = null;
 

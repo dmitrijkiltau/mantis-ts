@@ -94,7 +94,11 @@ export const applyQueryParamEntries = (
   const seen = new Map<string, string[]>();
 
   for (let index = 0; index < entries.length; index += 1) {
-    const [key, value] = entries[index];
+    const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
+    const [key, value] = entry;
     const existing = seen.get(key) ?? [];
     existing.push(value);
     seen.set(key, existing);
@@ -102,12 +106,20 @@ export const applyQueryParamEntries = (
 
   const overrideKeys = Array.from(seen.keys());
   for (let index = 0; index < overrideKeys.length; index += 1) {
-    url.searchParams.delete(overrideKeys[index]);
+    const key = overrideKeys[index];
+    if (!key) {
+      continue;
+    }
+    url.searchParams.delete(key);
   }
 
   for (const [key, values] of seen.entries()) {
     for (let valueIndex = 0; valueIndex < values.length; valueIndex += 1) {
-      url.searchParams.append(key, values[valueIndex]);
+      const value = values[valueIndex];
+      if (value === undefined) {
+        continue;
+      }
+      url.searchParams.append(key, value);
     }
   }
 

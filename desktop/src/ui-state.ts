@@ -1,4 +1,5 @@
-import { AvatarMood, AssistantAvatar } from './avatar';
+import { AssistantAvatar } from './avatar';
+import type { AvatarMood } from './avatar';
 
 export class UIState {
   private queryCount = 0;
@@ -27,9 +28,21 @@ export class UIState {
   }
 
   setStatus(system: string, state: string, action: string): void {
-    if (this.statusSystem) this.statusSystem.textContent = system;
-    if (this.statusState) this.statusState.textContent = state;
-    if (this.statusAction) this.statusAction.textContent = action;
+    if (this.statusSystem) {
+      this.statusSystem.textContent = system;
+      const card = this.statusSystem.closest<HTMLElement>('.status-card');
+      if (card) card.dataset.state = system;
+    }
+    if (this.statusState) {
+      this.statusState.textContent = state;
+      const card = this.statusState.closest<HTMLElement>('.status-card');
+      if (card) card.dataset.state = state;
+    }
+    if (this.statusAction) {
+      this.statusAction.textContent = action;
+      const card = this.statusAction.closest<HTMLElement>('.status-card');
+      if (card) card.dataset.state = action;
+    }
   }
 
   showBubble(html: string): void {

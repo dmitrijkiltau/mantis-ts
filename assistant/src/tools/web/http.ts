@@ -6,12 +6,12 @@ import {
   DEFAULT_MAX_BYTES,
   DEFAULT_TIMEOUT_MS,
   executeHttpRequest,
-  HttpResponseResult,
   MAX_ALLOWED_BYTES,
   MAX_TIMEOUT_MS,
   normalizeMethod,
   ensureHttpUrl,
 } from './http-core.js';
+import type { HttpResponseResult } from './http-core.js';
 
 /* ------------------------------------------------------------------------- *
  * TYPES
@@ -48,6 +48,9 @@ const normalizeHeaders = (
 
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
+    if (!key) {
+      continue;
+    }
     const value = raw[key];
     if (value === undefined) {
       continue;
@@ -80,6 +83,9 @@ const buildQueryParamEntries = (
 
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
+    if (!key) {
+      continue;
+    }
     const value = raw[key];
     if (value === undefined || value === null) {
       continue;

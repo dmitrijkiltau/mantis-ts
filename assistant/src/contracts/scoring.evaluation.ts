@@ -54,7 +54,11 @@ export const validateScoring: ContractValidator<
   const entries = Object.entries(parsed);
   const typed: Record<string, number> = {};
   for (let index = 0; index < entries.length; index += 1) {
-    const [key, value] = entries[index];
+    const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
+    const [key, value] = entry;
     if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 10) {
       return { ok: false, error: `INVALID_SCORE:${key}` };
     }

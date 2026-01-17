@@ -151,7 +151,11 @@ export class Orchestrator {
     const lines: string[] = [];
 
     for (let index = 0; index < toolEntries.length; index += 1) {
-      const [name, tool] = toolEntries[index];
+      const entry = toolEntries[index];
+      if (!entry) {
+        continue;
+      }
+      const [name, tool] = entry;
       lines.push(`- tool.${name}: ${tool.description}`);
     }
 
