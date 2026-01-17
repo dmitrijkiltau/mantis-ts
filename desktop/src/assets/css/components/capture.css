@@ -1,0 +1,103 @@
+@layer components {
+  .capture-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: rgba(6, 10, 10, 0.85);
+    backdrop-filter: blur(2px);
+  }
+
+  .capture-panel {
+    @apply w-full max-w-5xl max-h-[90vh] flex flex-col rounded-lg overflow-hidden;
+    @apply border-2 border-primary-40 bg-bg-terminal;
+    box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
+  }
+
+  .capture-header {
+    @apply flex flex-col gap-1 px-4 py-3;
+    @apply border-b border-primary-30 bg-primary-10;
+  }
+
+  .capture-title {
+    @apply text-xs font-bold tracking-widest text-terminal-primary;
+    text-shadow: var(--shadow-text-primary);
+  }
+
+  .capture-hint {
+    @apply text-[11px] text-primary-60;
+  }
+
+  .capture-body {
+    @apply grid grid-cols-[220px_1fr] gap-4 p-4;
+  }
+
+  .capture-screen-list {
+    @apply flex flex-col gap-2 pr-1 overflow-y-auto;
+    max-height: min(60vh, 420px);
+  }
+
+  .capture-screen-card {
+    @apply flex flex-col gap-2 p-2 rounded border border-primary-30 bg-bg-black-soft;
+    @apply text-terminal-primary transition-all duration-150 ease-out;
+  }
+
+  .capture-screen-card.active {
+    @apply border-terminal-cyan text-terminal-cyan;
+    box-shadow: var(--shadow-glow-cyan);
+  }
+
+  .capture-screen-thumb {
+    @apply w-full h-24 rounded border border-primary-30 object-cover;
+  }
+
+  .capture-screen-label {
+    @apply text-[10px] font-semibold tracking-widest text-primary-70;
+  }
+
+  .capture-preview {
+    @apply flex items-center justify-center rounded border border-primary-30 bg-bg-black-soft;
+    min-height: 280px;
+  }
+
+  .capture-preview-frame {
+    @apply relative;
+  }
+
+  .capture-canvas {
+    @apply block;
+    cursor: crosshair;
+  }
+
+  .capture-selection {
+    @apply absolute border-2 border-terminal-cyan;
+    background: rgba(0, 255, 136, 0.12);
+    pointer-events: none;
+  }
+
+  .capture-selection.hidden {
+    @apply hidden;
+  }
+
+  .capture-footer {
+    @apply flex items-center justify-between gap-3 px-4 py-3;
+    @apply border-t border-primary-30 bg-primary-5;
+  }
+
+  .capture-footer-group {
+    @apply flex items-center gap-2;
+  }
+
+  .capture-button {
+    @apply px-3 py-1 text-[11px] font-bold;
+    @apply text-terminal-primary border border-terminal-primary bg-primary-10;
+    @apply transition-all duration-200 ease-out;
+    letter-spacing: 0.1em;
+  }
+
+  .capture-button.primary {
+    @apply border-terminal-cyan text-terminal-cyan bg-primary-20;
+    box-shadow: var(--shadow-glow-cyan);
+  }
+
+  .capture-button:hover {
+    @apply bg-primary-20 shadow-glow-primary-soft;
+  }
+}

@@ -6,6 +6,8 @@ import { UIState } from './ui-state';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
+import { buildImageAttachmentFromFile } from './image-attachments';
+import { captureScreenSelectionAttachment } from './screen-capture';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -298,130 +300,9 @@ type ImageAttachmentElements = {
   uiState: UIState;
 };
 
-const buildAttachmentId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-};
-
-const readFileAsDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.readAsDataURL(file);
-  });
-};
-
-const parseDataUrl = (
-  dataUrl: string,
-  fallbackMimeType: string,
-): { base64: string; mimeType: string } | null => {
-  const trimmed = dataUrl.trim();
-  if (!trimmed.startsWith('data:')) {
-    return null;
-  }
-
-  const commaIndex = trimmed.indexOf(',');
-  if (commaIndex === -1) {
-    return null;
-  }
-
-  const header = trimmed.slice(0, commaIndex);
-  const base64 = trimmed.slice(commaIndex + 1);
-  if (!base64) {
-    return null;
-  }
-
-  const match = /^data:(.+?);base64$/i.exec(header);
-  const mimeType = match?.[1]?.trim() || fallbackMimeType || 'image/png';
-
-  return { base64, mimeType };
-};
-
-const buildImageAttachment = async (
-  file: File,
-  source: ImageAttachment['source'],
-): Promise<ImageAttachment | null> => {
-  const dataUrl = await readFileAsDataUrl(file);
-  const parsed = parseDataUrl(dataUrl, file.type);
-  if (!parsed) {
-    return null;
-  }
-
-  return {
-    id: buildAttachmentId(),
-    name: file.name || 'image',
-    mimeType: parsed.mimeType,
-    data: parsed.base64,
-    source,
-  };
-};
-
-const captureScreenshotAttachment = async (): Promise<ImageAttachment | null> => {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-    return null;
-  }
-
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: false,
-  });
-
-  const track = stream.getVideoTracks()[0];
-  if (!track) {
-    return null;
-  }
-
-  const video = document.createElement('video');
-  video.srcObject = stream;
-  video.muted = true;
-  video.playsInline = true;
-
-  await new Promise<void>((resolve) => {
-    if (video.readyState >= 2) {
-      resolve();
-      return;
-    }
-    video.onloadedmetadata = () => resolve();
-  });
-
-  await video.play();
-
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 1920;
-  canvas.height = video.videoHeight || 1080;
-  const context = canvas.getContext('2d');
-
-  if (!context) {
-    track.stop();
-    return null;
-  }
-
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  track.stop();
-  const tracks = stream.getTracks();
-  for (let index = 0; index < tracks.length; index += 1) {
-    tracks[index]?.stop();
-  }
-
-  const dataUrl = canvas.toDataURL('image/png');
-  const parsed = parseDataUrl(dataUrl, 'image/png');
-  if (!parsed) {
-    return null;
-  }
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return {
-    id: buildAttachmentId(),
-    name: `screenshot-${timestamp}.png`,
-    mimeType: parsed.mimeType,
-    data: parsed.base64,
-    source: 'screenshot',
-  };
-};
-
+/**
+ * Updates the attachment status row.
+ */
 const updateAttachmentUi = (
   elements: ImageAttachmentElements,
   attachment: ImageAttachment | null,
@@ -443,6 +324,9 @@ const updateAttachmentUi = (
   attachmentName.textContent = `${attachment.name} (${attachment.source.toUpperCase()})`;
 };
 
+/**
+ * Extracts the first image file from a FileList.
+ */
 const extractFirstImageFile = (files: FileList | null): File | null => {
   if (!files || files.length === 0) {
     return null;
@@ -458,6 +342,9 @@ const extractFirstImageFile = (files: FileList | null): File | null => {
   return null;
 };
 
+/**
+ * Returns true when the drag event contains file data.
+ */
 const isFileDrag = (event: DragEvent): boolean => {
   const types = event.dataTransfer?.types;
   if (!types) {
@@ -490,7 +377,7 @@ export const setupImageInput = (elements: ImageAttachmentElements): ImageAttachm
     file: File,
     source: ImageAttachment['source'],
   ): Promise<void> => {
-    const attachment = await buildImageAttachment(file, source);
+    const attachment = await buildImageAttachmentFromFile(file, source);
     if (!attachment) {
       elements.uiState.addLog('Unable to read image attachment.');
       return;
@@ -523,7 +410,7 @@ export const setupImageInput = (elements: ImageAttachmentElements): ImageAttachm
 
   elements.captureButton?.addEventListener('click', async () => {
     try {
-      const attachment = await captureScreenshotAttachment();
+      const attachment = await captureScreenSelectionAttachment();
       if (!attachment) {
         elements.uiState.addLog('Screen capture not supported or canceled.');
         return;

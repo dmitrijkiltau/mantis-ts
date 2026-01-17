@@ -6,9 +6,12 @@ edition = "2021"
 [dependencies]
 tauri = { version = "2.9.5", features = [] }
 
-tauri-plugin-dialog = "2.5.0"
+tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
 tauri-plugin-shell = "2.3.4"
+base64 = "0.22.1"
+screenshots = "0.8.10"
+serde = { version = "1.0.228", features = ["derive"] }
 
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
