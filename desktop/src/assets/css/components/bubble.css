@@ -503,6 +503,14 @@
       @apply flex flex-col gap-1 mb-3 text-xs;
     }
 
+    .file-tree-header-row {
+      @apply flex items-start gap-3;
+    }
+
+    .file-tree-header-meta {
+      @apply ml-auto flex items-center gap-2 text-right;
+    }
+
     .file-tree-title {
       @apply text-terminal-cyan font-bold tracking-widest;
     }
@@ -545,11 +553,15 @@
     }
 
     .file-node-info {
-      @apply flex flex-col gap-1;
+      @apply flex flex-col gap-1 flex-1 min-w-0;
     }
 
     .file-node-name {
       @apply text-terminal-primary;
+    }
+
+    .file-node-size {
+      @apply text-[11px] font-mono text-primary-70 ml-auto self-start whitespace-nowrap;
     }
 
     .file-node-path {

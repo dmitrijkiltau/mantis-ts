@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 import type { HttpResponseResult } from '../../assistant/src/tools/web/http-core';
-import { renderIcon } from './icon';
-import type { IconName } from './icon';
+import { renderIcon } from './components/icon';
+import type { IconName } from './components/icon';
 
 type BubbleFilePayload = {
   action: 'file';
@@ -13,6 +13,7 @@ type BubbleFilePayload = {
 type BubbleDirectoryEntry = {
   name: string;
   type: 'file' | 'directory' | 'other';
+  sizeBytes?: number | null;
 };
 
 type BubbleDirectoryPayload = {
@@ -55,6 +56,7 @@ type FileTreeRow = {
   kind: 'file' | 'folder' | 'other';
   depth: number;
   path?: string;
+  sizeBytes?: number | null;
 };
 
 type ViewButtonConfig = {
@@ -418,6 +420,13 @@ const parseFileTreeText = (text: string): FileTreeRow[] => {
 const looksLikeFileTree = (text: string): boolean =>
   /(?:\u251c|\u2514|\u2502)|(?:\|--|\\--|\+--|`--)/.test(text);
 
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
 const renderFileTreeRows = (rows: FileTreeRow[]): string => {
   let html = '';
 
@@ -428,6 +437,14 @@ const renderFileTreeRows = (rows: FileTreeRow[]): string => {
     const pathHtml = row.path
       ? `<span class="file-node-path">${escapeHtml(row.path)}</span>`
       : '';
+    const sizeText = row.sizeBytes === undefined
+      ? null
+      : row.sizeBytes === null
+        ? 'N/A'
+        : formatBytes(row.sizeBytes);
+    const sizeHtml = sizeText
+      ? `<span class="file-node-size">${escapeHtml(sizeText)}</span>`
+      : '';
 
     html += `
       <div class="file-tree-row is-${row.kind}" style="--depth:${depth}">
@@ -436,6 +453,7 @@ const renderFileTreeRows = (rows: FileTreeRow[]): string => {
           <span class="file-node-name">${escapeHtml(row.name)}</span>
           ${pathHtml}
         </div>
+        ${sizeHtml}
       </div>
     `;
   }
@@ -447,13 +465,23 @@ const renderFileTree = (
   rows: FileTreeRow[],
   header?: { title: string; path?: string; meta?: string; truncated?: boolean },
 ): string => {
+  const metaHtml = header?.meta
+    ? `<span class="file-tree-meta">${escapeHtml(header.meta)}</span>`
+    : '';
+  const warningHtml = header?.truncated
+    ? '<span class="file-tree-warning">TRUNCATED</span>'
+    : '';
+  const headerMetaHtml = metaHtml || warningHtml
+    ? `<div class="file-tree-header-meta">${metaHtml}${warningHtml}</div>`
+    : '';
   const headerHtml = header
     ? `
       <div class="file-tree-header">
-        <span class="file-tree-title">${escapeHtml(header.title)}</span>
+        <div class="file-tree-header-row">
+          <span class="file-tree-title">${escapeHtml(header.title)}</span>
+          ${headerMetaHtml}
+        </div>
         ${header.path ? `<span class="file-tree-path">${escapeHtml(header.path)}</span>` : ''}
-        ${header.meta ? `<span class="file-tree-meta">${escapeHtml(header.meta)}</span>` : ''}
-        ${header.truncated ? '<span class="file-tree-warning">TRUNCATED</span>' : ''}
       </div>
     `
     : '';
@@ -473,7 +501,7 @@ const renderDirectoryPayload = (payload: BubbleDirectoryPayload): string => {
 
   for (const entry of payload.entries) {
     const kind = entry.type === 'directory' ? 'folder' : entry.type === 'file' ? 'file' : 'other';
-    rows.push({ name: entry.name, kind, depth: 0 });
+    rows.push({ name: entry.name, kind, depth: 0, sizeBytes: entry.sizeBytes ?? null });
   }
 
   return renderFileTree(rows, {
@@ -795,13 +823,6 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
   }
 
   return null;
-};
-
-const formatBytes = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
 
 const renderHttpResponsePayload = (payload: HttpResponseResult): string => {

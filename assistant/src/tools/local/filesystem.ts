@@ -14,6 +14,7 @@ type FilesystemToolArgs = {
 type DirectoryEntrySummary = {
   name: string;
   type: 'file' | 'directory' | 'other';
+  sizeBytes: number | null;
 };
 
 type FileOpenResult = {
@@ -104,6 +105,18 @@ const validatePath = (rawPath: string): string => {
 };
 
 /**
+ * Joins a base path with an entry name using the existing separator.
+ */
+const joinPath = (basePath: string, entryName: string): string => {
+  if (/[\\/]+$/.test(basePath)) {
+    return `${basePath}${entryName}`;
+  }
+
+  const separator = basePath.includes('\\') ? '\\' : '/';
+  return `${basePath}${separator}${entryName}`;
+};
+
+/**
  * Opens a file and returns a bounded preview of its contents.
  */
 const readFileContent = async (
@@ -171,6 +184,7 @@ const listDirectory = async (
 
     const entry = entries[index];
     let type: DirectoryEntrySummary['type'] = 'other';
+    let sizeBytes: number | null = null;
 
     if (entry.isDirectory) {
       type = 'directory';
@@ -178,7 +192,17 @@ const listDirectory = async (
       type = 'file';
     }
 
-    summarized.push({ name: entry.name, type });
+    if (type !== 'other') {
+      const entryPath = joinPath(targetPath, entry.name);
+      try {
+        const stats = await fs.stat(entryPath);
+        sizeBytes = stats.size;
+      } catch {
+        sizeBytes = null;
+      }
+    }
+
+    summarized.push({ name: entry.name, type, sizeBytes });
   }
 
   return {
