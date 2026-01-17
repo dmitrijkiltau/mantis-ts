@@ -76,12 +76,13 @@
     }
 
     .code-block-button {
-      @apply flex items-center justify-center w-6 h-6 rounded border border-primary-30 bg-black/30 text-terminal-primary;
+      @apply inline-flex items-center justify-center gap-1 px-3 py-1 rounded border border-primary-30 bg-black/30 text-[10px] font-semibold tracking-[0.3em] uppercase text-terminal-primary;
       @apply transition-all duration-150 ease-out cursor-pointer;
+      min-width: 72px;
     }
 
-    .code-block-button svg {
-      @apply w-3.5 h-3.5;
+    .view-button-text {
+      @apply leading-none;
     }
 
     .code-block-button:focus-visible {
@@ -257,13 +258,9 @@
     }
 
     .http-json-button {
-      @apply flex items-center justify-center w-8 h-8 rounded-full border border-primary-30 bg-black/30 text-terminal-primary;
-      @apply transition-all duration-150 ease-out;
-      @apply cursor-pointer;
-    }
-
-    .http-json-button svg {
-      @apply w-4 h-4;
+      @apply inline-flex items-center justify-center gap-2 px-3 py-1 rounded border border-primary-30 bg-black/30 text-[10px] font-semibold uppercase tracking-[0.3em] text-terminal-primary;
+      @apply transition-all duration-150 ease-out cursor-pointer;
+      min-width: 78px;
     }
 
     .http-json-button:focus-visible {
@@ -273,6 +270,23 @@
     .http-json-button:hover {
       @apply border-cyan-50 text-terminal-cyan;
       background: rgba(34, 211, 238, 0.1);
+    }
+
+    .http-json-button-text {
+      @apply leading-none;
+    }
+
+    .http-json-button-text--pretty,
+    .http-json-button-text--viewer {
+      display: none;
+    }
+
+    .http-json-block[data-json-view='viewer'] .http-json-button-text--viewer {
+      display: inline-block;
+    }
+
+    .http-json-block[data-json-view='pretty'] .http-json-button-text--pretty {
+      display: inline-block;
     }
 
     .http-json-button--copied {
@@ -433,22 +447,6 @@
     .code-block-json-viewer {
       @apply text-[11px] p-3;
       @apply max-h-96 overflow-y-auto;
-    }
-
-    .http-json-block[data-json-view='viewer'] .http-json-button[data-http-json-action='toggle'] .icon-pretty {
-      display: block;
-    }
-
-    .http-json-block[data-json-view='viewer'] .http-json-button[data-http-json-action='toggle'] .icon-tree {
-      display: none;
-    }
-
-    .http-json-block[data-json-view='pretty'] .icon-tree {
-      display: none;
-    }
-
-    .http-json-block[data-json-view='pretty'] .icon-pretty {
-      display: none;
     }
 
     .json-viewer-root {

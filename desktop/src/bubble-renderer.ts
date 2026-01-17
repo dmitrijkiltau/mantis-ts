@@ -1,7 +1,5 @@
 import { marked } from 'marked';
 import type { HttpResponseResult } from '../../assistant/src/tools/web/http-core';
-import { renderIcon } from './components/icon';
-import type { IconName } from './components/icon';
 
 type BubbleFilePayload = {
   action: 'file';
@@ -61,9 +59,9 @@ type FileTreeRow = {
 
 type ViewButtonConfig = {
   target: string;
-  icon: IconName;
   label: string;
   pressed: boolean;
+  text?: string;
 };
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
@@ -146,10 +144,10 @@ const renderViewButtons = (buttons: ViewButtonConfig[], className: string): stri
 
   for (const button of buttons) {
     const pressed = button.pressed ? 'true' : 'false';
-    const iconSvg = renderIcon(button.icon);
+    const viewText = escapeHtml(button.text ?? button.label);
     html += `
       <button type="button" class="${className}" data-view-target="${button.target}" aria-pressed="${pressed}" aria-label="${escapeHtml(button.label)}">
-        ${iconSvg}
+        <span class="view-button-text">${viewText}</span>
       </button>
     `;
   }
@@ -239,19 +237,18 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   const isMarkdown = normalizedLanguage === 'markdown';
   if (isMarkdown) {
     const preview = marked.parse(code, { renderer: bubbleRenderer }) as string;
-    const copyIconSvg = renderIcon('copy');
     const viewButtons = renderViewButtons(
       [
         {
           target: 'preview',
-          icon: 'markdown-preview',
           label: 'Markdown preview',
+          text: 'PREVIEW',
           pressed: true,
         },
         {
           target: 'raw',
-          icon: 'code-raw',
           label: 'Raw markdown',
+          text: 'RAW',
           pressed: false,
         },
       ],
@@ -267,7 +264,7 @@ const renderCodeBlock = (code: string, language: string | null): string => {
               ${viewButtons}
             </div>
             <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-              ${copyIconSvg}
+              <span class="view-button-text">COPY</span>
             </button>
           </div>
         </div>
@@ -298,19 +295,18 @@ const renderCodeBlock = (code: string, language: string | null): string => {
     if (viewer) {
       const pretty = JSON.stringify(parsed, null, 2);
       const prettyHighlighted = highlightCodeBlock(pretty, 'json');
-      const copyIconSvg = renderIcon('copy');
       const viewButtons = renderViewButtons(
         [
           {
             target: 'pretty',
-            icon: 'json-pretty',
             label: 'Pretty JSON view',
+            text: 'PRETTY',
             pressed: false,
           },
           {
             target: 'viewer',
-            icon: 'json-tree',
             label: 'Structured JSON view',
+            text: 'STRUCTURED',
             pressed: true,
           },
         ],
@@ -325,7 +321,7 @@ const renderCodeBlock = (code: string, language: string | null): string => {
                 ${viewButtons}
               </div>
               <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-                ${copyIconSvg}
+                <span class="view-button-text">COPY</span>
               </button>
             </div>
           </div>
@@ -343,19 +339,19 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   }
 
   return `
-    <div class="code-block">
-      <div class="code-block-header">
-        <span class="code-block-lang">${escapeHtml(label)}</span>
-        <div class="code-block-controls">
-          <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
-            ${renderIcon('copy')}
-          </button>
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="code-block-lang">${escapeHtml(label)}</span>
+          <div class="code-block-controls">
+            <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
+              <span class="view-button-text">COPY</span>
+            </button>
+          </div>
         </div>
+        <pre><code class="${languageClass}" data-raw="${rawAttr}">${highlighted}</code></pre>
       </div>
-      <pre><code class="${languageClass}" data-raw="${rawAttr}">${highlighted}</code></pre>
-    </div>
-  `;
-};
+    `;
+  };
 
 const getTreeDepth = (line: string): number => {
   const branchMatch = line.match(/(?:\u251c|\u2514|\+|\\|\|)?(?:\u2500|-){2,}/);
@@ -699,9 +695,7 @@ const renderHttpJsonPreview = (content: string): string => {
   const pretty = JSON.stringify(parsed, null, 2);
   const viewer = renderJsonViewer(parsed);
   const rawAttr = encodeJsonForAttribute(content);
-  const prettyIcon = renderIcon('json-pretty', 'icon-pretty');
-  const treeIcon = renderIcon('json-tree', 'icon-tree');
-  const copyIconSvg = renderIcon('copy');
+  const toggleLabel = 'Structured JSON view';
 
   return `
     <div class="http-json-block" data-json-view="viewer" data-json-raw="${rawAttr}">
@@ -714,12 +708,12 @@ const renderHttpJsonPreview = (content: string): string => {
         </div>
       </div>
       <div class="http-json-controls">
-        <button type="button" class="http-json-button" data-http-json-action="toggle" aria-label="Show structured JSON view">
-          ${prettyIcon}
-          ${treeIcon}
+        <button type="button" class="http-json-button" data-http-json-action="toggle" aria-label="${toggleLabel}">
+          <span class="http-json-button-text http-json-button-text--pretty">PRETTY</span>
+          <span class="http-json-button-text http-json-button-text--viewer">STRUCTURED</span>
         </button>
         <button type="button" class="http-json-button" data-http-json-action="copy" aria-label="Copy JSON to clipboard">
-          ${copyIconSvg}
+          <span class="http-json-button-text">COPY</span>
         </button>
       </div>
     </div>
@@ -969,14 +963,14 @@ const renderToolJsonAccordion = (raw: unknown): string => {
     [
       {
         target: 'preview',
-        icon: 'markdown-preview',
         label: 'Preview output',
+        text: 'PREVIEW',
         pressed: true,
       },
       {
         target: 'raw',
-        icon: 'code-raw',
         label: 'Raw JSON output',
+        text: 'RAW',
         pressed: false,
       },
     ],
