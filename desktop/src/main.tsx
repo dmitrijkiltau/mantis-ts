@@ -12,6 +12,7 @@ import contractStrictAnswerSource from '../../assistant/src/contracts/strict.ans
 import contractConversationalAnswerSource from '../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../assistant/src/contracts/response.formatting.ts?raw';
 import contractErrorChannelSource from '../../assistant/src/contracts/error.channel.ts?raw';
+import contractImageRecognitionSource from '../../assistant/src/contracts/image.recognition.ts?raw';
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import { UIState } from './ui-state';
@@ -20,6 +21,7 @@ import {
   renderToolCatalog,
   setupTabSwitching,
   setupContentInteractions,
+  setupImageInput,
 } from './ui-handlers';
 import { renderToolOutputContent } from './bubble-renderer';
 import { startIdleChatter } from './idle-chatter';
@@ -58,6 +60,12 @@ const initializeDesktopUI = (): void => {
   const avatar = avatarMount ? new AssistantAvatar(avatarMount) : null;
   const toolList = document.getElementById('tool-list');
   const toolCountBadge = document.getElementById('tool-count');
+  const imageUploadButton = document.getElementById('image-upload-button') as HTMLButtonElement | null;
+  const imageCaptureButton = document.getElementById('image-capture-button') as HTMLButtonElement | null;
+  const imageUploadInput = document.getElementById('image-upload-input') as HTMLInputElement | null;
+  const attachmentRow = document.getElementById('terminal-attachment');
+  const attachmentName = document.getElementById('terminal-attachment-name');
+  const attachmentClear = document.getElementById('terminal-attachment-clear') as HTMLButtonElement | null;
   
   const statusSystem = document.getElementById('status-system');
   const statusState = document.getElementById('status-state');
@@ -135,6 +143,13 @@ const initializeDesktopUI = (): void => {
       {
         path: 'assistant/src/contracts/error.channel.ts',
         content: contractErrorChannelSource,
+      },
+    ],
+    [
+      'IMAGE_RECOGNITION',
+      {
+        path: 'assistant/src/contracts/image.recognition.ts',
+        content: contractImageRecognitionSource,
       },
     ],
   ]);
@@ -301,8 +316,21 @@ const initializeDesktopUI = (): void => {
     });
   }
   
+  const imageStore = promptInput
+    ? setupImageInput({
+        promptInput,
+        uploadButton: imageUploadButton,
+        captureButton: imageCaptureButton,
+        fileInput: imageUploadInput,
+        attachmentRow,
+        attachmentName,
+        clearButton: attachmentClear,
+        uiState,
+      })
+    : undefined;
+
   const handleQuestion = promptInput && form && historyElement
-    ? createQuestionHandler(pipeline, uiState, promptInput, form, historyElement)
+    ? createQuestionHandler(pipeline, uiState, promptInput, form, historyElement, imageStore)
     : null;
   
   renderToolCatalog(toolList, toolCountBadge, uiState);

@@ -16,12 +16,11 @@
   }
 
   #prompt-form {
-    @apply grid grid-cols-1 grid-rows-[auto_1fr] gap-0;
+    @apply grid grid-cols-1 gap-0;
   }
 
   .terminal-input {
-    @apply col-start-1 row-start-2;
-    @apply w-full min-h-25 px-4 pt-4 pb-14 bg-transparent text-terminal-primary;
+    @apply w-full min-h-25 px-4 pt-4 pb-4 bg-transparent text-terminal-primary;
     @apply border-none outline-none font-mono resize-y;
 
     &::placeholder {
@@ -34,8 +33,7 @@
   }
 
   .terminal-button {
-    @apply col-start-1 row-start-2 self-end justify-self-end;
-    @apply mx-4 mb-4 px-6 py-2 bg-primary-15 font-bold;
+    @apply px-6 py-2 bg-primary-15 font-bold;
     @apply text-terminal-primary border-2 border-terminal-primary;
     @apply transition-all duration-200 ease-out;
     letter-spacing: 0.1em;
@@ -63,5 +61,68 @@
     &.slim {
       @apply w-full justify-center text-xs;
     }
+  }
+
+  .terminal-attachment {
+    @apply flex items-center gap-3 px-4 py-2 text-xs;
+    @apply border-t border-primary-30 bg-primary-10;
+    @apply text-terminal-primary;
+
+    &.hidden {
+      @apply hidden;
+    }
+  }
+
+  .terminal-attachment-label {
+    @apply text-[10px] font-bold tracking-widest text-terminal-cyan;
+  }
+
+  .terminal-attachment-name {
+    @apply text-[11px] font-mono text-terminal-primary;
+  }
+
+  .terminal-actions {
+    @apply flex items-center justify-between gap-3 px-4 py-3;
+    @apply border-t border-primary-30 bg-primary-5;
+  }
+
+  .terminal-actions-left {
+    @apply flex items-center gap-2;
+  }
+
+  .terminal-action-button {
+    @apply px-3 py-1 text-[11px] font-bold;
+    @apply text-terminal-primary border border-terminal-primary bg-primary-10;
+    @apply transition-all duration-200 ease-out;
+    letter-spacing: 0.1em;
+
+    .button-bracket {
+      @apply inline-block transition-transform;
+    }
+
+    &:hover {
+      @apply bg-primary-20 shadow-glow-primary-soft;
+
+      .button-bracket:first-child {
+        @apply -translate-x-2;
+      }
+
+      .button-bracket:last-child {
+        @apply translate-x-2;
+      }
+    }
+  }
+
+  .terminal-file-input {
+    @apply hidden;
+  }
+
+  .input-terminal.is-dropping {
+    @apply border-terminal-cyan;
+    box-shadow: var(--shadow-glow-cyan), inset 0 1px 0 var(--color-primary-10);
+  }
+
+  .input-terminal.is-dropping .terminal-input {
+    @apply bg-primary-10;
   }
 }

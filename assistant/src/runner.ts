@@ -14,6 +14,7 @@ export type ModelInvocation = {
   systemPrompt: string;
   userPrompt?: string;
   expectsJson?: boolean;
+  images?: string[];
 };
 
 /**
@@ -127,6 +128,7 @@ export class Runner {
         systemPrompt: attemptPrompt.systemPrompt,
         userPrompt: attemptPrompt.userPrompt,
         expectsJson: attemptPrompt.expectsJson,
+        images: attemptPrompt.images,
       });
       const llmDurationMs = measureDurationMs(llmStartMs);
 

@@ -3,6 +3,7 @@ import type { LLMClient, ModelInvocation } from '../runner.js';
 type OllamaChatMessage = {
   role?: string;
   content?: string;
+  images?: string[];
 };
 
 type OllamaChatResponse = {
@@ -185,15 +186,25 @@ export class OllamaClient implements LLMClient {
   private buildMessages(invocation: ModelInvocation): {
     role: 'system' | 'user' | 'assistant';
     content: string;
+    images?: string[];
   }[] {
-    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
+    const messages: {
+      role: 'system' | 'user' | 'assistant';
+      content: string;
+      images?: string[];
+    }[] = [];
 
     if (invocation.systemPrompt) {
       messages.push({ role: 'system', content: invocation.systemPrompt });
     }
 
-    if (invocation.userPrompt) {
-      messages.push({ role: 'user', content: invocation.userPrompt });
+    const hasImages = !!invocation.images && invocation.images.length > 0;
+    if (invocation.userPrompt || hasImages) {
+      messages.push({
+        role: 'user',
+        content: invocation.userPrompt ?? '',
+        images: hasImages ? invocation.images : undefined,
+      });
     }
 
     return messages;

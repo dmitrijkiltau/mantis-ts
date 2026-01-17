@@ -1,4 +1,4 @@
-import { Pipeline, type PipelineResult } from '../../assistant/src/pipeline';
+import { Pipeline, type PipelineResult, type ImageAttachment } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
 import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
@@ -282,21 +282,324 @@ const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetail
   return entry;
 };
 
+export type ImageAttachmentStore = {
+  getAttachment: () => ImageAttachment | null;
+  consumeAttachment: () => ImageAttachment | null;
+};
+
+type ImageAttachmentElements = {
+  promptInput: HTMLTextAreaElement;
+  uploadButton: HTMLButtonElement | null;
+  captureButton: HTMLButtonElement | null;
+  fileInput: HTMLInputElement | null;
+  attachmentRow: HTMLElement | null;
+  attachmentName: HTMLElement | null;
+  clearButton: HTMLButtonElement | null;
+  uiState: UIState;
+};
+
+const buildAttachmentId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+};
+
+const readFileAsDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.readAsDataURL(file);
+  });
+};
+
+const parseDataUrl = (
+  dataUrl: string,
+  fallbackMimeType: string,
+): { base64: string; mimeType: string } | null => {
+  const trimmed = dataUrl.trim();
+  if (!trimmed.startsWith('data:')) {
+    return null;
+  }
+
+  const commaIndex = trimmed.indexOf(',');
+  if (commaIndex === -1) {
+    return null;
+  }
+
+  const header = trimmed.slice(0, commaIndex);
+  const base64 = trimmed.slice(commaIndex + 1);
+  if (!base64) {
+    return null;
+  }
+
+  const match = /^data:(.+?);base64$/i.exec(header);
+  const mimeType = match?.[1]?.trim() || fallbackMimeType || 'image/png';
+
+  return { base64, mimeType };
+};
+
+const buildImageAttachment = async (
+  file: File,
+  source: ImageAttachment['source'],
+): Promise<ImageAttachment | null> => {
+  const dataUrl = await readFileAsDataUrl(file);
+  const parsed = parseDataUrl(dataUrl, file.type);
+  if (!parsed) {
+    return null;
+  }
+
+  return {
+    id: buildAttachmentId(),
+    name: file.name || 'image',
+    mimeType: parsed.mimeType,
+    data: parsed.base64,
+    source,
+  };
+};
+
+const captureScreenshotAttachment = async (): Promise<ImageAttachment | null> => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    return null;
+  }
+
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: false,
+  });
+
+  const track = stream.getVideoTracks()[0];
+  if (!track) {
+    return null;
+  }
+
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  video.muted = true;
+  video.playsInline = true;
+
+  await new Promise<void>((resolve) => {
+    if (video.readyState >= 2) {
+      resolve();
+      return;
+    }
+    video.onloadedmetadata = () => resolve();
+  });
+
+  await video.play();
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1920;
+  canvas.height = video.videoHeight || 1080;
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    track.stop();
+    return null;
+  }
+
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  track.stop();
+  const tracks = stream.getTracks();
+  for (let index = 0; index < tracks.length; index += 1) {
+    tracks[index]?.stop();
+  }
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const parsed = parseDataUrl(dataUrl, 'image/png');
+  if (!parsed) {
+    return null;
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return {
+    id: buildAttachmentId(),
+    name: `screenshot-${timestamp}.png`,
+    mimeType: parsed.mimeType,
+    data: parsed.base64,
+    source: 'screenshot',
+  };
+};
+
+const updateAttachmentUi = (
+  elements: ImageAttachmentElements,
+  attachment: ImageAttachment | null,
+): void => {
+  const { attachmentRow, attachmentName } = elements;
+  if (!attachmentRow || !attachmentName) {
+    return;
+  }
+
+  if (!attachment) {
+    attachmentRow.classList.add('hidden');
+    attachmentRow.removeAttribute('data-source');
+    attachmentName.textContent = 'None';
+    return;
+  }
+
+  attachmentRow.classList.remove('hidden');
+  attachmentRow.dataset.source = attachment.source;
+  attachmentName.textContent = `${attachment.name} (${attachment.source.toUpperCase()})`;
+};
+
+const extractFirstImageFile = (files: FileList | null): File | null => {
+  if (!files || files.length === 0) {
+    return null;
+  }
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files.item(index);
+    if (file && file.type.startsWith('image/')) {
+      return file;
+    }
+  }
+
+  return null;
+};
+
+const isFileDrag = (event: DragEvent): boolean => {
+  const types = event.dataTransfer?.types;
+  if (!types) {
+    return false;
+  }
+
+  for (let index = 0; index < types.length; index += 1) {
+    if (types[index] === 'Files') {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Wires up image upload, drop handling, and screenshot capture.
+ */
+export const setupImageInput = (elements: ImageAttachmentElements): ImageAttachmentStore => {
+  let currentAttachment: ImageAttachment | null = null;
+  let dragDepth = 0;
+  const terminalRoot = elements.promptInput.closest<HTMLElement>('.input-terminal');
+
+  const setAttachment = (attachment: ImageAttachment | null): void => {
+    currentAttachment = attachment;
+    updateAttachmentUi(elements, attachment);
+  };
+
+  const handleAttachment = async (
+    file: File,
+    source: ImageAttachment['source'],
+  ): Promise<void> => {
+    const attachment = await buildImageAttachment(file, source);
+    if (!attachment) {
+      elements.uiState.addLog('Unable to read image attachment.');
+      return;
+    }
+
+    setAttachment(attachment);
+    elements.uiState.addLog(`Image attached (${source}): ${attachment.name}`);
+  };
+
+  elements.uploadButton?.addEventListener('click', () => {
+    elements.fileInput?.click();
+  });
+
+  elements.fileInput?.addEventListener('change', async () => {
+    const file = extractFirstImageFile(elements.fileInput?.files ?? null);
+    if (!file) {
+      elements.uiState.addLog('Selected file is not an image.');
+      return;
+    }
+    await handleAttachment(file, 'upload');
+    if (elements.fileInput) {
+      elements.fileInput.value = '';
+    }
+  });
+
+  elements.clearButton?.addEventListener('click', () => {
+    setAttachment(null);
+    elements.uiState.addLog('Image attachment cleared.');
+  });
+
+  elements.captureButton?.addEventListener('click', async () => {
+    try {
+      const attachment = await captureScreenshotAttachment();
+      if (!attachment) {
+        elements.uiState.addLog('Screen capture not supported or canceled.');
+        return;
+      }
+      setAttachment(attachment);
+      elements.uiState.addLog(`Screenshot captured: ${attachment.name}`);
+    } catch (error) {
+      elements.uiState.addLog(`Screenshot capture failed: ${String(error)}`);
+    }
+  });
+
+  elements.promptInput.addEventListener('dragenter', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    dragDepth += 1;
+    terminalRoot?.classList.add('is-dropping');
+  });
+
+  elements.promptInput.addEventListener('dragover', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    event.preventDefault();
+  });
+
+  elements.promptInput.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
+      terminalRoot?.classList.remove('is-dropping');
+    }
+  });
+
+  elements.promptInput.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    dragDepth = 0;
+    terminalRoot?.classList.remove('is-dropping');
+
+    const file = extractFirstImageFile(event.dataTransfer?.files ?? null);
+    if (!file) {
+      elements.uiState.addLog('Dropped item is not an image.');
+      return;
+    }
+    await handleAttachment(file, 'drop');
+  });
+
+  return {
+    getAttachment: () => currentAttachment,
+    consumeAttachment: () => {
+      const attachment = currentAttachment;
+      if (attachment) {
+        setAttachment(null);
+      }
+      return attachment;
+    },
+  };
+};
+
 export const createQuestionHandler = (
   pipeline: Pipeline,
   uiState: UIState,
   promptInput: HTMLTextAreaElement,
   form: HTMLFormElement,
   historyElement: HTMLElement,
+  imageStore?: ImageAttachmentStore,
 ) => {
   return async (event: Event) => {
     event.preventDefault();
 
     const question = promptInput.value.trim();
-    if (!question) {
+    const pendingAttachment = imageStore?.getAttachment() ?? null;
+    if (!question && !pendingAttachment) {
       return;
     }
 
+    const displayQuestion = question || '[IMAGE ATTACHED]';
     uiState.incrementQueryCount();
     uiState.updateStats();
     uiState.markActivity();
@@ -307,7 +610,7 @@ export const createQuestionHandler = (
     uiState.hideBubble();
     uiState.setStatus('OPERATIONAL', 'PROCESSING', 'QUERY_RECEIVED');
     uiState.setMood('listening');
-    uiState.addLog(`Query received: "${question.substring(0, 50)}..."`);
+    uiState.addLog(`Query received: "${displayQuestion.substring(0, 50)}..."`);
     Logger.info('ui', 'User submitted question', { questionLength: question.length });
 
     const settle = () => {
@@ -324,9 +627,11 @@ export const createQuestionHandler = (
       uiState.setMood('thinking');
       uiState.setStatus('OPERATIONAL', 'ANALYZING', 'CONTRACT_VALIDATION');
       uiState.addLog('Analyzing query with contracts...');
-      const result = await pipeline.run(question);
+      const consumedAttachment = pendingAttachment ? imageStore?.consumeAttachment() : null;
+      const attachments = consumedAttachment ? [consumedAttachment] : undefined;
+      const result = await pipeline.run(question, attachments);
 
-      const record = buildHistoryEntry(question, result);
+      const record = buildHistoryEntry(displayQuestion, result);
 
       if (result.ok) {
       if (result.kind === 'tool') {
@@ -363,7 +668,7 @@ export const createQuestionHandler = (
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
       uiState.addLog(`FATAL ERROR: ${String(error)}`);
 
-      const errCard = buildHistoryEntry(question, {
+      const errCard = buildHistoryEntry(displayQuestion, {
         ok: false,
         kind: 'error',
         stage: 'error_channel',

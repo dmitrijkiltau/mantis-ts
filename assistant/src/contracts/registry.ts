@@ -7,6 +7,7 @@ import { CONTRACT_STRICT_ANSWER } from './strict.answer.js';
 import { CONTRACT_CONVERSATIONAL_ANSWER } from './conversational.answer.js';
 import { CONTRACT_RESPONSE_FORMATTING } from './response.formatting.js';
 import { CONTRACT_ERROR_CHANNEL } from './error.channel.js';
+import { CONTRACT_IMAGE_RECOGNITION } from './image.recognition.js';
 
 /**
  * Aggregated contracts.
@@ -21,4 +22,5 @@ export const CONTRACTS = {
   CONVERSATIONAL_ANSWER: CONTRACT_CONVERSATIONAL_ANSWER,
   RESPONSE_FORMATTING: CONTRACT_RESPONSE_FORMATTING,
   ERROR_CHANNEL: CONTRACT_ERROR_CHANNEL,
+  IMAGE_RECOGNITION: CONTRACT_IMAGE_RECOGNITION,
 } as const;

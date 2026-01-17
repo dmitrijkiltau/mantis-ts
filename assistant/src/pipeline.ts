@@ -31,6 +31,7 @@ export type PipelineStage =
   | 'intent'
   | 'tool_arguments'
   | 'tool_execution'
+  | 'image_recognition'
   | 'strict_answer'
   | 'error_channel';
 
@@ -67,6 +68,14 @@ export type PipelineResult =
       error?: PipelineError;
     };
 
+export type ImageAttachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
+  source: 'upload' | 'drop' | 'screenshot';
+};
+
 type DirectToolMatch = {
   tool: ToolName;
   args: Record<string, unknown>;
@@ -85,11 +94,21 @@ export class Pipeline {
   /**
    * Routes a user input through intent classification, tool execution, or non-tool answer.
    */
-  public async run(userInput: string): Promise<PipelineResult> {
+  public async run(userInput: string, attachments?: ImageAttachment[]): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
     Logger.info('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
     });
+
+    const imageAttachments = this.normalizeImageAttachments(attachments);
+    if (imageAttachments.length > 0) {
+      const result = await this.runImageRecognition(
+        userInput,
+        imageAttachments,
+        pipelineStartMs,
+      );
+      return result;
+    }
 
     const directResult = await this.tryRunDirectTool(userInput);
     if (directResult) {
@@ -259,6 +278,89 @@ export class Pipeline {
       pipelineStartMs,
     );
     return toolResult;
+  }
+
+  private normalizeImageAttachments(attachments?: ImageAttachment[]): ImageAttachment[] {
+    if (!attachments || attachments.length === 0) {
+      return [];
+    }
+
+    const normalized: ImageAttachment[] = [];
+    for (let index = 0; index < attachments.length; index += 1) {
+      const entry = attachments[index];
+      if (!entry) {
+        continue;
+      }
+      if (typeof entry.data !== 'string' || !entry.data.trim()) {
+        continue;
+      }
+      normalized.push(entry);
+    }
+
+    return normalized;
+  }
+
+  private async runImageRecognition(
+    userInput: string,
+    attachments: ImageAttachment[],
+    pipelineStartMs: number,
+  ): Promise<PipelineResult> {
+    Logger.info('pipeline', 'Running image recognition contract', {
+      imageCount: attachments.length,
+    });
+
+    const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
+    const languageResult = userInput.trim()
+      ? await this.detectLanguage(userInput)
+      : {
+          ok: false,
+          language: LANGUAGE_FALLBACK,
+          attempts: 0,
+        };
+
+    const prompt = this.orchestrator.buildImageRecognitionPrompt(
+      userInput,
+      attachments.length,
+      toneInstructions,
+      languageResult.language,
+    );
+    const imagePayload = attachments.map((attachment) => attachment.data);
+    const result = await this.runner.executeContract(
+      'IMAGE_RECOGNITION',
+      { ...prompt, images: imagePayload },
+      (raw) => this.orchestrator.validateImageRecognition(raw),
+    );
+
+    const durationMs = measureDurationMs(pipelineStartMs);
+    Logger.debug('pipeline', 'Image recognition stage completed', {
+      durationMs,
+    });
+
+    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
+    if (!result.ok) {
+      Logger.error('pipeline', 'Image recognition contract failed');
+      Logger.info('pipeline', 'Pipeline completed (image recognition)', {
+        durationMs,
+      });
+      return {
+        ok: false,
+        kind: 'error',
+        stage: 'image_recognition',
+        attempts: result.attempts + attemptOffset,
+      };
+    }
+
+    Logger.info('pipeline', 'Image recognition completed successfully');
+    Logger.info('pipeline', 'Pipeline completed (image recognition)', {
+      durationMs,
+    });
+    return {
+      ok: true,
+      kind: 'strict_answer',
+      value: result.value,
+      language: languageResult.language,
+      attempts: result.attempts + attemptOffset,
+    };
   }
 
   private async tryRunDirectTool(userInput: string): Promise<PipelineResult | null> {

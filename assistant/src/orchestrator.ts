@@ -13,6 +13,7 @@ import { validateConversationalAnswer } from './contracts/conversational.answer.
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateErrorChannel } from './contracts/error.channel.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
+import { validateImageRecognition } from './contracts/image.recognition.js';
 import {
   GENERAL_ANSWER_INTENT,
   CONVERSATION_INTENT,
@@ -34,6 +35,7 @@ export type ContractPrompt = {
   userPrompt?: string;
   retries?: Record<number, string>;
   expectsJson?: boolean;
+  images?: string[];
 };
 
 export type ToolSchema = Record<string, FieldType>;
@@ -265,6 +267,24 @@ export class Orchestrator {
     });
   }
 
+  /**
+   * Builds a prompt for analyzing attached image(s).
+   */
+  public buildImageRecognitionPrompt(
+    userInput: string,
+    imageCount: number,
+    toneInstructions?: string,
+    language?: { language: string; name: string },
+  ): ContractPrompt {
+    const normalized = this.normalize(userInput);
+    return this.buildPrompt('IMAGE_RECOGNITION', {
+      USER_INPUT: normalized || 'No additional question provided.',
+      IMAGE_COUNT: String(imageCount),
+      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
+      LANGUAGE: language?.name ?? 'Unknown',
+    });
+  }
+
   public buildErrorChannelPrompt(
     stage: string,
     errorContext?: string,
@@ -323,6 +343,10 @@ export class Orchestrator {
     raw: string,
   ): ValidationResult<string> {
     return validateResponseFormatting(raw);
+  }
+
+  public validateImageRecognition(raw: string): ValidationResult<string> {
+    return validateImageRecognition(raw);
   }
 
   public validateErrorChannel(raw: string): ValidationResult<{
