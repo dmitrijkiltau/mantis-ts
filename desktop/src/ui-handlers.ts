@@ -8,6 +8,10 @@ import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
 import { buildImageAttachmentFromFile } from './image-attachments';
 import { captureScreenSelectionAttachment } from './screen-capture';
+import {
+  formatEvaluationSummary,
+  getEvaluationAlertMessage,
+} from './evaluation-utils';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -221,19 +225,6 @@ const createHistoryText = (value: string): HTMLDivElement => {
   return node;
 };
 
-const formatEvaluationSummary = (evaluation: Record<string, number>): string => {
-  const parts = Object.entries(evaluation)
-    .map(([key, value]) => `${key}: ${value}/10`);
-  return parts.join(', ');
-};
-
-const getEvaluationAlertMessage = (alert: EvaluationAlert): string => {
-  if (alert === 'low_scores') {
-    return 'Evaluation warning: one or more scores are below 4/10.';
-  }
-  return 'Scoring evaluation failed to produce numeric scores.';
-};
-
 const createEvaluationNode = (evaluation: Record<string, number>): HTMLDivElement => {
   const container = document.createElement('div');
   container.className = 'history-evaluation';
@@ -292,6 +283,11 @@ const appendEvaluationSection = (
 const logEvaluationOutcome = (result: PipelineResult, uiState: UIState): void => {
   if (!result.ok) {
     return;
+  }
+
+  const label = result.kind === 'tool' ? `tool.${result.tool}` : 'strict_answer';
+  if (result.evaluation || result.evaluationAlert) {
+    uiState.recordEvaluation(result.evaluation, result.evaluationAlert, label);
   }
 
   if (result.evaluation) {

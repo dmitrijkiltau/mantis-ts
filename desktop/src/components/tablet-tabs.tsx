@@ -10,5 +10,6 @@ export const TabletTabs: Component = () => (
     <button class="tab-button" data-tab="history">[ HISTORY ]</button>
     <button class="tab-button" data-tab="logs">[ LOGS ]</button>
     <button class="tab-button" data-tab="tools">[ TOOLS ]</button>
+    <button class="tab-button" data-tab="telemetry">[ TELEMETRY ]</button>
   </div>
 );

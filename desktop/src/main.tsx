@@ -75,6 +75,11 @@ const initializeDesktopUI = (): void => {
   
   const statQueries = document.getElementById('stat-queries');
   const statRuntime = document.getElementById('stat-runtime');
+  const telemetryTotal = document.getElementById('telemetry-total-evaluations');
+  const telemetryLowScore = document.getElementById('telemetry-low-score-count');
+  const telemetryFailures = document.getElementById('telemetry-failure-count');
+  const telemetryAverages = document.getElementById('telemetry-averages');
+  const telemetryRecent = document.getElementById('telemetry-recent');
   
   type ContractSource = {
     path: string;
@@ -185,6 +190,14 @@ const initializeDesktopUI = (): void => {
     statQueries,
     statRuntime,
   );
+
+  uiState.registerTelemetryNodes({
+    totalEvaluations: telemetryTotal,
+    lowScoreCount: telemetryLowScore,
+    failureCount: telemetryFailures,
+    averageContainer: telemetryAverages,
+    recentList: telemetryRecent,
+  });
   
   uiState.setMood('idle');
   uiState.setStatus('OPERATIONAL', 'AWAITING_INPUT', 'NONE');
