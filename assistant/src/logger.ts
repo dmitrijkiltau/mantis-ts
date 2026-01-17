@@ -16,10 +16,11 @@ interface LogEntry {
   data?: unknown;
 }
 
+const logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const logs: LogEntry[] = [];
 const maxLogs = 1000;
 let minLogLevelIndex = 0; // 0=debug, 1=info, 2=warn, 3=error
-const logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+let consoleMinLogLevelIndex = logLevels.indexOf('info');
 
 /**
  * Format a log message with colors based on level
@@ -63,7 +64,8 @@ export function log(
   message: string,
   data?: unknown,
 ): void {
-  const levelIndex = logLevels.indexOf(level);
+  const rawLevelIndex = logLevels.indexOf(level);
+  const levelIndex = rawLevelIndex === -1 ? 0 : rawLevelIndex;
   const timestamp = new Date().toISOString();
 
   // Store to history only if meets minimum level threshold
@@ -83,6 +85,10 @@ export function log(
     }
   }
 
+  if (levelIndex < consoleMinLogLevelIndex) {
+    return;
+  }
+
   const formattedMessage = formatLogMessage(level, stage, message, timestamp);
   const logFn = console[level] || console.log;
 
@@ -98,7 +104,10 @@ export function log(
  * Levels: 'debug' < 'info' < 'warn' < 'error'
  */
 export function setMinLogLevel(level: LogLevel): void {
-  minLogLevelIndex = logLevels.indexOf(level);
+  const index = logLevels.indexOf(level);
+  if (index !== -1) {
+    minLogLevelIndex = index;
+  }
 }
 
 /**
@@ -107,12 +116,26 @@ export function setMinLogLevel(level: LogLevel): void {
 export function configureLogger(options: {
   maxHistorySize?: number;
   minLevel?: LogLevel;
-}): void {
+  consoleLevel?: LogLevel;
+} = {}): void {
   if (options.maxHistorySize !== undefined && options.maxHistorySize > 0) {
     logs.length = 0; // Clear on reconfiguration
   }
   if (options.minLevel !== undefined) {
     setMinLogLevel(options.minLevel);
+  }
+  if (options.consoleLevel !== undefined) {
+    setConsoleLogLevel(options.consoleLevel);
+  }
+}
+
+/**
+ * Adjust the minimum log level printed to the console.
+ */
+export function setConsoleLogLevel(level: LogLevel): void {
+  const index = logLevels.indexOf(level);
+  if (index !== -1) {
+    consoleMinLogLevelIndex = index;
   }
 }
 

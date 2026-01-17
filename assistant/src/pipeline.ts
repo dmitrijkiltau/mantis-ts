@@ -117,6 +117,35 @@ type DirectToolMatch = {
   reason: string;
 };
 
+type DirectToolExecutionResult = {
+  result: PipelineResult;
+  metadata: {
+    tool?: ToolName;
+    reason: string;
+  };
+};
+
+type PipelineSummaryStage =
+  | PipelineStage
+  | 'direct_tool'
+  | 'intent_failed'
+  | 'non_tool_intent'
+  | 'low_confidence'
+  | 'tool_not_found'
+  | 'trigger_guard'
+  | 'argument_extraction_failed'
+  | 'null_tool_arguments';
+
+type PipelineSummaryExtras = {
+  reason?: string;
+  tool?: ToolName;
+  intent?: string;
+  intentConfidence?: number;
+  evaluationAlert?: EvaluationAlert;
+  imageCount?: number;
+  error?: PipelineError;
+};
+
 /**
  * Executes the end-to-end orchestration pipeline described in ARCHITECTURE.
  */
@@ -131,7 +160,7 @@ export class Pipeline {
    */
   public async run(userInput: string, attachments?: ImageAttachment[]): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
-    Logger.info('pipeline', 'Starting pipeline execution', {
+    Logger.debug('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
     });
 
@@ -142,19 +171,22 @@ export class Pipeline {
         imageAttachments,
         pipelineStartMs,
       );
-      return result;
+      return this.completePipeline(result, 'image_recognition', pipelineStartMs, {
+        imageCount: imageAttachments.length,
+      });
     }
 
-    const directResult = await this.tryRunDirectTool(userInput);
-    if (directResult) {
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (direct tool)', { durationMs });
-      return directResult;
+    const directTool = await this.tryRunDirectTool(userInput);
+    if (directTool) {
+      return this.completePipeline(directTool.result, 'direct_tool', pipelineStartMs, {
+        tool: directTool.metadata.tool,
+        reason: directTool.metadata.reason,
+      });
     }
 
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     const personalityDescription = DEFAULT_PERSONALITY.description;
-    Logger.info('pipeline', 'Using predefined MANTIS tone instructions');
+    Logger.debug('pipeline', 'Using predefined MANTIS tone instructions');
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
     const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(
@@ -181,18 +213,18 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (intent failed)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'intent_failed', pipelineStartMs, {
+        reason: 'intent_classification_failure',
+      });
     }
 
     const intent = intentResult.value;
-    Logger.info('pipeline', `Intent classified: ${intent.intent}`, {
+    Logger.debug('pipeline', `Intent classified: ${intent.intent}`, {
       confidence: intent.confidence,
     });
 
     if (!this.isToolIntent(intent.intent)) {
-      Logger.info('pipeline', 'Non-tool intent selected, using non-tool answer');
+      Logger.debug('pipeline', 'Non-tool intent selected, using non-tool answer');
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -201,13 +233,15 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (non-tool intent)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'non_tool_intent',
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
     if (!this.meetsToolConfidence(intent.confidence)) {
-      Logger.info('pipeline', 'Tool intent below confidence threshold, using strict answer');
+      Logger.debug('pipeline', 'Tool intent below confidence threshold, using strict answer');
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -216,14 +250,16 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (low confidence)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'low_confidence',
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
     const toolName = this.resolveToolName(intent.intent);
     if (!toolName) {
-      Logger.info('pipeline', 'No matching tool for intent, using strict answer');
+      Logger.debug('pipeline', 'No matching tool for intent, using strict answer');
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -232,13 +268,15 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (no matching tool)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'tool_not_found',
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
     if (!this.hasExplicitToolTrigger(userInput, toolName)) {
-      Logger.info(
+      Logger.debug(
         'pipeline',
         `Tool intent ${toolName} lacked an explicit trigger, falling back to non-tool answer`,
       );
@@ -250,15 +288,18 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (trigger guard)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'trigger_guard',
+        tool: toolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
     const tool = getToolDefinition(toolName);
     const schemaKeys = Object.keys(tool.schema);
     if (schemaKeys.length === 0) {
-      Logger.info('pipeline', `Executing tool: ${toolName} (no arguments)`);
+      Logger.debug('pipeline', `Executing tool: ${toolName} (no arguments)`);
       const toolResult = await this.executeAndFormatTool(
         toolName,
         tool,
@@ -270,10 +311,13 @@ export class Pipeline {
         pipelineStartMs,
         difficulty,
       );
-      return toolResult;
+      return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
+        tool: toolName,
+        reason: 'no_arguments',
+      });
     }
 
-    Logger.info('pipeline', `Extracting arguments for tool: ${toolName}`);
+    Logger.debug('pipeline', `Extracting arguments for tool: ${toolName}`);
     const toolArgStartMs = Date.now();
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
@@ -304,13 +348,16 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (arg extraction failed)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'argument_extraction_failed',
+        tool: toolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
     if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value)) {
-      Logger.info(
+      Logger.debug(
         'pipeline',
         `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
       );
@@ -322,12 +369,15 @@ export class Pipeline {
         personalityDescription,
         difficulty,
       );
-      const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.info('pipeline', 'Pipeline completed (args mostly null)', { durationMs });
-      return result;
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'null_tool_arguments',
+        tool: toolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
     }
 
-    Logger.info('pipeline', `Executing tool: ${toolName}`, {
+    Logger.debug('pipeline', `Executing tool: ${toolName}`, {
       args: toolArgResult.value,
     });
 
@@ -342,7 +392,48 @@ export class Pipeline {
       pipelineStartMs,
       difficulty,
     );
-    return toolResult;
+    return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
+      tool: toolName,
+    });
+  }
+
+  private completePipeline(
+    result: PipelineResult,
+    stage: PipelineSummaryStage,
+    pipelineStartMs: number,
+    extras?: PipelineSummaryExtras,
+  ): PipelineResult {
+    const summary: Record<string, unknown> = {
+      stage,
+      durationMs: measureDurationMs(pipelineStartMs),
+      resultKind: result.kind,
+      attempts: result.attempts,
+      ...extras,
+    };
+
+    if (
+      !summary.intent &&
+      result.kind === 'strict_answer' &&
+      result.intent
+    ) {
+      summary.intent = result.intent.intent;
+      summary.intentConfidence = result.intent.confidence;
+    }
+
+    if (result.kind === 'tool') {
+      summary.tool = summary.tool ?? result.tool;
+    }
+
+    if (result.ok && result.evaluationAlert) {
+      summary.evaluationAlert = summary.evaluationAlert ?? result.evaluationAlert;
+    }
+
+    if (result.kind === 'error' && result.error) {
+      summary.error = summary.error ?? result.error;
+    }
+
+    Logger.info('pipeline', 'Pipeline summary', summary);
+    return result;
   }
 
   private normalizeImageAttachments(attachments?: ImageAttachment[]): ImageAttachment[] {
@@ -370,7 +461,7 @@ export class Pipeline {
     attachments: ImageAttachment[],
     pipelineStartMs: number,
   ): Promise<PipelineResult> {
-    Logger.info('pipeline', 'Running image recognition contract', {
+    Logger.debug('pipeline', 'Running image recognition contract', {
       imageCount: attachments.length,
     });
 
@@ -404,9 +495,6 @@ export class Pipeline {
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     if (!result.ok) {
       Logger.error('pipeline', 'Image recognition contract failed');
-      Logger.info('pipeline', 'Pipeline completed (image recognition)', {
-        durationMs,
-      });
       return {
         ok: false,
         kind: 'error',
@@ -415,10 +503,7 @@ export class Pipeline {
       };
     }
 
-    Logger.info('pipeline', 'Image recognition completed successfully');
-    Logger.info('pipeline', 'Pipeline completed (image recognition)', {
-      durationMs,
-    });
+    Logger.debug('pipeline', 'Image recognition completed successfully');
     return {
       ok: true,
       kind: 'strict_answer',
@@ -428,13 +513,15 @@ export class Pipeline {
     };
   }
 
-  private async tryRunDirectTool(userInput: string): Promise<PipelineResult | null> {
+  private async tryRunDirectTool(
+    userInput: string,
+  ): Promise<DirectToolExecutionResult | null> {
     const directMatch = this.parseDirectToolRequest(userInput);
     if (!directMatch) {
       return null;
     }
 
-    Logger.info('pipeline', 'Direct tool command detected, bypassing contracts', {
+    Logger.debug('pipeline', 'Direct tool command detected, bypassing contracts', {
       tool: directMatch.tool,
       reason: directMatch.reason,
     });
@@ -473,28 +560,40 @@ export class Pipeline {
         evaluationText,
       );
       return {
-        ok: true,
-        kind: 'tool',
-        tool: directMatch.tool,
-        args: directMatch.args,
-        result: formattedResult,
-        summary,
-        evaluation: scoring.evaluation,
-        evaluationAlert: scoring.alert,
-        intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
-        language: LANGUAGE_FALLBACK,
-        attempts: scoring.attempts,
+        result: {
+          ok: true,
+          kind: 'tool',
+          tool: directMatch.tool,
+          args: directMatch.args,
+          result: formattedResult,
+          summary,
+          evaluation: scoring.evaluation,
+          evaluationAlert: scoring.alert,
+          intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
+          language: LANGUAGE_FALLBACK,
+          attempts: scoring.attempts,
+        },
+        metadata: {
+          tool: directMatch.tool,
+          reason: directMatch.reason,
+        },
       };
     } catch (error) {
       Logger.error('pipeline', `Direct tool execution failed for ${directMatch.tool}`, error);
       return {
-        ok: false,
-        kind: 'error',
-        stage: 'tool_execution',
-        attempts: 0,
-        error: {
-          code: 'tool_error',
-          message: error instanceof Error ? error.message : String(error),
+        result: {
+          ok: false,
+          kind: 'error',
+          stage: 'tool_execution',
+          attempts: 0,
+          error: {
+            code: 'tool_error',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        },
+        metadata: {
+          tool: directMatch.tool,
+          reason: directMatch.reason,
         },
       };
     }
@@ -862,7 +961,7 @@ export class Pipeline {
     language: { language: string; name: string },
     difficulty: DifficultyLevel,
   ): Promise<PipelineResult> {
-    Logger.info('pipeline', 'Running conversational answer contract');
+    Logger.debug('pipeline', 'Running conversational answer contract');
     const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildConversationalAnswerPrompt(
       userInput,
@@ -896,7 +995,7 @@ export class Pipeline {
       );
     }
 
-    Logger.info('pipeline', 'Conversational answer generated successfully');
+    Logger.debug('pipeline', 'Conversational answer generated successfully');
     const scoring = await this.runScoringEvaluation('conversational_answer', result.value);
     return {
       ok: true,
@@ -918,7 +1017,7 @@ export class Pipeline {
     language?: { language: string; name: string },
     difficulty: DifficultyLevel = DEFAULT_DIFFICULTY,
   ): Promise<PipelineResult> {
-    Logger.info('pipeline', 'Running strict answer contract');
+    Logger.debug('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildStrictAnswerPrompt(
       userInput,
@@ -946,7 +1045,7 @@ export class Pipeline {
       };
     }
 
-    Logger.info('pipeline', 'Strict answer generated successfully');
+    Logger.debug('pipeline', 'Strict answer generated successfully');
     const scoring = await this.runScoringEvaluation('strict_answer', result.value);
     return {
       ok: true,
@@ -995,7 +1094,7 @@ export class Pipeline {
       });
 
       if (result.ok) {
-        Logger.info('pipeline', 'Response formatted successfully');
+        Logger.debug('pipeline', 'Response formatted successfully');
         return result.value;
       }
 
@@ -1063,7 +1162,7 @@ export class Pipeline {
       return { attempts: 0 };
     }
 
-    Logger.info('pipeline', 'Running scoring contract', { stage: label });
+    Logger.debug('pipeline', 'Running scoring contract', { stage: label });
     const stageStartMs = Date.now();
     try {
       const prompt = this.orchestrator.buildScoringPrompt(text);
@@ -1080,7 +1179,7 @@ export class Pipeline {
       });
 
       if (result.ok) {
-        Logger.info('pipeline', 'Scoring evaluation succeeded', { stage: label });
+        Logger.debug('pipeline', 'Scoring evaluation succeeded', { stage: label });
         const evaluation = result.value;
         const hasLowScore = Object.values(evaluation).some(
           (score) => typeof score === 'number' && score < LOW_SCORE_THRESHOLD,
@@ -1192,7 +1291,7 @@ export class Pipeline {
     }
 
     const toolResult = toolExecResult.result;
-    Logger.info('pipeline', `Tool ${toolName} executed successfully`);
+    Logger.debug('pipeline', `Tool ${toolName} executed successfully`);
     let formattedResult = toolResult;
     let summary: string | undefined;
 
@@ -1221,7 +1320,7 @@ export class Pipeline {
         : summary ?? this.stringifyToolResult(toolResult);
     const scoring = await this.runScoringEvaluation(`tool.${toolName}`, evaluationText);
     const durationMs = measureDurationMs(pipelineStartMs);
-    Logger.info('pipeline', 'Pipeline completed (tool execution)', {
+    Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,
       durationMs,
     });

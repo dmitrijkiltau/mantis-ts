@@ -293,7 +293,7 @@ const logEvaluationOutcome = (result: PipelineResult, uiState: UIState): void =>
   if (result.evaluation) {
     const summary = formatEvaluationSummary(result.evaluation);
     uiState.addLog(`Evaluation scores: ${summary}`);
-    Logger.info('ui', 'Evaluation scores', { evaluation: result.evaluation });
+    Logger.info('ui', 'Evaluation scores', result.evaluation);
   }
 
   if (result.evaluationAlert === 'scoring_failed') {
