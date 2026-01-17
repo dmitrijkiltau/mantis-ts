@@ -202,6 +202,20 @@
     @apply text-[11px] font-semibold tracking-wider text-primary-70;
   }
 
+  .contract-model-link,
+  .contract-model-contract {
+    @apply text-terminal-primary underline decoration-primary-40;
+    text-underline-offset: 2px;
+
+    &:hover {
+      @apply text-terminal-cyan decoration-terminal-cyan;
+    }
+  }
+
+  .contract-model-count {
+    @apply text-primary-60;
+  }
+
   .contract-model-value {
     @apply text-xs font-mono text-terminal-primary;
     word-break: break-word;
