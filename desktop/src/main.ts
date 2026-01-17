@@ -34,6 +34,7 @@ const statusSystem = document.getElementById('status-system');
 const statusState = document.getElementById('status-state');
 const statusAction = document.getElementById('status-action');
 const contractModelList = document.getElementById('contract-models');
+const contractModelCount = document.getElementById('contract-model-count');
 
 const statQueries = document.getElementById('stat-queries');
 const statRuntime = document.getElementById('stat-runtime');
@@ -56,31 +57,56 @@ uiState.setStatus('OPERATIONAL', 'AWAITING_INPUT', 'NONE');
 
 if (contractModelList) {
   const contractEntries = Object.entries(CONTRACTS);
-  contractEntries.sort((a, b) => a[0].localeCompare(b[0]));
+  const modelBuckets = new Map<string, string[]>();
+
+  for (let index = 0; index < contractEntries.length; index += 1) {
+    const entry = contractEntries[index];
+    if (!entry) {
+      continue;
+    }
+    const [name, contract] = entry;
+    const modelName = contract.MODEL?.trim() || 'UNSPECIFIED';
+    const bucket = modelBuckets.get(modelName);
+
+    if (bucket) {
+      bucket.push(name);
+    } else {
+      modelBuckets.set(modelName, [name]);
+    }
+  }
+
+  const modelEntries = Array.from(modelBuckets.entries());
+  modelEntries.sort((a, b) => a[0].localeCompare(b[0]));
 
   contractModelList.innerHTML = '';
-  if (contractEntries.length === 0) {
+  if (contractModelCount) {
+    const modelCount = modelEntries.length;
+    contractModelCount.textContent = `${modelCount} model${modelCount === 1 ? '' : 's'} loaded`;
+  }
+
+  if (modelEntries.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'contract-model-placeholder';
     placeholder.textContent = 'No contract models available.';
     contractModelList.appendChild(placeholder);
   } else {
-    for (let index = 0; index < contractEntries.length; index += 1) {
-      const entry = contractEntries[index];
+    for (let index = 0; index < modelEntries.length; index += 1) {
+      const entry = modelEntries[index];
       if (!entry) {
         continue;
       }
-      const [name, contract] = entry;
+      const [modelName, contracts] = entry;
+      const sortedContracts = [...contracts].sort((a, b) => a.localeCompare(b));
       const row = document.createElement('div');
       row.className = 'contract-model-row';
 
       const label = document.createElement('div');
       label.className = 'contract-model-name';
-      label.textContent = name;
+      label.textContent = `${modelName} (${sortedContracts.length})`;
 
       const value = document.createElement('div');
       value.className = 'contract-model-value';
-      value.textContent = contract.MODEL;
+      value.textContent = sortedContracts.join(', ');
 
       row.appendChild(label);
       row.appendChild(value);

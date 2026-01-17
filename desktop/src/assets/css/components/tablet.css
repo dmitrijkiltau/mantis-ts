@@ -173,6 +173,16 @@
     @apply text-[10px] font-semibold tracking-widest text-primary-60;
   }
 
+  .status-section-header {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .status-section-meta {
+    @apply text-[10px] font-mono text-terminal-primary px-2 py-1 rounded border;
+    background: var(--color-bg-black-soft);
+    border-color: var(--color-primary-30);
+  }
+
   .contract-model-list {
     @apply grid gap-2;
   }
@@ -190,6 +200,7 @@
 
   .contract-model-value {
     @apply text-xs font-mono text-terminal-primary;
+    word-break: break-word;
   }
 
   .contract-model-placeholder {
