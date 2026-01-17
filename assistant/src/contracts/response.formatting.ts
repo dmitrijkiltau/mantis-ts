@@ -1,22 +1,20 @@
 import { type ContractValidator } from "../types";
 
-const MAX_RESPONSE_LENGTH = 200;
-
 /**
  * Contract for response formatting.
  * Ensures responses are concise and formatted as a short response in the user's language.
  */
 export const CONTRACT_RESPONSE_FORMATTING = {
   MODEL: 'ministral-3:3b',
-  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You format responses concisely so they directly answer the user's request.
-The raw result may be plain text or JSON; if JSON, summarize the key facts without inventing data.
-Do not add new information, actions, opinions or context.
-Preserve the original meaning exactly.
+  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You format responses concisely so they faithfully reflect the raw result provided.
+The raw result may be markdown or JSON; if JSON, summarize the key facts exactly as given, without inventing data.
+Do not add new information, actions, opinions, or context beyond what appears in the payload.
+If the payload does not contain the answer to the user's question, state that the data lacks the requested information instead of guessing.
 No preamble.
 No explanations.
 No follow-up questions.
-Ground the wording in the user's request context and tool name when provided.
-Keep it brief and direct (one sentence preferred; two max if needed for clarity).
+Ground the wording in the provided tool output and tool name when available.
+Keep it brief and direct (one sentence preferred).
 Always respond in {{LANGUAGE}}.`,
   USER_PROMPT: `User request:
 {{REQUEST_CONTEXT}}
@@ -48,12 +46,7 @@ export const validateResponseFormatting: ContractValidator<string, ResponseForma
   }
 
   // Remove extra whitespace
-  const normalized = text.replace(/\s+/g, ' ').trim();
-
-  // Check if response exceeds reasonable length for "one short sentence"
-  if (normalized.length > MAX_RESPONSE_LENGTH) {
-    return { ok: false, error: 'TOO_LONG' };
-  }
+  const normalized = text.trim();
 
   // Check for meta text indicating non-concise response
   if (/^(here is|this is)\b/i.test(normalized)) {

@@ -14,9 +14,16 @@
 
   body {
     @apply relative isolate min-h-screen font-mono antialiased text-terminal-primary;
-    background: 
-      radial-gradient(ellipse at top left, var(--color-gradient-top), transparent 50%),
-      radial-gradient(ellipse at bottom right, var(--color-gradient-bottom), transparent 50%),
+    background: radial-gradient(
+        ellipse at top left,
+        var(--color-gradient-top),
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at bottom right,
+        var(--color-gradient-bottom),
+        transparent 50%
+      ),
       var(--color-bg-dark);
 
     &::before {
@@ -33,9 +40,29 @@
     }
   }
 
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-black-soft;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded bg-primary-40;
+
+    &:hover {
+      @apply bg-primary-60;
+    }
+  }
+
   @keyframes scanlines {
-    from { transform: translateY(0); }
-    to { transform: translateY(4px); }
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(4px);
+    }
   }
 
   button {

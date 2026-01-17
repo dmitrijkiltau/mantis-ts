@@ -90,7 +90,7 @@
   }
 
   .tablet-panel {
-    @apply hidden;
+    @apply hidden overflow-y-auto max-h-120;
 
     &.active {
       @apply block;
@@ -227,24 +227,7 @@
   }
 
   .history-list {
-    @apply flex flex-col gap-3 max-h-100 overflow-y-auto;
-
-    &::-webkit-scrollbar {
-      @apply w-2;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: var(--color-bg-black-soft);
-    }
-
-    &::-webkit-scrollbar-thumb {
-      @apply rounded;
-      background: var(--color-primary-40);
-
-      &:hover {
-        background: var(--color-primary-60);
-      }
-    }
+    @apply flex flex-col gap-3 overflow-y-auto;
   }
 
   .history-entry {

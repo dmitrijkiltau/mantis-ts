@@ -467,6 +467,29 @@ describe('Pipeline', () => {
     });
   });
 
+  describe('hasExplicitToolTrigger', () => {
+    it('returns true when the user explicitly invokes the tool', () => {
+      const result = (pipeline as any).hasExplicitToolTrigger(
+        'Please copy this text from the clipboard',
+        'clipboard',
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when the tool intent is not supported by the user input', () => {
+      const result = (pipeline as any).hasExplicitToolTrigger(
+        'Welcher Wochentag ist heute?',
+        'clipboard',
+      );
+      expect(result).toBe(false);
+    });
+
+    it('returns true when a relevant trigger keyword exists for the tool', () => {
+      const result = (pipeline as any).hasExplicitToolTrigger('Show me running processes', 'process');
+      expect(result).toBe(true);
+    });
+  });
+
   describe('runScoringEvaluation', () => {
     it('skips scoring when the text is blank', async () => {
       mockRunner.executeContract = vi.fn();

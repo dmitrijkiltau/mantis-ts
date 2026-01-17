@@ -24,6 +24,17 @@ const LANGUAGE_FALLBACK: { language: string; name: string } = {
   name: 'Unknown',
 };
 
+const TOOL_TRIGGERS: Record<ToolName, string[]> = {
+  clipboard: ['clipboard', 'copy', 'paste', 'clipboard text', 'clip'],
+  filesystem: ['file', 'read', 'list', 'ls', 'dir', 'cat', 'tree'],
+  search: ['search', 'lookup', 'find', 'google', 'bing', 'look up'],
+  fetch: ['fetch', 'download', 'get', 'grab'],
+  http: ['http', 'curl', 'post', 'request', 'headers', 'status'],
+  process: ['ps', 'process', 'task', 'processes', 'running processes'],
+  shell: ['run', 'execute', 'shell', 'command', 'script'],
+  pcinfo: ['pc', 'system', 'info', 'spec', 'hardware', 'configuration'],
+};
+
 const DIFFICULTY_LEVELS: DifficultyLevel[] = ['easy', 'medium', 'hard'];
 const DEFAULT_DIFFICULTY: DifficultyLevel = 'medium';
 
@@ -223,6 +234,24 @@ export class Pipeline {
       );
       const durationMs = measureDurationMs(pipelineStartMs);
       Logger.info('pipeline', 'Pipeline completed (no matching tool)', { durationMs });
+      return result;
+    }
+
+    if (!this.hasExplicitToolTrigger(userInput, toolName)) {
+      Logger.info(
+        'pipeline',
+        `Tool intent ${toolName} lacked an explicit trigger, falling back to non-tool answer`,
+      );
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        toneInstructions,
+        personalityDescription,
+        difficulty,
+      );
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.info('pipeline', 'Pipeline completed (trigger guard)', { durationMs });
       return result;
     }
 
@@ -431,7 +460,6 @@ export class Pipeline {
           toolResult,
           LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
-          userInput,
           directMatch.tool,
           DEFAULT_DIFFICULTY,
         );
@@ -673,6 +701,26 @@ export class Pipeline {
 
   private meetsToolConfidence(confidence: number): boolean {
     return confidence >= MIN_TOOL_CONFIDENCE;
+  }
+
+  private hasExplicitToolTrigger(userInput: string, toolName: ToolName): boolean {
+    const triggers = TOOL_TRIGGERS[toolName];
+    if (!triggers || triggers.length === 0) {
+      return true;
+    }
+    const normalized = userInput.trim().toLowerCase();
+
+    for (let index = 0; index < triggers.length; index += 1) {
+      const keyword = triggers[index];
+      if (!keyword) {
+        continue;
+      }
+      if (normalized.includes(keyword)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private shouldSkipToolExecution(
@@ -990,17 +1038,17 @@ export class Pipeline {
     toolResult: unknown,
     language: { language: string; name: string },
     toneInstructions: string | undefined,
-    requestContext: string,
     toolName: ToolName,
     difficulty?: DifficultyLevel,
   ): Promise<string> {
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
+    const summaryContext = `Tool ${toolName} output only.`;
     return this.formatResponse(
       payload,
       language,
       toneInstructions,
-      requestContext,
+      summaryContext,
       toolName,
       fallback,
       difficulty,
@@ -1163,7 +1211,6 @@ export class Pipeline {
         toolResult,
         language,
         toneInstructions,
-        userInput,
         toolName,
         difficulty,
       );
