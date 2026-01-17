@@ -15,10 +15,61 @@ const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
 const LOW_SCORE_THRESHOLD = 4;
-const LANGUAGE_FALLBACK: { language: string; name: string } = {
+
+export type DetectedLanguage = { language: string; name: string };
+
+const LANGUAGE_FALLBACK: DetectedLanguage = {
   language: 'unknown',
   name: 'Unknown',
 };
+
+const languageDisplayNameFormatter = (() => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'language' });
+  } catch {
+    return null;
+  }
+})();
+
+function formatLanguageDisplayName(code: string): string {
+  if (!code) {
+    return LANGUAGE_FALLBACK.name;
+  }
+
+  if (code === LANGUAGE_FALLBACK.language) {
+    return LANGUAGE_FALLBACK.name;
+  }
+
+  const displayName = languageDisplayNameFormatter?.of(code);
+  if (displayName && displayName.toLowerCase() !== code) {
+    return displayName;
+  }
+
+  return `${code.charAt(0).toUpperCase()}${code.slice(1)}`;
+}
+
+/**
+ * Normalize an ISO code into a DetectedLanguage, deriving a friendly name via Intl when available.
+ */
+function deriveDetectedLanguage(code?: string): DetectedLanguage {
+  if (!code) {
+    return LANGUAGE_FALLBACK;
+  }
+
+  const normalized = code.trim().toLowerCase();
+  if (!normalized) {
+    return LANGUAGE_FALLBACK;
+  }
+
+  if (normalized === LANGUAGE_FALLBACK.language) {
+    return LANGUAGE_FALLBACK;
+  }
+
+  return {
+    language: normalized,
+    name: formatLanguageDisplayName(normalized),
+  };
+}
 
 const TOOL_TRIGGERS: Record<ToolName, string[]> = {
   clipboard: ['clipboard', 'copy', 'paste', 'clipboard text', 'clip'],
@@ -60,7 +111,7 @@ export type PipelineResult =
       evaluation?: Record<string, number>;
       evaluationAlert?: EvaluationAlert;
       intent?: { intent: string; confidence: number };
-      language: { language: string; name: string };
+      language: DetectedLanguage;
       attempts: number;
     }
   | {
@@ -73,7 +124,7 @@ export type PipelineResult =
       evaluation?: Record<string, number>;
       evaluationAlert?: EvaluationAlert;
       intent: { intent: string; confidence: number };
-      language: { language: string; name: string };
+      language: DetectedLanguage;
       attempts: number;
     }
   | {
@@ -844,7 +895,7 @@ export class Pipeline {
     userInput: string,
   ): Promise<{
     ok: boolean;
-    language: { language: string; name: string };
+    language: DetectedLanguage;
     attempts: number;
   }> {
     const stageStartMs = Date.now();
@@ -862,7 +913,7 @@ export class Pipeline {
     if (result.ok) {
       return {
         ok: true,
-        language: result.value,
+        language: deriveDetectedLanguage(result.value),
         attempts: result.attempts,
       };
     }
@@ -918,7 +969,7 @@ export class Pipeline {
     attempts: number,
     toneInstructions: string | undefined,
     personalityDescription: string,
-    language: { language: string; name: string },
+    language: DetectedLanguage,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running conversational answer contract');
     const stageStartMs = Date.now();
@@ -971,7 +1022,7 @@ export class Pipeline {
     intent: { intent: string; confidence: number } | undefined,
     attempts: number,
     toneInstructions?: string,
-    language?: { language: string; name: string },
+    language?: DetectedLanguage,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
@@ -1020,7 +1071,7 @@ export class Pipeline {
    */
   private async formatResponse(
     text: string,
-    language: { language: string; name: string },
+    language: DetectedLanguage,
     toneInstructions: string | undefined,
     requestContext: string,
     toolName: ToolName,
@@ -1088,7 +1139,7 @@ export class Pipeline {
    */
   private async summarizeToolResult(
     toolResult: unknown,
-    language: { language: string; name: string },
+    language: DetectedLanguage,
     toneInstructions: string | undefined,
     toolName: ToolName,
   ): Promise<string> {
@@ -1198,7 +1249,7 @@ export class Pipeline {
 
     const languageAttemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.ok
-      ? languageResult.value
+      ? deriveDetectedLanguage(languageResult.value)
       : LANGUAGE_FALLBACK;
 
     if (!toolExecResult.ok) {

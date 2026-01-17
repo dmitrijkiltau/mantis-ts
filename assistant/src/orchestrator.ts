@@ -318,7 +318,7 @@ export class Orchestrator {
 
   public validateLanguageDetection(
     raw: string,
-  ): ValidationResult<{ language: string; name: string }> {
+  ): ValidationResult<string> {
     return validateLanguageDetection(raw);
   }
 
