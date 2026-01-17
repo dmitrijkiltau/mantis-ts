@@ -237,8 +237,7 @@
     }
 
     .http-json-pretty pre {
-      @apply m-0 rounded border border-primary-30 bg-bg-terminal;
-      @apply p-3 text-[12px] leading-snug text-terminal-primary font-mono overflow-x-auto;
+      @apply m-0 text-[12px] leading-snug text-terminal-primary font-mono overflow-x-auto;
       white-space: pre;
     }
 
