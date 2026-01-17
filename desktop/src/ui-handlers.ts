@@ -4,6 +4,7 @@ import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/d
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
+import { Command, open } from '@tauri-apps/plugin-shell';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -459,6 +460,84 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
 };
 
 /**
+ * Checks if the app is running on Windows.
+ */
+const isWindowsPlatform = (): boolean => /windows/i.test(navigator.userAgent);
+
+/**
+ * Builds the PowerShell script for opening Explorer to a target path.
+ */
+const buildExplorerScript = (rawPath: string): string => {
+  const safePath = rawPath.replace(/'/g, "''");
+  return `
+$raw = '${safePath}'
+$path = $raw.Trim()
+if (-not $path) { exit 0 }
+$path = $path.TrimEnd('\\', '/')
+$resolved = $null
+if ([System.IO.Path]::IsPathRooted($path)) {
+  $resolved = $path
+} else {
+  $cwd = (Get-Location).Path
+  $candidate = Join-Path $cwd $path
+  if (Test-Path $candidate) {
+    $resolved = $candidate
+  } else {
+    $parent = Split-Path $cwd -Parent
+    if ($parent) {
+      $candidate = Join-Path $parent $path
+      if (Test-Path $candidate) {
+        $resolved = $candidate
+      }
+    }
+  }
+}
+if (-not $resolved) {
+  $resolved = $path
+}
+$resolved = $resolved.TrimEnd('\\', '/')
+$isFile = Test-Path $resolved -PathType Leaf
+if ($isFile) {
+  $args = "/select,\`"$resolved\`""
+} else {
+  $args = "\`"$resolved\`""
+}
+Start-Process explorer.exe -ArgumentList $args
+`.trim();
+};
+
+/**
+ * Opens a file preview path in the system file explorer.
+ */
+const openPathInExplorer = async (rawPath: string): Promise<void> => {
+  if (!rawPath) {
+    return;
+  }
+
+  const trimmed = rawPath.trim();
+  if (!trimmed) {
+    return;
+  }
+
+  try {
+    if (isWindowsPlatform()) {
+      const command = Command.create('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        buildExplorerScript(trimmed),
+      ]);
+      await command.execute();
+      return;
+    }
+
+    await open(trimmed);
+  } catch (error) {
+    Logger.error('ui', 'Failed to open file path', { path: trimmed, error });
+  }
+};
+
+/**
  * Applies the selected view to the root container and its view buttons.
  */
 const applyViewSelection = (
@@ -591,6 +670,17 @@ const handleRichContentInteraction = (event: Event): void => {
         }
       });
     }
+  }
+
+  const filePathButton = target.closest<HTMLElement>('[data-file-path]');
+  if (filePathButton) {
+    const encoded = filePathButton.getAttribute('data-file-path');
+    if (!encoded) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void openPathInExplorer(decodeURIComponent(encoded));
   }
 };
 

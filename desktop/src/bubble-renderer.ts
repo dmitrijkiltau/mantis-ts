@@ -611,6 +611,11 @@ const renderProcessListPayload = (payload: ProcessListResult): string => {
 
 const encodeJsonForAttribute = (value: string): string => encodeURIComponent(value);
 
+/**
+ * Encodes file paths for safe placement in HTML attributes.
+ */
+const encodePathForAttribute = (value: string): string => encodeURIComponent(value);
+
 const renderJsonLiteral = (value: unknown): string => {
   if (typeof value === 'string') {
     return `<span class="json-value json-value-string">"${escapeHtml(value)}"</span>`;
@@ -724,12 +729,19 @@ const renderHttpJsonPreview = (content: string): string => {
 const renderFilePayload = (payload: BubbleFilePayload): string => {
   const language = inferLanguageFromPath(payload.path);
   const truncation = payload.truncated ? '<span class="file-tree-warning">TRUNCATED</span>' : '';
+  const encodedPath = encodePathForAttribute(payload.path);
 
   return `
     <div class="file-preview">
       <div class="file-preview-header">
         <span class="file-preview-label">FILE</span>
-        <span class="file-preview-path">${escapeHtml(payload.path)}</span>
+        <button
+          type="button"
+          class="file-preview-path"
+          data-file-path="${encodedPath}"
+          aria-label="Open file in explorer"
+          title="Open in file explorer"
+        >${escapeHtml(payload.path)}</button>
         ${truncation}
       </div>
       ${renderCodeBlock(payload.content, language)}

@@ -143,7 +143,17 @@
     }
 
     .file-preview-path {
-      @apply text-[11px] font-mono text-terminal-primary;
+      @apply text-[11px] font-mono text-terminal-primary underline decoration-primary-40;
+      @apply underline-offset-2 cursor-pointer bg-transparent border-0 p-0;
+      @apply transition-colors duration-150;
+
+      &:hover {
+        @apply text-terminal-cyan decoration-terminal-cyan;
+      }
+
+      &:focus-visible {
+        @apply outline outline-2 outline-terminal-cyan outline-offset-2;
+      }
     }
 
     .http-preview {
