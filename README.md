@@ -28,9 +28,9 @@ Tone is fixed: the orchestrator injects the predefined MANTIS personality instru
 
 - **Local**: `clipboard`, `filesystem`, `search`
 - **Web**: `fetch`, `http`
-- **System**: `datetime`
+- **System**: `process`, `shell`, `pcinfo`
 
-Each tool definition includes a name, description, schema for arguments, and an execute function. The pipeline derives tool intents from this registry (e.g., `tool.fetch`, `tool.datetime`) and extracts arguments according to each tool's schema.
+Each tool definition includes a name, description, schema for arguments, and an execute function. The pipeline derives tool intents from this registry (e.g., `tool.fetch`, `tool.pcinfo`) and extracts arguments according to each tool's schema.
 
 ## Contracts
 
@@ -42,6 +42,8 @@ Each tool definition includes a name, description, schema for arguments, and an 
 - **Text Transformation**: Optional text processing
 - **Scoring/Evaluation**: Evaluates and scores responses
 - **Strict Answer**: Generates answers without tool execution
+- **Conversational Answer**: Handles small talk and greetings without tool execution
+- **Image Recognition**: Analyzes attached images to answer questions or describe content
 - **Response Formatting**: Optionally formats responses as concise sentences in user's language
 - **Error Channel**: Handles validation failures and routing errors
 

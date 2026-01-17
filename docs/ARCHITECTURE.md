@@ -60,14 +60,19 @@ Invalid -> retry (if allowed) or abort
 
 ```
 Input
- -> Language Detection
-   -> Detected Language -> preserved through pipeline
-   |
- -> Intent Classification
-   -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone, may ask a short clarifying question)
-   -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
-       -> invalid -> Error Channel -> Abort or Re-route
-       -> valid -> Execute Tool -> Format/Summarize in user's language (MANTIS tone)
+ -> (Has Attachments?)
+   -> Yes -> Image Recognition (describe/answer based on image)
+   -> No -> Language Detection
+      -> Detected Language -> preserved through pipeline
+      |
+    -> Same-Context Check (Direct Tool Command?)
+      -> Yes -> Execute Tool -> Format/Summarize
+      -> No -> Intent Classification
+          -> answer.conversation -> Conversational Answer (Small talk, greetings, no tool)
+          -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone)
+          -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
+              -> invalid -> Error Channel -> Abort or Re-route
+              -> valid -> Execute Tool -> Format/Summarize in user's language (MANTIS tone)
 ```
 
 ## Retry Pipeline
@@ -89,15 +94,37 @@ Retry 2 -> {"intent":"answer.general","confidence":0.0}
 | Tool Argument Extraction | 2           | Revalidate User or Cancel                               | Schema Reinforcement  |
 | Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |
 | Scoring / Evaluation     | 1           | Default Score (0), Flag "evaluation_failed"             | Numeric Lock          |
-| Strict Answer Mode       | 0           | Force "I don't know."                                   | Fail Fast             |
+| Strict Answer Mode       | 1           | Force "I don't know."                                   | Fail Fast             |
+| Conversational Answer    | 1           | Return brief text or ignore                             | Best-Effort           |
+| Image Recognition        | 1           | Return "I cannot see the image."                        | Fail Fast             |
 | Response Formatting      | 0           | Keep Original Text, Continue                            | Best-Effort           |
 | Error Channel            | 0           | Signal Orchestrator: New Decision or Different Contract | Abort & Re-route      |
+
+## Image Recognition
+
+The `Image Recognition` stage is triggered immediately if the user attaches images. It bypasses the standard intent classification flow to focus solely on vision tasks. The `IMAGE_RECOGNITION` contract analyzes the image(s) using a vision-capable model (e.g., Qwen-VL) to answer the user's question or describe the content if no question is provided. It attempts one retry to enforce conciseness.
 
 ## Response Formatting
 
 The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise answers in the user's detected language (one sentence preferred, two max), suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. When tool outputs are structured JSON, the formatter produces a brief summary while the raw output remains available in the UI. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
 
 Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.
+
+## Pipeline behavior and safeguards
+
+- **Direct tool commands (single-line bypasses)**: The pipeline recognizes short single-line commands (no newlines) and will directly parse and execute a few common direct tool commands without running contracts. Examples: `read <path>` or `list <path>` (filesystems), `ps` / `processes [filter]` (process listing), and `get|fetch <url>` (HTTP GET). Direct requests bypass contract prompts, execute the tool directly, and the output is either formatted (strings) or summarized (structured outputs) and then scored. Direct tool executions return an intent of `tool.<name>` with confidence 1 and use the language fallback (`unknown`) when language detection is not applicable.
+
+- **Tool intent guards**: Tool intents use the `tool.` prefix and require a minimum confidence (currently 0.6). Even with a high-confidence tool intent, the pipeline enforces an explicit trigger-guard: the user input must contain at least one trigger keyword for the target tool (configurable via `TOOL_TRIGGERS`) or the pipeline will fall back to a non-tool strict answer.
+
+- **Schema-aware argument extraction and skip heuristics**: If a tool's schema is empty the pipeline executes the tool with `{}`. Otherwise the pipeline extracts arguments using the `TOOL_ARGUMENT_EXTRACTION` contract, validates them, and may skip tool execution if the arguments are mostly null. Specifically, non-nullable (required) fields are counted and if the fraction of required fields that are null exceeds a threshold (0.5) the pipeline falls back to a strict answer; if all arguments are null it will also skip execution. This avoids running tools with insufficient intent.
+
+- **Parallel language detection & tool execution**: When executing tools, the pipeline runs language detection in parallel with tool execution (Promise.all) to reduce latency; the detected language (or fallback) is then used for response formatting and summarization.
+
+- **Scoring & evaluation**: The `SCORING_EVALUATION` contract is run for strict answers, conversational answers, tool outputs (including direct tools). A label is attached (e.g. `tool.<name>`, `strict_answer`, `conversational_answer`, `direct_tool.<name>`). If any numeric metric in the evaluation is below the configured low score threshold (currently 4) the pipeline sets an `evaluationAlert` of `low_scores`. Failures to evaluate are flagged as `scoring_failed`.
+
+- **Attempts accounting & retries**: Attempts from each stage (intent, language detection, argument extraction, scoring, etc.) are tracked and summed into the overall `attempts` returned by pipeline results so callers can see how many contract invocations occurred.
+
+- **Orchestrator prompt features and optimizations**: The `Orchestrator` injects optional tone instructions, includes a local timestamp block (current date/time/weekday) in certain prompts, caches a formatted tool reference string and formatted tool schema strings to avoid per-request allocations, and supports model overrides per difficulty level. It also exposes `getRetryInstruction` for staged retry guidance.
 
 ## Tool Categories
 
@@ -114,7 +141,8 @@ Formatting failures are graceful: the original response is returned unchanged an
 
 ### System Tools
 
-- **DateTime**: Retrieve current date/time in specified timezone with flexible formatting (ISO, local, weekday)
 - **Process**: Read-only process inspection with optional name filter and result limit
+- **Shell**: Execute safe shell commands (allowlisted binaries only)
+- **PC Info**: Retrieve system metrics (CPU, memory, disk, uptime)
 
 All tool schemas are derived from their `ToolDefinition` types and validated before execution. Empty schemas skip argument extraction and execute the tool with `{}`.
