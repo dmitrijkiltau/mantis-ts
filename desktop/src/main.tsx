@@ -11,7 +11,6 @@ import contractScoringEvaluationSource from '../../assistant/src/contracts/scori
 import contractStrictAnswerSource from '../../assistant/src/contracts/strict.answer.ts?raw';
 import contractConversationalAnswerSource from '../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../assistant/src/contracts/response.formatting.ts?raw';
-import contractErrorChannelSource from '../../assistant/src/contracts/error.channel.ts?raw';
 import contractImageRecognitionSource from '../../assistant/src/contracts/image.recognition.ts?raw';
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
@@ -141,13 +140,6 @@ const initializeDesktopUI = (): void => {
       {
         path: 'assistant/src/contracts/response.formatting.ts',
         content: contractResponseFormattingSource,
-      },
-    ],
-    [
-      'ERROR_CHANNEL',
-      {
-        path: 'assistant/src/contracts/error.channel.ts',
-        content: contractErrorChannelSource,
       },
     ],
     [

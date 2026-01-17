@@ -12,7 +12,6 @@ import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateConversationalAnswer } from './contracts/conversational.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
-import { validateErrorChannel } from './contracts/error.channel.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
 import { validateImageRecognition } from './contracts/image.recognition.js';
 import {
@@ -287,16 +286,6 @@ export class Orchestrator {
     });
   }
 
-  public buildErrorChannelPrompt(
-    stage: string,
-    errorContext?: string,
-  ): ContractPrompt {
-    return this.buildPrompt('ERROR_CHANNEL', {
-      STAGE: stage,
-      ERROR_CONTEXT: errorContext ?? 'No additional context available',
-    });
-  }
-
   public getRetryInstruction(
     contractName: ContractName,
     attempt: number,
@@ -351,9 +340,4 @@ export class Orchestrator {
     return validateImageRecognition(raw);
   }
 
-  public validateErrorChannel(raw: string): ValidationResult<{
-    error: { code: string; message: string };
-  }> {
-    return validateErrorChannel(raw);
-  }
 }

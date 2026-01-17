@@ -643,16 +643,16 @@ export const createQuestionHandler = (
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
       uiState.addLog(`FATAL ERROR: ${String(error)}`);
 
-      const errCard = buildHistoryEntry(displayQuestion, {
-        ok: false,
-        kind: 'error',
-        stage: 'error_channel',
-        attempts: 0,
-        error: {
-          code: 'unhandled_exception',
-          message: String(error),
-        },
-      });
+        const errCard = buildHistoryEntry(displayQuestion, {
+          ok: false,
+          kind: 'error',
+          stage: 'tool_execution',
+          attempts: 0,
+          error: {
+            code: 'unhandled_exception',
+            message: String(error),
+          },
+        });
       historyElement.prepend(errCard);
 
       uiState.showBubble(renderBubbleContent(`Critical Error: ${String(error)}`));

@@ -45,11 +45,9 @@ Each tool definition includes a name, description, schema for arguments, and an 
 - **Conversational Answer**: Handles small talk and greetings without tool execution
 - **Image Recognition**: Analyzes attached images to answer questions or describe content
 - **Response Formatting**: Optionally formats responses as concise sentences in user's language
-- **Error Channel**: Handles validation failures and routing errors
-
 ## Pipeline
 
-`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and falls back to strict answers or the error channel when needed. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning, with the predefined MANTIS tone applied to both strict answer and formatting prompts.
+`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and either returns a strict answer or a deterministic error payload when tool execution fails. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning, with the predefined MANTIS tone applied to both strict answer and formatting prompts.
 
 ## Desktop App
 

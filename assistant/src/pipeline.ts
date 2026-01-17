@@ -1,4 +1,3 @@
-import type { ContractExecutionResult } from './runner.js';
 import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
 import {
@@ -44,8 +43,7 @@ export type PipelineStage =
   | 'tool_arguments'
   | 'tool_execution'
   | 'image_recognition'
-  | 'strict_answer'
-  | 'error_channel';
+  | 'strict_answer';
 
 export type PipelineError = {
   code: string;
@@ -554,10 +552,7 @@ export class Pipeline {
           kind: 'error',
           stage: 'tool_execution',
           attempts: 0,
-          error: {
-            code: 'tool_error',
-            message: error instanceof Error ? error.message : String(error),
-          },
+          error: this.buildToolError(error),
         },
         metadata: {
           tool: directMatch.tool,
@@ -1164,37 +1159,6 @@ export class Pipeline {
     }
   }
 
-  private async runErrorChannel(
-    stage: PipelineStage,
-    attempts: number,
-    error?: unknown,
-  ): Promise<PipelineResult> {
-    const errorContext = error ? String(error) : undefined;
-    const prompt = this.orchestrator.buildErrorChannelPrompt(stage, errorContext);
-    const result = await this.runner.executeContract(
-      'ERROR_CHANNEL',
-      prompt,
-      (raw) => this.orchestrator.validateErrorChannel(raw),
-    );
-
-    if (!result.ok) {
-      return {
-        ok: false,
-        kind: 'error',
-        stage: 'error_channel',
-        attempts: attempts + result.attempts,
-      };
-    }
-
-    return {
-      ok: false,
-      kind: 'error',
-      stage,
-      attempts: attempts + result.attempts,
-      error: this.buildErrorPayload(result, error),
-    };
-  }
-
   /**
    * Executes a tool and formats its response.
    * Fetches language detection in parallel with tool execution.
@@ -1232,17 +1196,20 @@ export class Pipeline {
       durationMs: parallelDurationMs,
     });
 
+    const languageAttemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.ok
       ? languageResult.value
       : LANGUAGE_FALLBACK;
 
     if (!toolExecResult.ok) {
       Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
-      return this.runErrorChannel(
-        'tool_execution',
-        baseAttempts,
-        toolExecResult.error,
-      );
+      return {
+        ok: false,
+        kind: 'error',
+        stage: 'tool_execution',
+        attempts: baseAttempts + languageAttemptOffset,
+        error: this.buildToolError(toolExecResult.error),
+      };
     }
 
     const toolResult = toolExecResult.result;
@@ -1289,21 +1256,20 @@ export class Pipeline {
       intent,
       language,
       attempts:
-        baseAttempts + (languageResult.ok ? 0 : languageResult.attempts) + scoring.attempts,
+        baseAttempts + languageAttemptOffset + scoring.attempts,
     };
   }
 
-  private buildErrorPayload(
-    result: ContractExecutionResult<{ error: PipelineError }, string>,
-    error?: unknown,
-  ): PipelineError {
-    if (result.ok) {
-      return result.value.error;
-    }
+  private buildToolError(error?: unknown): PipelineError {
+    const message = error instanceof Error
+      ? error.message
+      : error
+        ? String(error)
+        : 'Tool execution failed.';
 
     return {
       code: 'tool_error',
-      message: error ? String(error) : 'Tool execution failed.',
+      message,
     };
   }
 }

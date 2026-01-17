@@ -71,7 +71,7 @@ Input
           -> answer.conversation -> Conversational Answer (Small talk, greetings, no tool)
           -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone)
           -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
-              -> invalid -> Error Channel -> Abort or Re-route
+              -> invalid -> Return deterministic `PipelineError` and optionally reroute/abort
               -> valid -> Execute Tool -> Format/Summarize in user's language (MANTIS tone)
 ```
 
@@ -98,7 +98,6 @@ Retry 2 -> {"intent":"answer.general","confidence":0.0}
 | Conversational Answer    | 1           | Return brief text or ignore                             | Best-Effort           |
 | Image Recognition        | 1           | Return "I cannot see the image."                        | Fail Fast             |
 | Response Formatting      | 0           | Keep Original Text, Continue                            | Best-Effort           |
-| Error Channel            | 0           | Signal Orchestrator: New Decision or Different Contract | Abort & Re-route      |
 
 ## Image Recognition
 
