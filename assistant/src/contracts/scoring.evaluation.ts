@@ -10,7 +10,8 @@ export const CONTRACT_SCORING_EVALUATION = {
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You evaluate content based on given criteria.
 You return numeric scores only.
-No explanations.`,
+No explanations.
+Answer with JSON only.`,
   USER_PROMPT: `Score the following text on these criteria (0-10):
 {{CRITERIA}}
 

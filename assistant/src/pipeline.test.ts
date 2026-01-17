@@ -23,12 +23,18 @@ describe('Pipeline', () => {
       buildToolArgumentPrompt: vi.fn(),
       buildStrictAnswerPrompt: vi.fn(),
       buildResponseFormattingPrompt: vi.fn(),
+      buildScoringPrompt: vi.fn().mockReturnValue({
+        contractName: 'SCORING_EVALUATION',
+        model: 'test-model',
+        systemPrompt: 'test system',
+      }),
       buildErrorChannelPrompt: vi.fn(),
       validateIntentClassification: vi.fn(),
       validateLanguageDetection: vi.fn(),
       validateToolArguments: vi.fn(),
       validateStrictAnswer: vi.fn(),
       validateResponseFormatting: vi.fn(),
+      validateScoring: vi.fn(),
       validateErrorChannel: vi.fn(),
     } as any;
 
@@ -458,6 +464,54 @@ describe('Pipeline', () => {
     it('should return false for confidence = 0', () => {
       const result = (pipeline as any).meetsToolConfidence(0);
       expect(result).toBe(false);
+    });
+  });
+
+  describe('runScoringEvaluation', () => {
+    it('skips scoring when the text is blank', async () => {
+      mockRunner.executeContract = vi.fn();
+      const result = await (pipeline as any).runScoringEvaluation('stage', '   ');
+      expect(result).toEqual({ attempts: 0 });
+      expect(mockRunner.executeContract).not.toHaveBeenCalled();
+    });
+
+    it('returns evaluation when runner succeeds', async () => {
+      const evaluationPayload = { clarity: 8, correctness: 9, usefulness: 7 };
+      mockRunner.executeContract = vi.fn().mockResolvedValue({
+        ok: true,
+        value: evaluationPayload,
+        attempts: 1,
+        history: [],
+      });
+      const result = await (pipeline as any).runScoringEvaluation('stage', 'Evaluate this text');
+      expect(mockOrchestrator.buildScoringPrompt).toHaveBeenCalledWith('Evaluate this text');
+      expect(result).toEqual({ evaluation: evaluationPayload, attempts: 1, alert: undefined });
+    });
+
+    it('returns attempts when runner fails to validate output', async () => {
+      mockRunner.executeContract = vi.fn().mockResolvedValue({
+        ok: false,
+        attempts: 2,
+        history: [],
+      });
+      const result = await (pipeline as any).runScoringEvaluation('stage', 'Another text');
+      expect(result).toEqual({ attempts: 2, alert: 'scoring_failed' });
+    });
+
+    it('marks low scores when a criterion is under threshold', async () => {
+      const evaluationPayload = { clarity: 3, correctness: 6, usefulness: 5 };
+      mockRunner.executeContract = vi.fn().mockResolvedValue({
+        ok: true,
+        value: evaluationPayload,
+        attempts: 1,
+        history: [],
+      });
+      const result = await (pipeline as any).runScoringEvaluation('stage', 'Check low score');
+      expect(result).toEqual({
+        evaluation: evaluationPayload,
+        attempts: 1,
+        alert: 'low_scores',
+      });
     });
   });
 });

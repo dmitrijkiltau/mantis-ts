@@ -308,6 +308,27 @@
     word-break: break-word;
   }
 
+  .history-evaluation {
+    @apply flex flex-col gap-2;
+    font-size: 0.75rem;
+  }
+
+  .history-evaluation-row {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .history-evaluation-label {
+    @apply text-[10px] uppercase tracking-widest text-primary-60;
+  }
+
+  .history-evaluation-score {
+    @apply font-mono text-xs text-terminal-primary;
+  }
+
+  .history-evaluation-alert {
+    @apply text-[10px] font-semibold text-terminal-amber;
+  }
+
   .history-bubble-shell {
     @apply p-3 rounded border border-primary-30 bg-bg-terminal max-w-none;
     box-shadow: var(--shadow-inset-glow);

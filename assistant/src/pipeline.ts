@@ -18,6 +18,7 @@ import { DEFAULT_PERSONALITY } from './personality.js';
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
+const LOW_SCORE_THRESHOLD = 4;
 const LANGUAGE_FALLBACK: { language: string; name: string } = {
   language: 'unknown',
   name: 'Unknown',
@@ -57,11 +58,15 @@ export type PipelineError = {
   message: string;
 };
 
+export type EvaluationAlert = 'scoring_failed' | 'low_scores';
+
 export type PipelineResult =
   | {
       ok: true;
       kind: 'strict_answer';
       value: string;
+      evaluation?: Record<string, number>;
+      evaluationAlert?: EvaluationAlert;
       intent?: { intent: string; confidence: number };
       language: { language: string; name: string };
       attempts: number;
@@ -73,6 +78,8 @@ export type PipelineResult =
       args: Record<string, unknown>;
       result: unknown;
       summary?: string;
+      evaluation?: Record<string, number>;
+      evaluationAlert?: EvaluationAlert;
       intent: { intent: string; confidence: number };
       language: { language: string; name: string };
       attempts: number;
@@ -429,6 +436,14 @@ export class Pipeline {
           DEFAULT_DIFFICULTY,
         );
       }
+      const evaluationText =
+        typeof formattedResult === 'string'
+          ? formattedResult
+          : summary ?? this.stringifyToolResult(toolResult);
+      const scoring = await this.runScoringEvaluation(
+        `direct_tool.${directMatch.tool}`,
+        evaluationText,
+      );
       return {
         ok: true,
         kind: 'tool',
@@ -436,9 +451,11 @@ export class Pipeline {
         args: directMatch.args,
         result: formattedResult,
         summary,
+        evaluation: scoring.evaluation,
+        evaluationAlert: scoring.alert,
         intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
         language: LANGUAGE_FALLBACK,
-        attempts: 0,
+        attempts: scoring.attempts,
       };
     } catch (error) {
       Logger.error('pipeline', `Direct tool execution failed for ${directMatch.tool}`, error);
@@ -832,13 +849,16 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Conversational answer generated successfully');
+    const scoring = await this.runScoringEvaluation('conversational_answer', result.value);
     return {
       ok: true,
       kind: 'strict_answer',
       value: result.value,
+      evaluation: scoring.evaluation,
+      evaluationAlert: scoring.alert,
       intent,
       language,
-      attempts: attempts + result.attempts,
+      attempts: attempts + result.attempts + scoring.attempts,
     };
   }
 
@@ -879,13 +899,16 @@ export class Pipeline {
     }
 
     Logger.info('pipeline', 'Strict answer generated successfully');
+    const scoring = await this.runScoringEvaluation('strict_answer', result.value);
     return {
       ok: true,
       kind: 'strict_answer',
       value: result.value,
+      evaluation: scoring.evaluation,
+      evaluationAlert: scoring.alert,
       intent,
       language: language ?? LANGUAGE_FALLBACK,
-      attempts: attempts + result.attempts,
+      attempts: attempts + result.attempts + scoring.attempts,
     };
   }
 
@@ -984,6 +1007,60 @@ export class Pipeline {
     );
   }
 
+  private async runScoringEvaluation(
+    label: string,
+    text: string,
+  ): Promise<{ evaluation?: Record<string, number>; attempts: number; alert?: EvaluationAlert }> {
+    if (!text || !text.trim()) {
+      return { attempts: 0 };
+    }
+
+    Logger.info('pipeline', 'Running scoring contract', { stage: label });
+    const stageStartMs = Date.now();
+    try {
+      const prompt = this.orchestrator.buildScoringPrompt(text);
+      const result = await this.runner.executeContract(
+        'SCORING_EVALUATION',
+        prompt,
+        (raw) => this.orchestrator.validateScoring(raw),
+      );
+      const durationMs = measureDurationMs(stageStartMs);
+      Logger.debug('pipeline', 'Scoring stage completed', {
+        stage: label,
+        durationMs,
+        attempts: result.attempts,
+      });
+
+      if (result.ok) {
+        Logger.info('pipeline', 'Scoring evaluation succeeded', { stage: label });
+        const evaluation = result.value;
+        const hasLowScore = Object.values(evaluation).some(
+          (score) => typeof score === 'number' && score < LOW_SCORE_THRESHOLD,
+        );
+        return {
+          evaluation,
+          attempts: result.attempts,
+          alert: hasLowScore ? 'low_scores' : undefined,
+        };
+      }
+
+      Logger.warn('pipeline', 'Scoring evaluation failed', {
+        stage: label,
+        attempts: result.attempts,
+        history: result.history,
+      });
+      return { attempts: result.attempts, alert: 'scoring_failed' };
+    } catch (error) {
+      const durationMs = measureDurationMs(stageStartMs);
+      Logger.error('pipeline', 'Scoring evaluation error', {
+        stage: label,
+        error,
+        durationMs,
+      });
+      return { attempts: 0, alert: 'scoring_failed' };
+    }
+  }
+
   private async runErrorChannel(
     stage: PipelineStage,
     attempts: number,
@@ -1080,7 +1157,7 @@ export class Pipeline {
         toolName,
         undefined,
         difficulty,
-       );
+      );
     } else {
       summary = await this.summarizeToolResult(
         toolResult,
@@ -1091,6 +1168,11 @@ export class Pipeline {
         difficulty,
       );
     }
+    const evaluationText =
+      typeof formattedResult === 'string'
+        ? formattedResult
+        : summary ?? this.stringifyToolResult(toolResult);
+    const scoring = await this.runScoringEvaluation(`tool.${toolName}`, evaluationText);
     const durationMs = measureDurationMs(pipelineStartMs);
     Logger.info('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,
@@ -1103,9 +1185,12 @@ export class Pipeline {
       args,
       result: formattedResult,
       summary,
+      evaluation: scoring.evaluation,
+      evaluationAlert: scoring.alert,
       intent,
       language,
-      attempts: baseAttempts + (languageResult.ok ? 0 : languageResult.attempts),
+      attempts:
+        baseAttempts + (languageResult.ok ? 0 : languageResult.attempts) + scoring.attempts,
     };
   }
 
