@@ -166,10 +166,96 @@ const readResponseContent = async (
   };
 };
 
+type TauriHttpResponse = {
+  url: string;
+  status: number;
+  statusText?: string;
+  headers: Record<string, string>;
+  data: Uint8Array | string;
+};
+
+type TauriHttpModule = {
+  fetch: (url: string, options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) => Promise<TauriHttpResponse>;
+};
+
+let tauriHttpModule: TauriHttpModule | null = null;
+
+const loadTauriHttp = async (): Promise<TauriHttpModule | null> => {
+  if (tauriHttpModule !== null) {
+    return tauriHttpModule;
+  }
+
+  try {
+    const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
+    tauriHttpModule = { fetch: tauriFetch as unknown as (url: string, options?: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+    }) => Promise<TauriHttpResponse> };
+    return tauriHttpModule;
+  } catch {
+    // Not in Tauri environment, will fall back to browser fetch
+    return null;
+  }
+};
+
 export const executeHttpRequest = async (
   url: string,
   options: HttpRequestOptions,
 ): Promise<HttpResponseResult> => {
+  const tauri = await loadTauriHttp();
+
+  // Use Tauri HTTP plugin if available (bypasses CORS)
+  if (tauri) {
+    try {
+      const response = await tauri.fetch(url, {
+        method: options.method,
+        headers: options.headers,
+        body: options.body,
+      });
+
+      // Handle response data - may be string, Uint8Array, or undefined
+      let dataBytes: Uint8Array;
+      if (response.data === undefined || response.data === null) {
+        dataBytes = new Uint8Array(0);
+      } else if (typeof response.data === 'string') {
+        dataBytes = new TextEncoder().encode(response.data);
+      } else {
+        dataBytes = response.data;
+      }
+      
+      const totalBytes = dataBytes.length;
+      const truncated = totalBytes > options.maxBytes;
+      const view = truncated ? dataBytes.subarray(0, options.maxBytes) : dataBytes;
+      const decoder = new TextDecoder();
+      const content = decoder.decode(view);
+
+      return {
+        url,
+        finalUrl: response.url,
+        method: options.method,
+        status: response.status,
+        statusText: response.statusText || '',
+        headers: response.headers,
+        contentType: response.headers['content-type'] || null,
+        content,
+        bytesRead: view.byteLength,
+        totalBytes,
+        truncated,
+        redirected: response.url !== url,
+      };
+    } catch (error) {
+      throw new Error(
+        `HTTP request failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  // Fallback to browser fetch
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs);
 

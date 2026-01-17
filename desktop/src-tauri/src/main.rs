@@ -119,7 +119,7 @@ fn capture_displays() -> Result<Vec<DisplayCapture>, String> {
             .map_err(|err| format!("Failed to capture display: {err}"))?;
         let width = image.width();
         let height = image.height();
-        let mut dynamic = DynamicImage::ImageRgba8(image);
+        let dynamic = DynamicImage::ImageRgba8(image);
         let mut png_bytes = Vec::new();
         let mut cursor = Cursor::new(&mut png_bytes);
         dynamic
@@ -143,6 +143,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             normalize_path,
             detect_platform,

@@ -22,6 +22,18 @@
     },
     "dialog:default",
     "shell:default",
+    "http:default",
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        {
+          "url": "http://**"
+        },
+        {
+          "url": "https://**"
+        }
+      ]
+    },
     {
       "identifier": "shell:allow-execute",
       "allow": [

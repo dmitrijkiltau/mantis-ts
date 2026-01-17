@@ -7,14 +7,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
-  "devDependencies": {
+  "dependencies": {
     "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-shell": "^2.3.4",
+    "@tauri-apps/plugin-http": "^2.5.6",
+    "vitest": "^4.0.17"
+  },
+  "devDependencies": {
     "@types/node": "^25.0.6",
     "chalk": "^5.6.2",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@tauri-apps/plugin-shell": "^2.3.4",
-    "vitest": "^4.0.17"
   }
 }
