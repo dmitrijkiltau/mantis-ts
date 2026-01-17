@@ -8,10 +8,7 @@ import {
   getToolDefinition,
   type ToolName,
 } from './tools/registry.js';
-import type {
-  DifficultyLevel,
-  FieldType,
-} from './contracts/definition.js';
+import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
 
@@ -34,20 +31,6 @@ const TOOL_TRIGGERS: Record<ToolName, string[]> = {
   shell: ['run', 'execute', 'shell', 'command', 'script'],
   pcinfo: ['pc', 'system', 'info', 'spec', 'hardware', 'configuration'],
 };
-
-const DIFFICULTY_LEVELS: DifficultyLevel[] = ['easy', 'medium', 'hard'];
-const DEFAULT_DIFFICULTY: DifficultyLevel = 'medium';
-
-function normalizeDifficulty(value?: string): DifficultyLevel {
-  if (!value) {
-    return DEFAULT_DIFFICULTY;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (DIFFICULTY_LEVELS.includes(normalized as DifficultyLevel)) {
-    return normalized as DifficultyLevel;
-  }
-  return DEFAULT_DIFFICULTY;
-}
 
 /**
  * Helper to measure execution duration in milliseconds.
@@ -199,10 +182,6 @@ export class Pipeline {
       durationMs: intentDurationMs,
     });
 
-    const difficulty = intentResult.ok
-      ? normalizeDifficulty(intentResult.value.difficulty)
-      : normalizeDifficulty(undefined);
-
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
       const result = await this.runNonToolAnswer(
@@ -211,7 +190,6 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'intent_failed', pipelineStartMs, {
         reason: 'intent_classification_failure',
@@ -231,7 +209,6 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'non_tool_intent',
@@ -248,7 +225,6 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'low_confidence',
@@ -266,7 +242,6 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'tool_not_found',
@@ -286,7 +261,6 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'trigger_guard',
@@ -309,7 +283,6 @@ export class Pipeline {
         intent,
         intentResult.attempts,
         pipelineStartMs,
-        difficulty,
       );
       return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
         tool: toolName,
@@ -346,7 +319,6 @@ export class Pipeline {
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_extraction_failed',
@@ -367,7 +339,6 @@ export class Pipeline {
         intentResult.attempts + toolArgResult.attempts,
         toneInstructions,
         personalityDescription,
-        difficulty,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
@@ -390,7 +361,6 @@ export class Pipeline {
       intent,
       intentResult.attempts + toolArgResult.attempts,
       pipelineStartMs,
-      difficulty,
     );
     return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
       tool: toolName,
@@ -540,7 +510,6 @@ export class Pipeline {
           userInput,
           directMatch.tool,
           undefined,
-          DEFAULT_DIFFICULTY,
         );
       } else {
         summary = await this.summarizeToolResult(
@@ -548,7 +517,6 @@ export class Pipeline {
           LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
           directMatch.tool,
-          DEFAULT_DIFFICULTY,
         );
       }
       const evaluationText =
@@ -921,7 +889,6 @@ export class Pipeline {
     attempts: number,
     toneInstructions: string | undefined,
     personalityDescription: string,
-    difficulty: DifficultyLevel,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
@@ -935,7 +902,6 @@ export class Pipeline {
         toneInstructions,
         personalityDescription,
         language,
-        difficulty,
       );
     }
 
@@ -945,7 +911,6 @@ export class Pipeline {
       attempts + attemptOffset,
       toneInstructions,
       language,
-      difficulty,
     );
   }
 
@@ -959,7 +924,6 @@ export class Pipeline {
     toneInstructions: string | undefined,
     personalityDescription: string,
     language: { language: string; name: string },
-    difficulty: DifficultyLevel,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running conversational answer contract');
     const stageStartMs = Date.now();
@@ -968,7 +932,6 @@ export class Pipeline {
       toneInstructions,
       language,
       personalityDescription,
-      difficulty,
     );
     const result = await this.runner.executeContract(
       'CONVERSATIONAL_ANSWER',
@@ -991,7 +954,6 @@ export class Pipeline {
         attempts + result.attempts,
         toneInstructions,
         language,
-        difficulty,
       );
     }
 
@@ -1015,7 +977,6 @@ export class Pipeline {
     attempts: number,
     toneInstructions?: string,
     language?: { language: string; name: string },
-    difficulty: DifficultyLevel = DEFAULT_DIFFICULTY,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
@@ -1023,7 +984,6 @@ export class Pipeline {
       userInput,
       toneInstructions,
       language,
-      difficulty,
     );
     const result = await this.runner.executeContract(
       'STRICT_ANSWER',
@@ -1070,7 +1030,6 @@ export class Pipeline {
     requestContext: string,
     toolName: ToolName,
     fallbackText?: string,
-    difficulty?: DifficultyLevel,
   ): Promise<string> {
     const stageStartMs = Date.now();
     const fallback = fallbackText ?? text;
@@ -1081,7 +1040,6 @@ export class Pipeline {
         toneInstructions,
         requestContext,
         toolName,
-        difficulty,
       );
       const result = await this.runner.executeContract(
         'RESPONSE_FORMATTING',
@@ -1138,7 +1096,6 @@ export class Pipeline {
     language: { language: string; name: string },
     toneInstructions: string | undefined,
     toolName: ToolName,
-    difficulty?: DifficultyLevel,
   ): Promise<string> {
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
@@ -1150,7 +1107,6 @@ export class Pipeline {
       summaryContext,
       toolName,
       fallback,
-      difficulty,
     );
   }
 
@@ -1253,7 +1209,6 @@ export class Pipeline {
     intent: { intent: string; confidence: number },
     baseAttempts: number,
     pipelineStartMs: number,
-    difficulty: DifficultyLevel,
   ): Promise<PipelineResult> {
     // Fetch language in parallel with tool execution since we'll need it for formatting
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
@@ -1303,7 +1258,6 @@ export class Pipeline {
         userInput,
         toolName,
         undefined,
-        difficulty,
       );
     } else {
       summary = await this.summarizeToolResult(
@@ -1311,7 +1265,6 @@ export class Pipeline {
         language,
         toneInstructions,
         toolName,
-        difficulty,
       );
     }
     const evaluationText =

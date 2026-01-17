@@ -15,12 +15,8 @@ export type FieldType =
  * Type defining the structure of a contract.
  */
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
-
-export type DifficultyModelMap = Partial<Record<DifficultyLevel, string>>;
-
 export type ContractDefinition = {
   MODEL: string;
-  MODEL_BY_DIFFICULTY?: DifficultyModelMap;
   SYSTEM_PROMPT: string;
   USER_PROMPT?: string;
   RETRIES?: Record<number, string>;

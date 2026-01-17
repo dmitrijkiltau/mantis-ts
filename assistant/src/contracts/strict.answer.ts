@@ -5,11 +5,6 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
-  MODEL_BY_DIFFICULTY: {
-    easy: 'llama3.2:1b',
-    medium: 'ministral-3:3b',
-    hard: 'ministral-3:3b',
-  },
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
 {{LOCAL_TIMESTAMP}}
 No preamble, no instructions, no bullet points, no formatting. Up to two sentences only, preferably one.
