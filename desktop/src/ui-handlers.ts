@@ -4,7 +4,8 @@ import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/d
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
-import { Command, open } from '@tauri-apps/plugin-shell';
+import { Command } from '@tauri-apps/plugin-shell';
+import { invoke } from './tauri-invoke';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -459,48 +460,60 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
   return fallbackCopy(text);
 };
 
-/**
- * Checks if the app is running on Windows.
- */
-const isWindowsPlatform = (): boolean => /windows/i.test(navigator.userAgent);
+const PLATFORM_WINDOWS = 'windows';
+
+let cachedPlatformName: string | null = null;
+
+const detectPlatform = async (): Promise<string> => {
+  try {
+    const platformName = await invoke<string>('detect_platform');
+    return platformName?.toLowerCase() ?? '';
+  } catch (error) {
+    Logger.error('ui', 'Unable to detect platform via Tauri', { error });
+    return '';
+  }
+};
+
+const getPlatformName = async (): Promise<string> => {
+  if (cachedPlatformName !== null) {
+    return cachedPlatformName;
+  }
+
+  cachedPlatformName = await detectPlatform();
+  if (!cachedPlatformName) {
+    cachedPlatformName = navigator.platform?.toLowerCase() ?? '';
+  }
+
+  return cachedPlatformName;
+};
+
+const isWindowsPlatform = async (): Promise<boolean> => (await getPlatformName()) === PLATFORM_WINDOWS;
+
+const resolveExplorerPath = async (trimmedPath: string): Promise<string> => {
+  try {
+    const normalized = await invoke<string>('normalize_path', { rawPath: trimmedPath });
+    if (normalized && normalized.length > 0) {
+      return normalized;
+    }
+  } catch (error) {
+    Logger.error('ui', 'Failed to normalize explorer path', { path: trimmedPath, error });
+  }
+  return trimmedPath;
+};
 
 /**
  * Builds the PowerShell script for opening Explorer to a target path.
  */
-const buildExplorerScript = (rawPath: string): string => {
-  const safePath = rawPath.replace(/'/g, "''");
+const buildExplorerScript = (resolvedPath: string): string => {
+  const safePath = resolvedPath.replace(/'/g, "''");
   return `
-$raw = '${safePath}'
-$path = $raw.Trim()
-if (-not $path) { exit 0 }
+$path = '${safePath}'
 $path = $path.TrimEnd('\\', '/')
-$resolved = $null
-if ([System.IO.Path]::IsPathRooted($path)) {
-  $resolved = $path
-} else {
-  $cwd = (Get-Location).Path
-  $candidate = Join-Path $cwd $path
-  if (Test-Path $candidate) {
-    $resolved = $candidate
-  } else {
-    $parent = Split-Path $cwd -Parent
-    if ($parent) {
-      $candidate = Join-Path $parent $path
-      if (Test-Path $candidate) {
-        $resolved = $candidate
-      }
-    }
-  }
-}
-if (-not $resolved) {
-  $resolved = $path
-}
-$resolved = $resolved.TrimEnd('\\', '/')
-$isFile = Test-Path $resolved -PathType Leaf
+$isFile = Test-Path $path -PathType Leaf
 if ($isFile) {
-  $args = "/select,\`"$resolved\`""
+  $args = "/select,\`"$path\`""
 } else {
-  $args = "\`"$resolved\`""
+  $args = "\`"$path\`""
 }
 Start-Process explorer.exe -ArgumentList $args
 `.trim();
@@ -510,30 +523,32 @@ Start-Process explorer.exe -ArgumentList $args
  * Opens a file preview path in the system file explorer.
  */
 const openPathInExplorer = async (rawPath: string): Promise<void> => {
-  if (!rawPath) {
-    return;
-  }
-
   const trimmed = rawPath.trim();
   if (!trimmed) {
     return;
   }
 
+  const resolvedPath = await resolveExplorerPath(trimmed);
+
   try {
-    if (isWindowsPlatform()) {
+    if (await isWindowsPlatform()) {
       const command = Command.create('powershell', [
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        buildExplorerScript(trimmed),
+        buildExplorerScript(resolvedPath),
       ]);
       await command.execute();
       return;
     }
 
-    await open(trimmed);
+    const platformName = await getPlatformName();
+    const openCommand =
+      platformName === 'macos' || platformName === 'darwin' ? 'open' : 'xdg-open';
+    const command = Command.create(openCommand, [resolvedPath]);
+    await command.execute();
   } catch (error) {
-    Logger.error('ui', 'Failed to open file path', { path: trimmed, error });
+    Logger.error('ui', 'Failed to open file path', { path: resolvedPath, error });
   }
 };
 
