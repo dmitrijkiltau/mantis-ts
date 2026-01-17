@@ -1,13 +1,14 @@
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import svgr from 'vite-plugin-svgr';
+import solid from 'vite-plugin-solid';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [tailwindcss(), svgr()],
+  plugins: [solid(), tailwindcss(), svgr()],
   root: path.resolve(__dirname, 'src'),
   base: './',
   build: {

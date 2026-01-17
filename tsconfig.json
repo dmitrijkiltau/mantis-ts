@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "solid-js",
 
     /* Linting */
     "strict": true,

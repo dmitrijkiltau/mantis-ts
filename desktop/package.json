@@ -14,11 +14,8 @@
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-shell": "^2.3.4",
     "@tauri-apps/plugin-os": "^2.3.2",
-    "@types/react": "^19.2.8",
-    "@types/react-dom": "^19.2.3",
     "marked": "^17.0.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "solid-js": "^1.9.10",
     "vite-plugin-svgr": "^4.5.0"
   },
   "devDependencies": {
@@ -26,6 +23,7 @@
     "@tauri-apps/cli": "^2.9.6",
     "@types/node": "^25.0.9",
     "tailwindcss": "^4.1.18",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vite-plugin-solid": "^2.11.10"
   }
 }

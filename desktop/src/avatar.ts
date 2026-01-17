@@ -1,6 +1,4 @@
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import AvatarGraphic from './assets/avatar.svg?react';
+import AvatarGraphic from './assets/avatar.svg?raw';
 
 export type AvatarMood = 'idle' | 'listening' | 'thinking' | 'speaking' | 'concerned';
 
@@ -35,6 +33,50 @@ type EmoteStyle = {
   pupilScaleYBoost?: number;
   gazeX?: number;
   gazeY?: number;
+};
+
+const AVATAR_CLASS_NAME = 'assistant-avatar-svg';
+
+/**
+ * Ensures the root SVG has the avatar class applied.
+ */
+const ensureSvgClass = (openTag: string, className: string): string => {
+  if (openTag.includes('class=')) {
+    return openTag.replace(/class="([^"]*)"/, (_, existing) => {
+      const merged = `${String(existing)} ${className}`.trim();
+      return `class="${merged}"`;
+    });
+  }
+
+  return openTag.replace('<svg', `<svg class="${className}"`);
+};
+
+/**
+ * Injects a missing attribute on the root SVG tag.
+ */
+const ensureSvgAttribute = (openTag: string, name: string, value: string): string => {
+  const attributePattern = new RegExp(`\\b${name}=`, 'i');
+  if (attributePattern.test(openTag)) {
+    return openTag;
+  }
+
+  return openTag.replace('<svg', `<svg ${name}="${value}"`);
+};
+
+/**
+ * Applies required avatar attributes to the SVG markup.
+ */
+const applyAvatarMarkupAttributes = (svg: string): string => {
+  const match = svg.match(/<svg\b[^>]*>/i);
+  if (!match) {
+    return svg;
+  }
+
+  let openTag = match[0];
+  openTag = ensureSvgClass(openTag, AVATAR_CLASS_NAME);
+  openTag = ensureSvgAttribute(openTag, 'focusable', 'false');
+
+  return svg.replace(match[0], openTag);
 };
 
 const moodStyles: Record<AvatarMood, MoodStyle> = {
@@ -227,9 +269,7 @@ export class AssistantAvatar {
 
   constructor(container: HTMLElement) {
     this.container = container;
-    const svgMarkup = renderToStaticMarkup(
-      React.createElement(AvatarGraphic, { className: 'assistant-avatar-svg', focusable: false }),
-    );
+    const svgMarkup = applyAvatarMarkupAttributes(AvatarGraphic);
     this.container.innerHTML = svgMarkup;
 
     const svg = this.container.querySelector('svg');
