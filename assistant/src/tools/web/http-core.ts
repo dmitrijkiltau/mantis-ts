@@ -23,6 +23,7 @@ export type HttpRequestOptions = {
   body?: string;
   maxBytes: number;
   timeoutMs: number;
+  bypassCookieNotices?: boolean;
 };
 
 export const DEFAULT_MAX_BYTES = 150_000;
@@ -141,6 +142,54 @@ export const buildRequestBody = (
   return rawBody;
 };
 
+const addCookieConsentHeaders = (
+  headers: Record<string, string>,
+): Record<string, string> => {
+  const consentHeaders = {
+    ...headers,
+    'Cookie': [
+      headers['Cookie'] || '',
+      'cookie_consent=accepted',
+      'gdpr_consent=true',
+      'consent=true',
+      'cookie_notice_accepted=1',
+      'cookieconsent_status=allow',
+      'cookies_accepted=yes',
+    ].filter(Boolean).join('; '),
+  };
+  
+  return consentHeaders;
+};
+
+const stripCookieNoticeElements = (html: string): string => {
+  if (!html.includes('<') || !html.includes('>')) {
+    return html;
+  }
+
+  let result = html;
+  
+  const cookiePatterns = [
+    /<div[^>]*cookie[^>]*>.*?<\/div>/gis,
+    /<div[^>]*consent[^>]*>.*?<\/div>/gis,
+    /<div[^>]*gdpr[^>]*>.*?<\/div>/gis,
+    /<section[^>]*cookie[^>]*>.*?<\/section>/gis,
+    /<aside[^>]*cookie[^>]*>.*?<\/aside>/gis,
+    /<div[^>]*id=["'][^"']*cookie[^"']*["'][^>]*>.*?<\/div>/gis,
+    /<div[^>]*class=["'][^"']*cookie[^"']*["'][^>]*>.*?<\/div>/gis,
+    /<div[^>]*class=["'][^"']*consent[^"']*["'][^>]*>.*?<\/div>/gis,
+  ];
+
+  for (let index = 0; index < cookiePatterns.length; index += 1) {
+    const pattern = cookiePatterns[index];
+    if (!pattern) {
+      continue;
+    }
+    result = result.replace(pattern, '');
+  }
+
+  return result;
+};
+
 const readResponseContent = async (
   response: Response,
   byteLimit: number,
@@ -212,9 +261,13 @@ export const executeHttpRequest = async (
   // Use Tauri HTTP plugin if available (bypasses CORS)
   if (tauri) {
     try {
+      const requestHeaders = options.bypassCookieNotices
+        ? addCookieConsentHeaders(options.headers)
+        : options.headers;
+
       const response = await tauri.fetch(url, {
         method: options.method,
-        headers: options.headers,
+        headers: requestHeaders,
         body: options.body,
       });
 
@@ -232,7 +285,14 @@ export const executeHttpRequest = async (
       const truncated = totalBytes > options.maxBytes;
       const view = truncated ? dataBytes.subarray(0, options.maxBytes) : dataBytes;
       const decoder = new TextDecoder();
-      const content = decoder.decode(view);
+      let content = decoder.decode(view);
+
+      if (options.bypassCookieNotices) {
+        const isHtml = response.headers['content-type']?.includes('text/html');
+        if (isHtml) {
+          content = stripCookieNoticeElements(content);
+        }
+      }
 
       return {
         url,
@@ -260,17 +320,29 @@ export const executeHttpRequest = async (
   const timer = setTimeout(() => controller.abort(), options.timeoutMs);
 
   try {
+    const requestHeaders = options.bypassCookieNotices
+      ? addCookieConsentHeaders(options.headers)
+      : options.headers;
+
     const response = await fetch(url, {
       method: options.method,
-      headers: options.headers,
+      headers: requestHeaders,
       body: options.body,
       signal: controller.signal,
     });
 
-    const { content, bytesRead, totalBytes, truncated } = await readResponseContent(
+    let { content, bytesRead, totalBytes, truncated } = await readResponseContent(
       response,
       options.maxBytes,
     );
+
+    if (options.bypassCookieNotices) {
+      const contentType = response.headers.get('content-type');
+      const isHtml = contentType?.includes('text/html');
+      if (isHtml) {
+        content = stripCookieNoticeElements(content);
+      }
+    }
 
     const responseHeaders: Record<string, string> = {};
     response.headers.forEach((value, key) => {

@@ -25,6 +25,7 @@ type FetchToolArgs = {
   queryParams: string | null;
   maxBytes: number | null;
   timeoutMs: number | null;
+  bypassCookieNotices: boolean | null;
 };
 
 type FetchToolResult = HttpResponseResult;
@@ -154,6 +155,7 @@ export const FETCH_TOOL: ToolDefinition<FetchToolArgs, FetchToolResult> = {
     queryParams: 'string|null',
     maxBytes: 'number|null',
     timeoutMs: 'number|null',
+    bypassCookieNotices: 'boolean|null',
   },
   async execute(args) {
     const baseUrl = ensureHttpUrl(args.url);
@@ -170,6 +172,7 @@ export const FETCH_TOOL: ToolDefinition<FetchToolArgs, FetchToolResult> = {
       body,
       maxBytes,
       timeoutMs,
+      bypassCookieNotices: args.bypassCookieNotices ?? false,
     });
   },
 };

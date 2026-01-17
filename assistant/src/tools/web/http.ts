@@ -28,6 +28,7 @@ type HttpToolArgs = {
   body: string | null;
   maxBytes: number | null;
   timeoutMs: number | null;
+  bypassCookieNotices: boolean | null;
 };
 
 type HttpToolResult = HttpResponseResult;
@@ -132,6 +133,7 @@ export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
     body: 'string|null',
     maxBytes: 'number|null',
     timeoutMs: 'number|null',
+    bypassCookieNotices: 'boolean|null',
   },
   async execute(args) {
     const baseUrl = ensureHttpUrl(args.url);
@@ -149,6 +151,7 @@ export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
       body,
       maxBytes,
       timeoutMs,
+      bypassCookieNotices: args.bypassCookieNotices ?? false,
     });
   },
 };
