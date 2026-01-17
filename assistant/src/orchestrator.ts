@@ -1,6 +1,7 @@
 import { toUnorderedList, renderTemplate } from './helpers.js';
 import { CONTRACTS } from './contracts/registry.js';
 import {
+  type IntentClassificationResult,
   validateIntentClassification,
 } from './contracts/intent.classification.js';
 import {
@@ -22,6 +23,8 @@ import {
 } from './tools/registry.js';
 import type {
   ContractWithExtras,
+  DifficultyLevel,
+  DifficultyModelMap,
   FieldType,
 } from './contracts/definition.js';
 import type { ValidationResult } from './types.js';
@@ -40,7 +43,7 @@ export type ContractPrompt = {
 
 export type ToolSchema = Record<string, FieldType>;
 
-type ContractEntry = ContractWithExtras;
+type ContractEntry = ContractWithExtras & { MODEL_BY_DIFFICULTY?: DifficultyModelMap };
 
 /**
  * Cached tool reference string to avoid per-request allocation.
@@ -61,6 +64,7 @@ export class Orchestrator {
   private buildPrompt(
     contractName: ContractName,
     context: Record<string, string> = {},
+    difficulty?: DifficultyLevel,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
     const systemPrompt = renderTemplate(contract.SYSTEM_PROMPT, context);
@@ -70,7 +74,7 @@ export class Orchestrator {
 
     return {
       contractName,
-      model: contract.MODEL,
+      model: this.resolveModel(contractName, difficulty),
       systemPrompt,
       userPrompt,
       retries: contract.RETRIES,
@@ -80,6 +84,20 @@ export class Orchestrator {
 
   private getContractEntry(contractName: ContractName): ContractEntry {
     return this.contractRegistry[contractName] as ContractEntry;
+  }
+
+  private resolveModel(
+    contractName: ContractName,
+    difficulty?: DifficultyLevel,
+  ): string {
+    const contract = this.getContractEntry(contractName);
+    if (difficulty) {
+      const overrides = contract.MODEL_BY_DIFFICULTY as DifficultyModelMap | undefined;
+      if (overrides && overrides[difficulty]) {
+        return overrides[difficulty] as string;
+      }
+    }
+    return contract.MODEL;
   }
 
   private normalize(text: string): string {
@@ -224,13 +242,14 @@ export class Orchestrator {
     question: string,
     toneInstructions?: string,
     language?: { language: string; name: string },
+    difficulty?: DifficultyLevel,
   ): ContractPrompt {
     return this.buildPrompt('STRICT_ANSWER', {
       QUESTION: this.normalize(question),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
       LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
-    });
+    }, difficulty);
   }
 
   /**
@@ -241,6 +260,7 @@ export class Orchestrator {
     toneInstructions?: string,
     language?: { language: string; name: string },
     personalityDescription?: string,
+    difficulty?: DifficultyLevel,
   ): ContractPrompt {
     return this.buildPrompt('CONVERSATIONAL_ANSWER', {
       USER_INPUT: this.normalize(userInput),
@@ -248,7 +268,7 @@ export class Orchestrator {
       LANGUAGE: language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
       LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
-    });
+    }, difficulty);
   }
 
   public buildResponseFormattingPrompt(
@@ -257,6 +277,7 @@ export class Orchestrator {
     toneInstructions?: string,
     requestContext?: string,
     toolName?: string,
+    difficulty?: DifficultyLevel,
   ): ContractPrompt {
     return this.buildPrompt('RESPONSE_FORMATTING', {
       RESPONSE: this.normalize(response),
@@ -264,7 +285,7 @@ export class Orchestrator {
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       REQUEST_CONTEXT: requestContext ? this.normalize(requestContext) : 'Not provided.',
       TOOL_NAME: toolName ?? 'Not specified',
-    });
+    }, difficulty);
   }
 
   /**
@@ -304,7 +325,7 @@ export class Orchestrator {
 
   public validateIntentClassification(
     raw: string,
-  ): ValidationResult<{ intent: string; confidence: number }> {
+  ): ValidationResult<IntentClassificationResult> {
     return validateIntentClassification(raw);
   }
 

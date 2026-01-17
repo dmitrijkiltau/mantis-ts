@@ -1,11 +1,12 @@
 import { type ContractValidator } from '../types';
 import { extractFirstJsonObject } from './parsing.js';
+import { type DifficultyLevel } from './definition.js';
 
 /**
  * Contract for intent classification.
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
-  MODEL: 'llama3.2:1b',
+  MODEL: 'llama3.2:3b',
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Output JSON only.
@@ -24,7 +25,7 @@ Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).
 
 Output exactly (no formatting):
-{"intent":"<intent>","confidence":<number>}`,
+{"intent":"<intent>","confidence":<number>,"difficulty":"<easy|medium|hard>"}`,
   USER_PROMPT: `Classify the intent of the following input.
 
 Input:
@@ -41,16 +42,25 @@ Return valid JSON only.`,
 /**
  * Types of validation errors for intent classification contract.
  */
-export type IntentClassificationValidationError = 
+export type IntentClassificationValidationError =
   | `INVALID_JSON:${string}`
   | `INVALID_SHAPE:${string}`
-  | 'CONFIDENCE_OUT_OF_RANGE';
+  | 'CONFIDENCE_OUT_OF_RANGE'
+  | 'INVALID_DIFFICULTY';
+
+export type IntentClassificationResult = {
+  intent: string;
+  confidence: number;
+  difficulty: DifficultyLevel;
+};
 
 /**
  * Validator for intent classification contract output.
  */
+const DIFFICULTY_LEVELS: DifficultyLevel[] = ['easy', 'medium', 'hard'];
+
 export const validateIntentClassification: ContractValidator<
-  { intent: string; confidence: number },
+  IntentClassificationResult,
   IntentClassificationValidationError
 > = (raw) => {
   let parsedCandidate: unknown;
@@ -64,16 +74,35 @@ export const validateIntentClassification: ContractValidator<
     return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsedCandidate)}` };
   }
 
-  const parsed = parsedCandidate as { intent: unknown; confidence: unknown };
+  const parsed = parsedCandidate as {
+    intent: unknown;
+    confidence: unknown;
+    difficulty?: unknown;
+  };
 
   // Validate shape
   if (typeof parsed.intent !== 'string' || typeof parsed.confidence !== 'number') {
     return { ok: false, error: `INVALID_SHAPE:${parsed.intent}` };
   }
 
+  const rawDifficulty = parsed.difficulty;
+  if (typeof rawDifficulty !== 'string') {
+    return { ok: false, error: 'INVALID_DIFFICULTY' };
+  }
+
+  const normalizedDifficulty = rawDifficulty.trim().toLowerCase();
+
+  const difficulty = DIFFICULTY_LEVELS.includes(normalizedDifficulty as DifficultyLevel)
+    ? (normalizedDifficulty as DifficultyLevel)
+    : undefined;
+  if (!difficulty) {
+    return { ok: false, error: 'INVALID_DIFFICULTY' };
+  }
+
   const value = {
     intent: parsed.intent,
     confidence: parsed.confidence,
+    difficulty,
   };
 
   // Validate confidence range
