@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { getPlatform } from '../internal/helpers.js';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -8,9 +9,7 @@ type ShellToolArgs = {
   action: string;
   program: string;
   args?: string[] | null;
-  cwd?: string | null;
   timeoutMs?: number | null;
-  stdin?: string | null;
 };
 
 type ShellRunResult = {
@@ -133,18 +132,7 @@ const loadShellModule = async (): Promise<ShellModule> => {
   }
 };
 
-/**
- * Detect platform using navigator.userAgent.
- */
-const getPlatform = (): string => {
-  if (typeof navigator !== 'undefined' && navigator.userAgent) {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) return 'win32';
-    if (ua.includes('mac')) return 'darwin';
-    if (ua.includes('linux')) return 'linux';
-  }
-  return 'unknown';
-};
+
 
 /**
  * Normalize and validate action.
@@ -358,9 +346,7 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
     action: 'string',
     program: 'string',
     args: 'object|null',
-    cwd: 'string|null',
     timeoutMs: 'number|null',
-    stdin: 'string|null',
   },
   async execute(args) {
     normalizeAction(args.action);

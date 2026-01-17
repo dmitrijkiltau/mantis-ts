@@ -6,6 +6,7 @@ import { FETCH_TOOL } from './web/fetch.js';
 import { HTTP_TOOL } from './web/http.js';
 import { PROCESS_TOOL } from './system/process.js';
 import { SHELL_TOOL } from './system/shell.js';
+import { PCINFO_TOOL } from './system/pcinfo.js';
 
 /**
  * Registry of available tools keyed by name.
@@ -18,6 +19,7 @@ export const TOOLS = {
   http: HTTP_TOOL,
   process: PROCESS_TOOL,
   shell: SHELL_TOOL,
+  pcinfo: PCINFO_TOOL,
 };
 
 export type ToolName = keyof typeof TOOLS;

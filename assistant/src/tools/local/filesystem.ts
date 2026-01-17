@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { clampPositiveInteger, validatePath } from '../internal/helpers.js';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -77,32 +78,7 @@ const loadTauriFS = async (): Promise<TauriFS> => {
   }
 };
 
-/**
- * Clamps numeric arguments to a positive integer within a max bound.
- */
-const clampPositiveInteger = (
-  value: number | null | undefined,
-  fallback: number,
-  max: number,
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
 
-  const normalized = Math.floor(value);
-  return Math.min(normalized, max);
-};
-
-/**
- * Validates a user-provided path.
- */
-const validatePath = (rawPath: string): string => {
-  const candidate = rawPath.trim();
-  if (!candidate) {
-    throw new Error('Path is required for filesystem access.');
-  }
-  return candidate;
-};
 
 /**
  * Joins a base path with an entry name using the existing separator.

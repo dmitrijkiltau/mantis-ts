@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { clampPositiveInteger, clampNonNegativeInteger, normalizePath } from '../internal/helpers.js';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -62,32 +63,7 @@ const loadNodeModules = async (): Promise<NodeModules> => {
   return nodeModules;
 };
 
-const clampPositiveInteger = (
-  value: number | null | undefined,
-  fallback: number,
-  max: number,
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
-  return Math.min(Math.floor(value), max);
-};
 
-const clampNonNegativeInteger = (
-  value: number | null | undefined,
-  fallback: number,
-  max: number,
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    return fallback;
-  }
-  return Math.min(Math.floor(value), max);
-};
-
-const normalizePath = (path: string): string => {
-  // Normalize path separators and remove trailing slashes
-  return path.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
-};
 
 const resolveSafeRoot = async (
   baseDir: string,

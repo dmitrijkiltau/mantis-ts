@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { clampPositiveInteger, getPlatform, escapePowerShellString } from '../internal/helpers.js';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -57,18 +58,7 @@ let shellModule: ShellModule | null = null;
  * HELPERS
  * ------------------------------------------------------------------------- */
 
-const clampPositiveInteger = (
-  value: number | null | undefined,
-  fallback: number,
-  max: number,
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
 
-  const normalized = Math.floor(value);
-  return Math.min(normalized, max);
-};
 
 const loadShellModule = async (): Promise<ShellModule> => {
   if (shellModule) {
@@ -104,7 +94,7 @@ const normalizeQuery = (query: string | null | undefined): string | null => {
  * WINDOWS IMPLEMENTATION
  * ------------------------------------------------------------------------- */
 
-const escapePowerShellString = (value: string): string => value.replace(/'/g, "''");
+
 
 const buildPowerShellListScript = (query: string | null, limit: number): string => {
   const filterClause = query
@@ -361,15 +351,7 @@ const runPosixProcessList = async (query: string | null, limit: number): Promise
  * TOOL IMPLEMENTATION
  * ------------------------------------------------------------------------- */
 
-const getPlatform = (): string => {
-  if (typeof navigator !== 'undefined' && navigator.userAgent) {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) return 'win32';
-    if (ua.includes('mac')) return 'darwin';
-    if (ua.includes('linux')) return 'linux';
-  }
-  return 'unknown';
-};
+
 
 const listProcesses = async (query: string | null, limit: number): Promise<ProcessListResult> => {
   await loadShellModule();
