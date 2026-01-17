@@ -297,6 +297,8 @@ export const createQuestionHandler = (
 
     uiState.incrementQueryCount();
     uiState.updateStats();
+    uiState.markActivity();
+    uiState.setBusy(true);
 
     const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
     submitButton?.setAttribute('disabled', 'true');
@@ -309,6 +311,8 @@ export const createQuestionHandler = (
     const settle = () => {
       submitButton?.removeAttribute('disabled');
       uiState.setStatus('OPERATIONAL', 'AWAITING_INPUT', 'COMPLETE');
+      uiState.setBusy(false);
+      uiState.markActivity();
       window.setTimeout(() => {
         uiState.setMood('idle');
       }, 650);

@@ -11,6 +11,7 @@ import {
   setupTabSwitching,
   setupContentInteractions,
 } from './ui-handlers';
+import { startIdleChatter } from './idle-chatter';
 
 import './styles.css';
 
@@ -130,3 +131,5 @@ setInterval(() => uiState.updateStats(), 1000);
 
 uiState.addLog('MANTIS Desktop initialized successfully');
 uiState.addLog('System ready for queries');
+
+startIdleChatter(uiState);

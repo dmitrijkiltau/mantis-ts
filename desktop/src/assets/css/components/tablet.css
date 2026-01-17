@@ -175,6 +175,10 @@
 
   .status-section-header {
     @apply flex items-center justify-between gap-3;
+
+    .contract-models {
+      @apply flex-1;
+    }
   }
 
   .status-section-meta {

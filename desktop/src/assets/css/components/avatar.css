@@ -13,7 +13,9 @@
     --pupil-x: 0px;
     --pupil-y: 0px;
     --pupil-scale: 1;
+    --pupil-scale-y: var(--pupil-scale);
     --eye-scale: 1;
+    --eye-scale-y: var(--eye-scale);
     --eye-shift-y: 0px;
     --brow-left-y: 0px;
     --brow-right-y: 0px;
@@ -26,13 +28,15 @@
   }
 
   .avatar-canvas .assistant-avatar-svg [data-pupil] {
-    transform: translate(var(--pupil-x), var(--pupil-y)) scale(var(--pupil-scale));
+    transform: translate(var(--pupil-x), var(--pupil-y))
+      scale(var(--pupil-scale), var(--pupil-scale-y));
     transform-origin: center;
     transition: transform 160ms ease-out;
   }
 
   .avatar-canvas .assistant-avatar-svg [data-eye] {
-    transform: translateY(var(--eye-shift-y)) scaleY(var(--eye-scale));
+    transform: translateY(var(--eye-shift-y))
+      scale(var(--eye-scale), var(--eye-scale-y));
     transform-origin: center;
     transform-box: fill-box;
     transition: transform 220ms ease-out;
@@ -93,6 +97,11 @@
     --eye-scale: 0.85;
     --eye-shift-y: 1px;
     --pupil-scale: 0.9;
+  }
+
+  .avatar-canvas:hover {
+    --eye-scale-y: 1.28;
+    --pupil-scale-y: 1.2;
   }
 
   .status-indicator {

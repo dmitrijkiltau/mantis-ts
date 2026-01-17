@@ -4,6 +4,8 @@ import type { AvatarMood } from './avatar';
 export class UIState {
   private queryCount = 0;
   private sessionStart = Date.now();
+  private lastActivityAt = Date.now();
+  private isBusy = false;
 
   constructor(
     private avatar: AssistantAvatar | null,
@@ -17,6 +19,53 @@ export class UIState {
     private statQueries: HTMLElement | null,
     private statRuntime: HTMLElement | null,
   ) {}
+
+  /**
+   * Records a user interaction timestamp.
+   */
+  markActivity(): void {
+    this.lastActivityAt = Date.now();
+  }
+
+  /**
+   * Tracks whether a query is currently running.
+   */
+  setBusy(isBusy: boolean): void {
+    this.isBusy = isBusy;
+    if (isBusy) {
+      this.lastActivityAt = Date.now();
+    }
+  }
+
+  /**
+   * Returns true when the UI has been idle for a duration.
+   */
+  isIdleFor(durationMs: number): boolean {
+    return Date.now() - this.lastActivityAt >= durationMs;
+  }
+
+  /**
+   * Returns true when the speech bubble is not visible.
+   */
+  isBubbleHidden(): boolean {
+    return !this.speechBubble || this.speechBubble.classList.contains('hidden');
+  }
+
+  /**
+   * Returns true when smalltalk is currently displayed.
+   */
+  isSmalltalkVisible(): boolean {
+    return !!this.speechBubble
+      && !this.speechBubble.classList.contains('hidden')
+      && this.speechBubble.dataset.bubbleKind === 'smalltalk';
+  }
+
+  /**
+   * Returns true when idle chatter can be shown.
+   */
+  canIdleChat(): boolean {
+    return !this.isBusy && this.isBubbleHidden();
+  }
 
   setMood(mood: AvatarMood): void {
     this.avatar?.setMood(mood);
@@ -46,14 +95,24 @@ export class UIState {
   }
 
   showBubble(html: string): void {
+    this.setBubble(html, 'response');
+  }
+
+  showSmalltalk(html: string): void {
+    this.setBubble(html, 'smalltalk');
+  }
+
+  private setBubble(html: string, kind: 'response' | 'smalltalk'): void {
     if (this.speechBubble && this.bubbleAnswer) {
       this.bubbleAnswer.innerHTML = html;
+      this.speechBubble.dataset.bubbleKind = kind;
       this.speechBubble.classList.remove('hidden');
     }
   }
 
   hideBubble(): void {
     if (this.speechBubble) {
+      delete this.speechBubble.dataset.bubbleKind;
       this.speechBubble.classList.add('hidden');
     }
   }
