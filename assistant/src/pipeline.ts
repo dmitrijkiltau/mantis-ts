@@ -11,6 +11,7 @@ import type { FieldType } from './contracts/definition.js';
 import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
+import { ensureHttpUrl } from './tools/web/http-core.js';
 
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
@@ -895,7 +896,13 @@ export class Pipeline {
       return null;
     }
     const url = this.stripWrappingQuotes(urlToken);
-    if (!url || !this.isHttpUrl(url)) {
+    if (!url) {
+      return null;
+    }
+
+    try {
+      ensureHttpUrl(url);
+    } catch {
       return null;
     }
 
@@ -974,15 +981,6 @@ export class Pipeline {
       }
     }
     return null;
-  }
-
-  private isHttpUrl(candidate: string): boolean {
-    try {
-      const url = new URL(candidate);
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
   }
 
   private resolveToolName(intent: string): ToolName | null {

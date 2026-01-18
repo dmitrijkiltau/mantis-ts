@@ -51,10 +51,24 @@ export const ensureHttpUrl = (raw: string): string => {
     throw new Error('Request URL is required.');
   }
 
-  let parsed: URL;
-  try {
-    parsed = new URL(candidate);
-  } catch {
+  const tryParse = (value: string): URL | null => {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z\d+-.]*:/.test(candidate);
+  let parsed: URL | null = tryParse(candidate);
+  if (!parsed && !hasScheme) {
+    const prefixed = candidate.startsWith('//')
+      ? `https:${candidate}`
+      : `https://${candidate}`;
+    parsed = tryParse(prefixed);
+  }
+
+  if (!parsed) {
     throw new Error(`Invalid URL "${candidate}".`);
   }
 

@@ -113,6 +113,14 @@ describe('Pipeline', () => {
       expect(result?.args.url).toBe('https://example.com/path?param=value');
     });
 
+    it('should parse direct fetch: scheme-less URL is accepted', () => {
+      const result = (pipeline as any).parseDirectToolRequest('get kiltau.com');
+      expect(result).not.toBeNull();
+      expect(result?.tool).toBe('http');
+      expect(result?.args.url).toBe('kiltau.com');
+      expect(result?.reason).toBe('direct_get_http');
+    });
+
     it('should return null for fetch command with invalid URL', () => {
       const result = (pipeline as any).parseDirectToolRequest('get notaurl');
       expect(result).toBeNull();
