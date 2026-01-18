@@ -84,6 +84,14 @@ type PcInfoPayload = {
   disks?: PcInfoDisk[];
 };
 
+type PcInfoSections = {
+  systemCard: string;
+  cpuCard: string;
+  memoryCard: string;
+  diskCard: string;
+  primaryCount: number;
+};
+
 type FileTreeRow = {
   name: string;
   kind: 'file' | 'folder' | 'other';
@@ -1323,9 +1331,9 @@ const renderPcInfoUsageBar = (label: string, percent: number | null, detail?: st
 };
 
 /**
- * Renders the PC info payload into a card-based layout.
+ * Builds the card sections for PC info.
  */
-const renderPcInfoPayload = (payload: PcInfoPayload): string => {
+const buildPcInfoSections = (payload: PcInfoPayload): PcInfoSections => {
   const system = payload.system;
   const cpu = payload.cpu;
   const memory = payload.memory;
@@ -1344,7 +1352,7 @@ const renderPcInfoPayload = (payload: PcInfoPayload): string => {
     ? `${cpu.cores ?? 'N/A'} cores / ${cpu.threads ?? 'N/A'} threads`
     : 'N/A';
 
-  const cpuSection = cpu
+  const cpuCard = cpu
     ? `
       <div class="pcinfo-card">
         <div class="pcinfo-card-header">CPU</div>
@@ -1357,7 +1365,7 @@ const renderPcInfoPayload = (payload: PcInfoPayload): string => {
     `
     : '';
 
-  const memorySection = memory
+  const memoryCard = memory
     ? `
       <div class="pcinfo-card">
         <div class="pcinfo-card-header">MEMORY</div>
@@ -1373,7 +1381,7 @@ const renderPcInfoPayload = (payload: PcInfoPayload): string => {
     `
     : '';
 
-  const diskSection = disks.length > 0
+  const diskCard = disks.length > 0
     ? `
       <div class="pcinfo-card">
         <div class="pcinfo-card-header">DISK</div>
@@ -1394,19 +1402,39 @@ const renderPcInfoPayload = (payload: PcInfoPayload): string => {
     `
     : '';
 
+  const systemCard = systemRows
+    ? `
+      <div class="pcinfo-card">
+        <div class="pcinfo-card-header">SYSTEM</div>
+        <div class="pcinfo-card-body">
+          ${systemRows}
+        </div>
+      </div>
+    `
+    : '';
+
+  const primaryCount = [cpuCard, memoryCard, diskCard].filter(Boolean).length;
+  return {
+    systemCard,
+    cpuCard,
+    memoryCard,
+    diskCard,
+    primaryCount,
+  };
+};
+
+/**
+ * Renders the PC info payload into a card-based layout.
+ */
+const renderPcInfoPayload = (payload: PcInfoPayload): string => {
+  const sections = buildPcInfoSections(payload);
+
   return `
     <div class="pcinfo-panel">
-      ${systemRows ? `
-        <div class="pcinfo-card">
-          <div class="pcinfo-card-header">SYSTEM</div>
-          <div class="pcinfo-card-body">
-            ${systemRows}
-          </div>
-        </div>
-      ` : ''}
-      ${cpuSection}
-      ${memorySection}
-      ${diskSection}
+      ${sections.systemCard}
+      ${sections.cpuCard}
+      ${sections.memoryCard}
+      ${sections.diskCard}
     </div>
   `;
 };
@@ -1487,6 +1515,27 @@ const renderToolJsonAccordion = (raw: unknown): string => {
     const platform = raw.system?.platform ? raw.system.platform.toUpperCase() : 'SYSTEM';
     const hostname = raw.system?.hostname ?? platform;
     const subtitle = raw.system ? `UPTIME ${formatUptime(raw.system.uptime)}` : platform;
+    const sections = buildPcInfoSections(raw);
+    const useCompactCard = sections.primaryCount <= 1;
+
+    if (useCompactCard) {
+      return `
+        <div class="tool-output-card tool-output-card--pcinfo">
+          <div class="tool-output-card-header">
+            <div class="tool-output-accordion-title">
+              <div class="tool-output-pcinfo-title">
+                <span class="tool-output-accordion-label">PC INFO</span>
+                <span class="tool-output-pcinfo-host">${escapeHtml(hostname)}</span>
+              </div>
+              <span class="tool-output-pcinfo-subtitle">${escapeHtml(subtitle)}</span>
+            </div>
+          </div>
+          <div class="tool-output-card-body">
+            ${renderPcInfoPayload(raw)}
+          </div>
+        </div>
+      `;
+    }
 
     return `
       <details class="tool-output-accordion tool-output-accordion--pcinfo" data-view-root="true" data-view="preview">

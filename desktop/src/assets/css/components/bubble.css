@@ -391,6 +391,18 @@
       }
     }
 
+    .tool-output-card {
+      @apply rounded border border-primary-30 bg-bg-terminal shadow-(--shadow-inset-glow);
+    }
+
+    .tool-output-card-header {
+      @apply px-3 py-2 text-[10px] font-bold tracking-widest text-terminal-cyan bg-primary-10 border-b border-primary-30;
+    }
+
+    .tool-output-card-body {
+      @apply p-0;
+    }
+
     .file-output-block {
       @apply flex flex-col rounded border overflow-hidden;
       @apply bg-bg-black border-primary-30 shadow-(--shadow-inset-glow);
