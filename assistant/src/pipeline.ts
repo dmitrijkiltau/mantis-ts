@@ -843,6 +843,7 @@ export class Pipeline {
           LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
           directMatch.tool,
+          userInput,
           contextSnapshot,
         );
       }

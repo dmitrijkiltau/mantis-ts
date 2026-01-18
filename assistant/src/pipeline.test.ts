@@ -494,7 +494,7 @@ describe('Pipeline', () => {
         history: [],
       });
       const result = await (pipeline as any).runScoringEvaluation('stage', 'Evaluate this text');
-      expect(mockOrchestrator.buildScoringPrompt).toHaveBeenCalledWith('Evaluate this text');
+      expect(mockOrchestrator.buildScoringPrompt).toHaveBeenCalledWith('Evaluate this text', undefined, undefined, undefined);
       expect(result).toEqual({ evaluation: evaluationPayload, attempts: 1, alert: undefined });
     });
 
