@@ -28,33 +28,6 @@ export const GENERAL_ANSWER_INTENT = 'answer.general';
 export const CONVERSATION_INTENT = 'answer.conversation';
 
 /**
- * Cached intent labels to avoid per-request allocation.
- */
-let toolIntentsCache: string[] | null = null;
-
-/**
- * Returns intent labels derived from the tool registry (cached).
- */
-export const getToolIntents = (): string[] => {
-  if (toolIntentsCache !== null) {
-    return toolIntentsCache;
-  }
-
-  const intents: string[] = [];
-
-  intents.push(GENERAL_ANSWER_INTENT);
-  intents.push(CONVERSATION_INTENT);
-
-  const toolNames = Object.keys(TOOLS) as ToolName[];
-  for (let index = 0; index < toolNames.length; index += 1) {
-    intents.push(`tool.${toolNames[index]}`);
-  }
-
-  toolIntentsCache = intents;
-  return intents;
-};
-
-/**
  * Returns the tool definition for runtime dispatch.
  */
 export const getToolDefinition = (name: ToolName): ToolDefinitionBase => TOOLS[name];

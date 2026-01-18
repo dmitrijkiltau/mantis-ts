@@ -1,4 +1,4 @@
-import { toUnorderedList, renderTemplate } from './helpers.js';
+import { renderTemplate } from './helpers.js';
 import { CONTRACTS } from './contracts/registry.js';
 import {
   type IntentClassificationResult,
@@ -18,7 +18,6 @@ import {
   GENERAL_ANSWER_INTENT,
   CONVERSATION_INTENT,
   TOOLS,
-  getToolIntents,
 } from './tools/registry.js';
 import type { ContractWithExtras, FieldType } from './contracts/definition.js';
 import type { ValidationResult } from './types.js';
@@ -159,7 +158,11 @@ export class Orchestrator {
         continue;
       }
       const [name, tool] = entry;
-      lines.push(`- tool.${name}: ${tool.description}`);
+      const description = tool.description.trim();
+      if (!description) {
+        continue;
+      }
+      lines.push(`- tool.${name}: ${description}`);
     }
 
     lines.push(
@@ -174,13 +177,9 @@ export class Orchestrator {
     return formatted;
   }
 
-  public buildIntentClassificationPrompt(
-    userInput: string,
-    allowedIntents: string[] = getToolIntents(),
-  ): ContractPrompt {
+  public buildIntentClassificationPrompt(userInput: string): ContractPrompt {
     return this.buildPrompt('INTENT_CLASSIFICATION', {
       USER_INPUT: this.normalize(userInput),
-      ALLOWED_INTENTS: toUnorderedList(allowedIntents),
       TOOL_REFERENCE: this.formatToolReference(),
     });
   }
