@@ -92,16 +92,16 @@ describe('Pipeline', () => {
     it('should parse direct fetch: "get <url>" command', () => {
       const result = (pipeline as any).parseDirectToolRequest('get https://example.com');
       expect(result).not.toBeNull();
-      expect(result?.tool).toBe('fetch');
+    expect(result?.tool).toBe('http');
       expect(result?.args.method).toBe('GET');
       expect(result?.args.url).toBe('https://example.com');
-      expect(result?.reason).toBe('direct_get_fetch');
+      expect(result?.reason).toBe('direct_get_http');
     });
 
     it('should parse direct fetch: "fetch <url>" command', () => {
       const result = (pipeline as any).parseDirectToolRequest('fetch http://example.com');
       expect(result).not.toBeNull();
-      expect(result?.tool).toBe('fetch');
+      expect(result?.tool).toBe('http');
       expect(result?.args.method).toBe('GET');
       expect(result?.args.url).toBe('http://example.com');
     });
@@ -109,7 +109,7 @@ describe('Pipeline', () => {
     it('should parse direct fetch: "get <quoted url>" command', () => {
       const result = (pipeline as any).parseDirectToolRequest('get "https://example.com/path?param=value"');
       expect(result).not.toBeNull();
-      expect(result?.tool).toBe('fetch');
+      expect(result?.tool).toBe('http');
       expect(result?.args.url).toBe('https://example.com/path?param=value');
     });
 

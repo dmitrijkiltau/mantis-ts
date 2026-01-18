@@ -809,9 +809,9 @@ export class Pipeline {
       return process;
     }
 
-    const fetch = this.parseDirectFetchCommand(trimmed);
-    if (fetch) {
-      return fetch;
+    const http = this.parseDirectHttpCommand(trimmed);
+    if (http) {
+      return http;
     }
 
     return null;
@@ -884,7 +884,7 @@ export class Pipeline {
     };
   }
 
-  private parseDirectFetchCommand(input: string): DirectToolMatch | null {
+  private parseDirectHttpCommand(input: string): DirectToolMatch | null {
     const match = /^(get|fetch)\s+(.+)$/i.exec(input);
     if (!match) {
       return null;
@@ -900,7 +900,7 @@ export class Pipeline {
     }
 
     return {
-      tool: 'fetch',
+      tool: 'http',
       args: {
         url,
         method: 'GET',
@@ -910,7 +910,7 @@ export class Pipeline {
         maxBytes: null,
         timeoutMs: null,
       },
-      reason: 'direct_get_fetch',
+      reason: 'direct_get_http',
     };
   }
 
