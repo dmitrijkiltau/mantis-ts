@@ -461,8 +461,7 @@ const getPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
  */
 export const PCINFO_TOOL: ToolDefinition<PcInfoToolArgs, PcInfoToolResult> = {
   name: 'pcinfo',
-  description:
-    'Gets PC information and resource usage (system, cpu, memory, disk).',
+  description: 'Gets system hardware stats (CPU, RAM, Disk usage).',
   schema: {
     metrics: 'object|null',
     detailLevel: 'string|null',

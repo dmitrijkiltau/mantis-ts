@@ -1,6 +1,5 @@
 import { type ContractValidator } from '../types';
 import { extractFirstJsonObject } from './parsing.js';
-import { type DifficultyLevel } from './definition.js';
 
 /**
  * Contract for intent classification.
@@ -9,23 +8,19 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   MODEL: 'llama3.2:3b',
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
-Output JSON only.
+Pick one tool intent when the request matches that tool's capability.
 
-Guidelines:
-- Pick one tool intent only when the request matches that tool's capability.
-- Before deciding, do a quick self-check: tool action needed vs. conversational response.
+**Priority Rule:**
+Always prefer specific structured tools (filesystem, process, http) over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
 
 Allowed intents:
-{{ALLOWED_INTENTS}}
-
-Tool intents reference:
 {{TOOL_REFERENCE}}
 
 Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).
 
-Output exactly (no formatting):
-{"intent":"<intent>","confidence":<number>,"difficulty":"<easy|medium|hard>"}`,
+Output JSON exactly (no formatting):
+{"intent":"<intent>","confidence":<number>}`,
   USER_PROMPT: `Classify the intent of the following input.
 
 Input:
@@ -45,19 +40,12 @@ Return valid JSON only.`,
 export type IntentClassificationValidationError =
   | `INVALID_JSON:${string}`
   | `INVALID_SHAPE:${string}`
-  | 'CONFIDENCE_OUT_OF_RANGE'
-  | 'INVALID_DIFFICULTY';
+  | 'CONFIDENCE_OUT_OF_RANGE';
 
 export type IntentClassificationResult = {
   intent: string;
   confidence: number;
-  difficulty: DifficultyLevel;
 };
-
-/**
- * Validator for intent classification contract output.
- */
-const DIFFICULTY_LEVELS: DifficultyLevel[] = ['easy', 'medium', 'hard'];
 
 export const validateIntentClassification: ContractValidator<
   IntentClassificationResult,
@@ -77,7 +65,6 @@ export const validateIntentClassification: ContractValidator<
   const parsed = parsedCandidate as {
     intent: unknown;
     confidence: unknown;
-    difficulty?: unknown;
   };
 
   // Validate shape
@@ -85,24 +72,9 @@ export const validateIntentClassification: ContractValidator<
     return { ok: false, error: `INVALID_SHAPE:${parsed.intent}` };
   }
 
-  const rawDifficulty = parsed.difficulty;
-  if (typeof rawDifficulty !== 'string') {
-    return { ok: false, error: 'INVALID_DIFFICULTY' };
-  }
-
-  const normalizedDifficulty = rawDifficulty.trim().toLowerCase();
-
-  const difficulty = DIFFICULTY_LEVELS.includes(normalizedDifficulty as DifficultyLevel)
-    ? (normalizedDifficulty as DifficultyLevel)
-    : undefined;
-  if (!difficulty) {
-    return { ok: false, error: 'INVALID_DIFFICULTY' };
-  }
-
   const value = {
     intent: parsed.intent,
     confidence: parsed.confidence,
-    difficulty,
   };
 
   // Validate confidence range

@@ -163,10 +163,10 @@ export class Orchestrator {
     }
 
     lines.push(
-      `- ${GENERAL_ANSWER_INTENT}: General Q&A or instructions when no tool intent action can be used.`,
+      `- ${GENERAL_ANSWER_INTENT}: Use only when NO tool applies. For general knowledge, coding help, or complex reasoning.`,
     );
     lines.push(
-      `- ${CONVERSATION_INTENT}: Short conversational or social responses without if no tool usage is needed.`,
+      `- ${CONVERSATION_INTENT}: Small talk, greetings, or thanks only.`,
     );
 
     const formatted = lines.join('\n');

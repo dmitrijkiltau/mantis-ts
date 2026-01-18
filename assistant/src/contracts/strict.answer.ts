@@ -7,14 +7,13 @@ export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
 {{LOCAL_TIMESTAMP}}
-No preamble, no instructions, no bullet points, no formatting. Up to two sentences only, preferably one.
-Clarify only if necessary.
+No preamble, no instructions, no bullet points, no formatting. Preferably one sentence.
 Always respond in {{LANGUAGE}}.
 Output only your answer.`,
   USER_PROMPT: `Question:
 {{QUESTION}}`,
   RETRIES: {
-    0: `Answer with one or two short sentences only.
+    0: `Answer with one or few short sentences only.
 No preamble, no instructions, no bullet points, no formatting.`
   },
 };
@@ -47,10 +46,7 @@ export const validateStrictAnswer: ContractValidator<string, StrictAnswerValidat
     return { ok: false, error: 'EMPTY_OUTPUT' };
   }
 
-  const normalized = text
-    .replace(/\r?\n+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) {
     return { ok: false, error: 'EMPTY_OUTPUT' };
   }

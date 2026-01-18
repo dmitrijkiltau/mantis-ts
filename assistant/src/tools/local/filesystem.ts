@@ -198,8 +198,7 @@ const listDirectory = async (
 
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
-  description:
-    'Read or list known file/directory paths. Use action "read" to get file contents, "list" to show directory entries. Use when user asks to "read", "show", "display", "open", "what\'s in" with a specific path. Requires an explicit path; do not use to locate unknown files. NOT for finding/searching files (use search tool for that).',
+  description: 'ACTIONS: "read" (file content), "list" (directory). STRICTLY requires a specific, known path. Do NOT use for searching.',
   schema: {
     action: 'string',
     path: 'string',

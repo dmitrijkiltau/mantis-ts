@@ -379,8 +379,7 @@ const listProcesses = async (query: string | null, limit: number): Promise<Proce
  */
 export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = {
   name: 'process',
-  description:
-    'Lists running processes (list). Supports optional name filter ("query") and a max result limit.',
+  description: 'LISTS running processes. Use for "what is running", "top", "task manager".',
   schema: {
     action: 'string',
     query: 'string|null',

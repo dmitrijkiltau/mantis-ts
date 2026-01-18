@@ -183,8 +183,7 @@ const searchFileSystem = async (
 
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
-  description:
-    'Find/locate files or directories by name pattern. Use when user asks "is there a", "find", "locate", "does X exist", "search for", or "where is". Searches recursively by substring (or exactMatch=true for exact filename). Returns matching paths.',
+  description: 'DISCOVERY. Use to find files/dirs by name/pattern when the path is unknown. Triggers: "find", "locate", "where is".',
   schema: {
     query: 'string',
     baseDir: 'string',

@@ -14,7 +14,6 @@ export type FieldType =
 /**
  * Type defining the structure of a contract.
  */
-export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 export type ContractDefinition = {
   MODEL: string;
   SYSTEM_PROMPT: string;

@@ -211,8 +211,7 @@ const WRITE_ALIASES = new Set(['write', 'copy', 'set']);
 
 export const CLIPBOARD_TOOL: ToolDefinition<ClipboardToolArgs, ClipboardToolResult> = {
   name: 'clipboard',
-  description:
-    'Reads from or writes to the OS clipboard. Actions: "read" (or "paste") to fetch, "write" (or "copy") to update.',
+  description: 'Reads from or writes to the OS clipboard.',
   schema: {
     action: 'string',
     text: 'string|null',

@@ -339,9 +339,7 @@ const runShellCommand = async (
  */
 export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   name: 'shell',
-  description:
-    'Executes safe shell commands for read-only inspection (ps, ls, pwd, etc.). ' +
-    'Windows: powershell, ps. POSIX: sh, bash, ps, cat, ls, pwd, echo, grep, find, which, env.',
+  description: 'FALLBACK for complex system commands NOT covered above (e.g., git, docker, npm, systemctl). Do NOT use for simple file listing or process listing.',
   schema: {
     action: 'string',
     program: 'string',
