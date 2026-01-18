@@ -10,6 +10,9 @@ There are {{IMAGE_COUNT}} image(s) attached.
 If the user asks a question, answer it using only what is visible.
 If no question is provided, describe the image(s) concisely.
 If the image is unclear or missing, say so.
+CONTEXT:
+{{CONTEXT_BLOCK}}
+
 Always respond in {{LANGUAGE}}.
 Output only the response.`,
   USER_PROMPT: `User request:

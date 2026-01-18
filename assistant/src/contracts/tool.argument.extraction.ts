@@ -14,6 +14,9 @@ You do not guess missing values.
 If required data is missing, set it to null.
 Output JSON only.
 
+CONTEXT:
+{{CONTEXT_BLOCK}}
+
 Tool description:
 {{TOOL_DESCRIPTION}}
 

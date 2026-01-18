@@ -11,7 +11,10 @@ export const CONTRACT_TEXT_TRANSFORMATION = {
   SYSTEM_PROMPT: `You transform text according to rules.
 You preserve meaning.
 You do not add information.
-You do not explain.`,
+You do not explain.
+
+CONTEXT:
+{{CONTEXT_BLOCK}}`,
   USER_PROMPT: `Rewrite the following text to be:
 {{RULES}}
 - max ${MAX_SENTENCES} sentences

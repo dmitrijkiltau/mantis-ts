@@ -1,5 +1,6 @@
 import type { Orchestrator } from './orchestrator.js';
 import type { Runner } from './runner.js';
+import type { ContextSnapshot } from './context.js';
 import {
   TOOLS,
   GENERAL_ANSWER_INTENT,
@@ -182,7 +183,11 @@ export class Pipeline {
   /**
    * Routes a user input through intent classification, tool execution, or non-tool answer.
    */
-  public async run(userInput: string, attachments?: ImageAttachment[]): Promise<PipelineResult> {
+  public async run(
+    userInput: string,
+    attachments?: ImageAttachment[],
+    contextSnapshot?: ContextSnapshot,
+  ): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
     Logger.debug('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
@@ -194,13 +199,14 @@ export class Pipeline {
         userInput,
         imageAttachments,
         pipelineStartMs,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'image_recognition', pipelineStartMs, {
         imageCount: imageAttachments.length,
       });
     }
 
-    const directTool = await this.tryRunDirectTool(userInput);
+    const directTool = await this.tryRunDirectTool(userInput, contextSnapshot);
     if (directTool) {
       return this.completePipeline(directTool.result, 'direct_tool', pipelineStartMs, {
         tool: directTool.metadata.tool,
@@ -211,7 +217,10 @@ export class Pipeline {
     const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     const personalityDescription = DEFAULT_PERSONALITY.description;
     Logger.debug('pipeline', 'Using predefined MANTIS tone instructions');
-    const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(userInput);
+    const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(
+      userInput,
+      contextSnapshot,
+    );
     const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
@@ -231,6 +240,7 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'intent_failed', pipelineStartMs, {
         reason: 'intent_classification_failure',
@@ -250,6 +260,7 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'non_tool_intent',
@@ -266,6 +277,7 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'low_confidence',
@@ -283,6 +295,7 @@ export class Pipeline {
         intentResult.attempts,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'tool_not_found',
@@ -316,7 +329,12 @@ export class Pipeline {
 
     if (schemaKeys.length > 0) {
       Logger.debug('pipeline', `Extracting arguments for tool: ${activeToolName}`);
-      const toolArgResult = await this.extractToolArguments(tool, userInput, extractionNotes);
+      const toolArgResult = await this.extractToolArguments(
+        tool,
+        userInput,
+        extractionNotes,
+        contextSnapshot,
+      );
       attemptsSoFar += toolArgResult.attempts;
       if (!toolArgResult.ok) {
         Logger.warn(
@@ -329,6 +347,7 @@ export class Pipeline {
           attemptsSoFar,
           toneInstructions,
           personalityDescription,
+          contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_extraction_failed',
@@ -352,6 +371,7 @@ export class Pipeline {
         tool.schema,
         userInput,
         toolArgs,
+        contextSnapshot,
       );
       attemptsSoFar += verification.attempts;
       if (!verification.ok) {
@@ -365,6 +385,7 @@ export class Pipeline {
           attemptsSoFar,
           toneInstructions,
           personalityDescription,
+          contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_verification_failed',
@@ -401,6 +422,7 @@ export class Pipeline {
         tool,
         userInput,
         verifierNotes || extractionNotes,
+        contextSnapshot,
       );
       attemptsSoFar += retryResult.attempts;
       if (!retryResult.ok) {
@@ -414,6 +436,7 @@ export class Pipeline {
           attemptsSoFar,
           toneInstructions,
           personalityDescription,
+          contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_extraction_failed',
@@ -443,6 +466,7 @@ export class Pipeline {
         tool.schema,
         userInput,
         toolArgs,
+        contextSnapshot,
       );
       attemptsSoFar += retryVerification.attempts;
       if (!retryVerification.ok) {
@@ -456,6 +480,7 @@ export class Pipeline {
           attemptsSoFar,
           toneInstructions,
           personalityDescription,
+          contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_verification_failed',
@@ -485,6 +510,7 @@ export class Pipeline {
         attemptsSoFar,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_retry_exhausted',
@@ -505,6 +531,7 @@ export class Pipeline {
         attemptsSoFar,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_abort',
@@ -523,6 +550,7 @@ export class Pipeline {
           intent,
           attemptsSoFar,
           toneInstructions,
+          contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_clarify',
@@ -542,6 +570,7 @@ export class Pipeline {
         attemptsSoFar,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_clarify_denied',
@@ -562,6 +591,7 @@ export class Pipeline {
         attemptsSoFar,
         toneInstructions,
         personalityDescription,
+        contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
@@ -584,6 +614,7 @@ export class Pipeline {
       intent,
       attemptsSoFar,
       pipelineStartMs,
+      contextSnapshot,
     );
     return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
       tool: activeToolName,
@@ -655,6 +686,7 @@ export class Pipeline {
     userInput: string,
     attachments: ImageAttachment[],
     pipelineStartMs: number,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running image recognition contract', {
       imageCount: attachments.length,
@@ -674,6 +706,7 @@ export class Pipeline {
       attachments.length,
       toneInstructions,
       languageResult.language,
+      contextSnapshot,
     );
     const imagePayload = attachments.map((attachment) => attachment.data);
     const result = await this.runner.executeContract(
@@ -710,6 +743,7 @@ export class Pipeline {
 
   private async tryRunDirectTool(
     userInput: string,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<DirectToolExecutionResult | null> {
     const directMatch = this.parseDirectToolRequest(userInput);
     if (!directMatch) {
@@ -735,6 +769,7 @@ export class Pipeline {
           userInput,
           directMatch.tool,
           undefined,
+          contextSnapshot,
         );
       } else {
         summary = await this.summarizeToolResult(
@@ -742,6 +777,7 @@ export class Pipeline {
           LANGUAGE_FALLBACK,
           DEFAULT_PERSONALITY.toneInstructions,
           directMatch.tool,
+          contextSnapshot,
         );
       }
       const evaluationText =
@@ -751,6 +787,12 @@ export class Pipeline {
       const scoring = await this.runScoringEvaluation(
         `direct_tool.${directMatch.tool}`,
         evaluationText,
+        userInput,
+        this.formatReferenceContext(contextSnapshot, {
+          toolName: directMatch.tool,
+          toolArgs: directMatch.args,
+        }),
+        contextSnapshot,
       );
       return {
         result: {
@@ -1151,6 +1193,7 @@ export class Pipeline {
     intent: { intent: string; confidence: number },
     attempts: number,
     toneInstructions: string | undefined,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
@@ -1163,8 +1206,15 @@ export class Pipeline {
       userInput,
       toolName,
       question,
+      contextSnapshot,
     );
-    const scoring = await this.runScoringEvaluation(`tool.${toolName}.clarify`, formatted);
+    const scoring = await this.runScoringEvaluation(
+      `tool.${toolName}.clarify`,
+      formatted,
+      userInput,
+      this.formatReferenceContext(contextSnapshot, { toolName }),
+      contextSnapshot,
+    );
     return {
       ok: true,
       kind: 'strict_answer',
@@ -1184,6 +1234,7 @@ export class Pipeline {
     tool: ReturnType<typeof getToolDefinition>,
     userInput: string,
     verifierNotes?: string,
+    contextSnapshot?: ContextSnapshot,
   ) {
     const toolArgStartMs = Date.now();
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
@@ -1192,6 +1243,7 @@ export class Pipeline {
       tool.schema,
       userInput,
       verifierNotes,
+      contextSnapshot,
     );
     const toolArgResult = await this.runner.executeContract(
       'TOOL_ARGUMENT_EXTRACTION',
@@ -1214,6 +1266,7 @@ export class Pipeline {
     schema: Record<string, FieldType>,
     userInput: string,
     extractedArgs: Record<string, unknown>,
+    contextSnapshot?: ContextSnapshot,
   ) {
     const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
@@ -1222,6 +1275,7 @@ export class Pipeline {
       schema,
       userInput,
       extractedArgs,
+      contextSnapshot,
     );
     const result = await this.runner.executeContract(
       'TOOL_ARGUMENT_VERIFICATION',
@@ -1334,6 +1388,7 @@ export class Pipeline {
     attempts: number,
     toneInstructions: string | undefined,
     personalityDescription: string,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
@@ -1347,6 +1402,7 @@ export class Pipeline {
         toneInstructions,
         personalityDescription,
         language,
+        contextSnapshot,
       );
     }
 
@@ -1356,6 +1412,7 @@ export class Pipeline {
       attempts + attemptOffset,
       toneInstructions,
       language,
+      contextSnapshot,
     );
   }
 
@@ -1369,6 +1426,7 @@ export class Pipeline {
     toneInstructions: string | undefined,
     personalityDescription: string,
     language: DetectedLanguage,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running conversational answer contract');
     const stageStartMs = Date.now();
@@ -1377,6 +1435,7 @@ export class Pipeline {
       toneInstructions,
       language,
       personalityDescription,
+      contextSnapshot,
     );
     const result = await this.runner.executeContract(
       'CONVERSATIONAL_ANSWER',
@@ -1403,7 +1462,13 @@ export class Pipeline {
     }
 
     Logger.debug('pipeline', 'Conversational answer generated successfully');
-    const scoring = await this.runScoringEvaluation('conversational_answer', result.value);
+    const scoring = await this.runScoringEvaluation(
+      'conversational_answer',
+      result.value,
+      userInput,
+      this.formatReferenceContext(contextSnapshot),
+      contextSnapshot,
+    );
     return {
       ok: true,
       kind: 'strict_answer',
@@ -1422,6 +1487,7 @@ export class Pipeline {
     attempts: number,
     toneInstructions?: string,
     language?: DetectedLanguage,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
@@ -1429,6 +1495,7 @@ export class Pipeline {
       userInput,
       toneInstructions,
       language,
+      contextSnapshot,
     );
     const result = await this.runner.executeContract(
       'STRICT_ANSWER',
@@ -1451,7 +1518,13 @@ export class Pipeline {
     }
 
     Logger.debug('pipeline', 'Strict answer generated successfully');
-    const scoring = await this.runScoringEvaluation('strict_answer', result.value);
+    const scoring = await this.runScoringEvaluation(
+      'strict_answer',
+      result.value,
+      userInput,
+      this.formatReferenceContext(contextSnapshot),
+      contextSnapshot,
+    );
     return {
       ok: true,
       kind: 'strict_answer',
@@ -1475,6 +1548,7 @@ export class Pipeline {
     requestContext: string,
     toolName: ToolName,
     fallbackText?: string,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
     const stageStartMs = Date.now();
     const fallback = fallbackText ?? text;
@@ -1485,6 +1559,7 @@ export class Pipeline {
         toneInstructions,
         requestContext,
         toolName,
+        contextSnapshot,
       );
       const result = await this.runner.executeContract(
         'RESPONSE_FORMATTING',
@@ -1534,6 +1609,35 @@ export class Pipeline {
   }
 
   /**
+   * Builds a compact reference context for scoring comparisons.
+   */
+  private formatReferenceContext(
+    contextSnapshot?: ContextSnapshot,
+    toolMeta?: { toolName?: ToolName; toolArgs?: Record<string, unknown> },
+  ): string {
+    if (!contextSnapshot && !toolMeta) {
+      return 'Not provided.';
+    }
+
+    const payload = {
+      ENVIRONMENT: contextSnapshot?.environment ?? {},
+      STATE: contextSnapshot?.state ?? {},
+      TOOL: toolMeta?.toolName
+        ? {
+            name: toolMeta.toolName,
+            args: toolMeta.toolArgs ?? null,
+          }
+        : undefined,
+    };
+
+    try {
+      return JSON.stringify(payload, null, 2);
+    } catch {
+      return String(payload);
+    }
+  }
+
+  /**
    * Summarizes structured tool output using the response formatting contract.
    */
   private async summarizeToolResult(
@@ -1541,6 +1645,7 @@ export class Pipeline {
     language: DetectedLanguage,
     toneInstructions: string | undefined,
     toolName: ToolName,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
@@ -1552,12 +1657,16 @@ export class Pipeline {
       summaryContext,
       toolName,
       fallback,
+      contextSnapshot,
     );
   }
 
   private async runScoringEvaluation(
     label: string,
     text: string,
+    userGoal?: string,
+    referenceContext?: string,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<{ evaluation?: Record<string, number>; attempts: number; alert?: EvaluationAlert }> {
     if (!text || !text.trim()) {
       return { attempts: 0 };
@@ -1566,7 +1675,12 @@ export class Pipeline {
     Logger.debug('pipeline', 'Running scoring contract', { stage: label });
     const stageStartMs = Date.now();
     try {
-      const prompt = this.orchestrator.buildScoringPrompt(text);
+      const prompt = this.orchestrator.buildScoringPrompt(
+        text,
+        userGoal,
+        referenceContext,
+        contextSnapshot,
+      );
       const result = await this.runner.executeContract(
         'SCORING_EVALUATION',
         prompt,
@@ -1623,6 +1737,7 @@ export class Pipeline {
     intent: { intent: string; confidence: number },
     baseAttempts: number,
     pipelineStartMs: number,
+    contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     // Fetch language in parallel with tool execution since we'll need it for formatting
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
@@ -1675,6 +1790,7 @@ export class Pipeline {
         userInput,
         toolName,
         undefined,
+        contextSnapshot,
       );
     } else {
       summary = await this.summarizeToolResult(
@@ -1682,13 +1798,20 @@ export class Pipeline {
         language,
         toneInstructions,
         toolName,
+        contextSnapshot,
       );
     }
     const evaluationText =
       typeof formattedResult === 'string'
         ? formattedResult
         : summary ?? this.stringifyToolResult(toolResult);
-    const scoring = await this.runScoringEvaluation(`tool.${toolName}`, evaluationText);
+    const scoring = await this.runScoringEvaluation(
+      `tool.${toolName}`,
+      evaluationText,
+      userInput,
+      this.formatReferenceContext(contextSnapshot, { toolName, toolArgs: args }),
+      contextSnapshot,
+    );
     const durationMs = measureDurationMs(pipelineStartMs);
     Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,

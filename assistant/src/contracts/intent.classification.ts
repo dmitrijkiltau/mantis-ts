@@ -12,6 +12,11 @@ Pick one tool intent when the request matches that tool's capability.
 
 **Priority Rule:**
 Always prefer specific structured tools (filesystem, process, http) over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
+If the request is about current time, date, or weekday, use "answer.general".
+Use the CONTEXT block to resolve pronouns or follow-up references when available.
+
+CONTEXT:
+{{CONTEXT_BLOCK}}
 
 Allowed intents:
 {{TOOL_REFERENCE}}

@@ -3,6 +3,7 @@ import { Logger } from '../../assistant/src/logger';
 import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
 import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
+import type { ContextStore } from './context-store';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
@@ -303,7 +304,7 @@ const logEvaluationOutcome = (result: PipelineResult, uiState: UIState): void =>
   } else if (result.evaluationAlert === 'low_scores') {
     const message = getEvaluationAlertMessage('low_scores');
     uiState.addLog(message);
-    Logger.warn('ui', message, { evaluation: result.evaluation });
+    Logger.warn('ui', message, result.evaluation);
   }
 };
 
@@ -563,6 +564,7 @@ export const createQuestionHandler = (
   form: HTMLFormElement,
   historyElement: HTMLElement,
   imageStore?: ImageAttachmentStore,
+  contextStore?: ContextStore,
 ) => {
   return async (event: Event) => {
     event.preventDefault();
@@ -603,9 +605,11 @@ export const createQuestionHandler = (
       uiState.addLog('Analyzing query with contracts...');
       const consumedAttachment = pendingAttachment ? imageStore?.consumeAttachment() : null;
       const attachments = consumedAttachment ? [consumedAttachment] : undefined;
-      const result = await pipeline.run(question, attachments);
+      const contextSnapshot = contextStore?.getSnapshot();
+      const result = await pipeline.run(question, attachments, contextSnapshot);
 
       const record = buildHistoryEntry(displayQuestion, result);
+      contextStore?.updateAfterRun(displayQuestion, result);
 
       if (result.ok) {
         if (result.kind === 'tool') {

@@ -1,4 +1,5 @@
 import { renderTemplate } from './helpers.js';
+import { buildContextBlock, type ContextSnapshot } from './context.js';
 import { CONTRACTS } from './contracts/registry.js';
 import {
   type IntentClassificationResult,
@@ -61,11 +62,18 @@ export class Orchestrator {
   private buildPrompt(
     contractName: ContractName,
     context: Record<string, string> = {},
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
-    const systemPrompt = renderTemplate(contract.SYSTEM_PROMPT, context);
+    const systemPrompt = renderTemplate(contract.SYSTEM_PROMPT, {
+      ...context,
+      CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
+    });
     const userPrompt = contract.USER_PROMPT
-      ? renderTemplate(contract.USER_PROMPT, context)
+      ? renderTemplate(contract.USER_PROMPT, {
+        ...context,
+        CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
+      })
       : undefined;
 
     return {
@@ -91,6 +99,17 @@ export class Orchestrator {
   }
 
   /**
+   * Renders a stable context block for prompt injection.
+   */
+  private formatContextBlock(snapshot?: ContextSnapshot): string {
+    if (!snapshot) {
+      return '';
+    }
+
+    return buildContextBlock(snapshot);
+  }
+
+  /**
    * Ensures tone instructions are injected as an optional leading block.
    */
   private formatToneInstructions(toneInstructions?: string): string {
@@ -104,35 +123,6 @@ export class Orchestrator {
     }
 
     return `${normalized}\n`;
-  }
-
-  /**
-   * Builds a local timestamp string with weekday name.
-   */
-  private formatLocalTimestamp(): string {
-    const now = new Date();
-    const weekdayNames = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-    ];
-    const weekday = weekdayNames[now.getDay()] ?? 'Unknown';
-    const pad2 = (value: number): string => String(value).padStart(2, '0');
-    const year = now.getFullYear();
-    const month = pad2(now.getMonth() + 1);
-    const day = pad2(now.getDate());
-    const hours = pad2(now.getHours());
-    const minutes = pad2(now.getMinutes());
-    const seconds = pad2(now.getSeconds());
-
-    return `If asked:
-- Current date: ${year}-${month}-${day}
-- Current time: ${hours}:${minutes}:${seconds}
-- Current weekday: ${weekday}`;
   }
 
   private formatToolSchema(schema: ToolSchema): string {
@@ -162,7 +152,7 @@ export class Orchestrator {
         continue;
       }
       const [name, tool] = entry;
-      const description = tool.description.trim();
+      const description = this.compactToolDescription(tool.description);
       if (!description) {
         continue;
       }
@@ -181,11 +171,31 @@ export class Orchestrator {
     return formatted;
   }
 
-  public buildIntentClassificationPrompt(userInput: string): ContractPrompt {
+  /**
+   * Shortens tool descriptions for routing prompts (removes examples).
+   */
+  private compactToolDescription(description: string): string {
+    const trimmed = description.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const exampleIndex = trimmed.search(/\n\s*Examples?:/i);
+    const withoutExamples = exampleIndex >= 0
+      ? trimmed.slice(0, exampleIndex).trim()
+      : trimmed;
+    const firstParagraph = withoutExamples.split(/\n\s*\n/)[0]?.trim() ?? withoutExamples;
+    return firstParagraph.replace(/\s+/g, ' ').trim();
+  }
+
+  public buildIntentClassificationPrompt(
+    userInput: string,
+    contextSnapshot?: ContextSnapshot,
+  ): ContractPrompt {
     return this.buildPrompt('INTENT_CLASSIFICATION', {
       USER_INPUT: this.normalize(userInput),
       TOOL_REFERENCE: this.formatToolReference(),
-    });
+    }, contextSnapshot);
   }
 
   public buildLanguageDetectionPrompt(userInput: string): ContractPrompt {
@@ -200,6 +210,7 @@ export class Orchestrator {
     schema: ToolSchema,
     userInput: string,
     verifierNotes?: string,
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const normalizedInput = this.normalize(userInput);
     const normalizedNotes = verifierNotes?.trim();
@@ -219,7 +230,7 @@ export class Orchestrator {
       TOOL_DESCRIPTION: description,
       TOOL_SCHEMA: this.formatToolSchema(schema),
       USER_INPUT: inputWithNotes,
-    });
+    }, contextSnapshot);
   }
 
   /**
@@ -231,6 +242,7 @@ export class Orchestrator {
     schema: ToolSchema,
     userInput: string,
     extractedArgs: Record<string, unknown>,
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     return this.buildPrompt('TOOL_ARGUMENT_VERIFICATION', {
       TOOL_NAME: toolName,
@@ -238,36 +250,46 @@ export class Orchestrator {
       TOOL_SCHEMA: this.formatToolSchema(schema),
       USER_INPUT: this.normalize(userInput),
       EXTRACTED_ARGS: this.formatToolArguments(extractedArgs),
-    });
+    }, contextSnapshot);
   }
 
-  public buildTextTransformationPrompt(text: string): ContractPrompt {
+  public buildTextTransformationPrompt(
+    text: string,
+    contextSnapshot?: ContextSnapshot,
+  ): ContractPrompt {
     const contract = this.contractRegistry.TEXT_TRANSFORMATION;
     return this.buildPrompt('TEXT_TRANSFORMATION', {
       RULES: contract.RULES,
       TEXT: this.normalize(text),
-    });
+    }, contextSnapshot);
   }
 
-  public buildScoringPrompt(text: string): ContractPrompt {
+  public buildScoringPrompt(
+    text: string,
+    userGoal?: string,
+    referenceContext?: string,
+    contextSnapshot?: ContextSnapshot,
+  ): ContractPrompt {
     const contract = this.contractRegistry.SCORING_EVALUATION;
     return this.buildPrompt('SCORING_EVALUATION', {
       CRITERIA: contract.CRITERIA,
       TEXT: this.normalize(text),
-    });
+      USER_GOAL: userGoal?.trim() || 'Not provided.',
+      REFERENCE_CONTEXT: referenceContext?.trim() || 'Not provided.',
+    }, contextSnapshot);
   }
 
   public buildStrictAnswerPrompt(
     question: string,
     toneInstructions?: string,
     language?: { language: string; name: string },
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     return this.buildPrompt('STRICT_ANSWER', {
       QUESTION: this.normalize(question),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
-      LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
-    });
+    }, contextSnapshot);
   }
 
   /**
@@ -278,14 +300,14 @@ export class Orchestrator {
     toneInstructions?: string,
     language?: { language: string; name: string },
     personalityDescription?: string,
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     return this.buildPrompt('CONVERSATIONAL_ANSWER', {
       USER_INPUT: this.normalize(userInput),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
-      LOCAL_TIMESTAMP: this.formatLocalTimestamp(),
-    });
+    }, contextSnapshot);
   }
 
   public buildResponseFormattingPrompt(
@@ -294,6 +316,7 @@ export class Orchestrator {
     toneInstructions?: string,
     requestContext?: string,
     toolName?: string,
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     return this.buildPrompt('RESPONSE_FORMATTING', {
       RESPONSE: this.normalize(response),
@@ -301,7 +324,7 @@ export class Orchestrator {
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       REQUEST_CONTEXT: requestContext ? this.normalize(requestContext) : 'Not provided.',
       TOOL_NAME: toolName ?? 'Not specified',
-    });
+    }, contextSnapshot);
   }
 
   /**
@@ -312,6 +335,7 @@ export class Orchestrator {
     imageCount: number,
     toneInstructions?: string,
     language?: { language: string; name: string },
+    contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const normalized = this.normalize(userInput);
     return this.buildPrompt('IMAGE_RECOGNITION', {
@@ -319,7 +343,7 @@ export class Orchestrator {
       IMAGE_COUNT: String(imageCount),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
-    });
+    }, contextSnapshot);
   }
 
   public getRetryInstruction(

@@ -15,6 +15,7 @@ import contractImageRecognitionSource from '../../assistant/src/contracts/image.
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import { UIState } from './ui-state';
+import { ContextStore } from './context-store';
 import {
   createQuestionHandler,
   renderToolCatalog,
@@ -31,6 +32,7 @@ import './styles.css';
 const orchestrator = new Orchestrator();
 const runner = new Runner(orchestrator, new OllamaClient());
 const pipeline = new Pipeline(orchestrator, runner);
+const contextStore = new ContextStore();
 
 /**
  * Mounts the Solid UI shell into the document.
@@ -335,7 +337,15 @@ const initializeDesktopUI = (): void => {
     : undefined;
 
   const handleQuestion = promptInput && form && historyElement
-    ? createQuestionHandler(pipeline, uiState, promptInput, form, historyElement, imageStore)
+    ? createQuestionHandler(
+      pipeline,
+      uiState,
+      promptInput,
+      form,
+      historyElement,
+      imageStore,
+      contextStore,
+    )
     : null;
   
   renderToolCatalog(toolList, toolCountBadge, uiState);

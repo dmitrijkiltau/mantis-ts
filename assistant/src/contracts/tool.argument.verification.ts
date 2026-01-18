@@ -10,6 +10,9 @@ export const CONTRACT_TOOL_ARGUMENT_VERIFICATION = {
   SYSTEM_PROMPT: `You verify extracted arguments for the tool "{{TOOL_NAME}}".
 Check that the tool is appropriate and that the arguments align with the user input and schema.
 
+CONTEXT:
+{{CONTEXT_BLOCK}}
+
 Decisions:
 - execute: arguments are correct and sufficient.
 - retry: arguments are likely wrong or incomplete but can be re-extracted.

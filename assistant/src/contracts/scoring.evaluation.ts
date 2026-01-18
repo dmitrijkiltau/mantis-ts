@@ -11,8 +11,18 @@ export const CONTRACT_SCORING_EVALUATION = {
   SYSTEM_PROMPT: `You evaluate content based on given criteria.
 You return numeric scores only.
 No explanations.
-Answer with JSON only.`,
-  USER_PROMPT: `Score the following text on these criteria (0-10):
+Answer with JSON only.
+Use USER_GOAL and REFERENCE_CONTEXT to judge correctness and usefulness.
+
+CONTEXT:
+{{CONTEXT_BLOCK}}`,
+  USER_PROMPT: `User goal:
+{{USER_GOAL}}
+
+Reference context:
+{{REFERENCE_CONTEXT}}
+
+Score the following text on these criteria (0-10):
 {{CRITERIA}}
 
 Text:
