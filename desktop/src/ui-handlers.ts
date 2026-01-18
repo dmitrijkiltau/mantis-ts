@@ -1,18 +1,15 @@
-import { Pipeline, type PipelineResult, type ImageAttachment, type EvaluationAlert } from '../../assistant/src/pipeline';
+import { Pipeline, type PipelineResult, type EvaluationAlert } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
-import type { ToolDefinitionBase, ToolSchema } from '../../assistant/src/tools/definition';
-import { TOOLS, type ToolName } from '../../assistant/src/tools/registry';
 import { UIState } from './ui-state';
 import type { ContextStore } from './context-store';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
-import { buildImageAttachmentFromFile } from './image-attachments';
-import { captureScreenSelectionAttachment } from './screen-capture';
 import {
   formatEvaluationSummary,
   getEvaluationAlertMessage,
 } from './evaluation-utils';
+import type { ImageAttachmentStore } from './state/image-attachment-context';
 
 const formatPayload = (value: unknown): string => {
   if (typeof value === 'string') {
@@ -32,145 +29,6 @@ const hasToolSummary = (
   return result.kind === 'tool'
     && typeof result.summary === 'string'
     && result.summary.trim().length > 0;
-};
-
-type ToolEntry = {
-  name: ToolName;
-  definition: ToolDefinitionBase;
-};
-
-const buildToolEntries = (): ToolEntry[] => {
-  const entries = Object.entries(TOOLS) as Array<[ToolName, ToolDefinitionBase]>;
-  entries.sort((a, b) => a[0].localeCompare(b[0]));
-
-  const tools: ToolEntry[] = [];
-  for (let index = 0; index < entries.length; index += 1) {
-    const entry = entries[index];
-    if (!entry) {
-      continue;
-    }
-    const [name, definition] = entry;
-    tools.push({ name, definition });
-  }
-
-  return tools;
-};
-
-const createSchemaPill = (fieldName: string, fieldType: string): HTMLSpanElement => {
-  const pill = document.createElement('span');
-  pill.className = 'schema-pill';
-
-  const nameNode = document.createElement('span');
-  nameNode.className = 'schema-name';
-  nameNode.textContent = fieldName;
-
-  const typeNode = document.createElement('span');
-  typeNode.className = 'schema-type';
-  typeNode.textContent = fieldType;
-
-  pill.appendChild(nameNode);
-  pill.appendChild(typeNode);
-
-  return pill;
-};
-
-const renderSchemaSection = (schema: ToolSchema): HTMLElement => {
-  const section = document.createElement('div');
-  section.className = 'tool-schema';
-
-  const label = document.createElement('div');
-  label.className = 'tool-schema-label';
-  label.textContent = 'Arguments';
-  section.appendChild(label);
-
-  const list = document.createElement('div');
-  list.className = 'tool-schema-list';
-
-  const fields = Object.entries(schema);
-  if (fields.length === 0) {
-    const noArgs = document.createElement('div');
-    noArgs.className = 'tool-subtext';
-    noArgs.textContent = 'No parameters required.';
-    list.appendChild(noArgs);
-  } else {
-    for (let index = 0; index < fields.length; index += 1) {
-      const entry = fields[index];
-      if (!entry) {
-        continue;
-      }
-      const [fieldName, fieldType] = entry;
-      list.appendChild(createSchemaPill(fieldName, fieldType));
-    }
-  }
-
-  section.appendChild(list);
-  return section;
-};
-
-const renderToolCard = (tool: ToolEntry): HTMLDivElement => {
-  const card = document.createElement('div');
-  card.className = 'tool-card';
-
-  const header = document.createElement('div');
-  header.className = 'tool-card-header';
-
-  const label = document.createElement('div');
-  label.className = 'tool-label';
-  label.textContent = tool.name === tool.definition.name ? `[${tool.name}]` : `[${tool.name}] ${tool.definition.name}`;
-  header.appendChild(label);
-
-  const description = document.createElement('div');
-  description.className = 'tool-subtext';
-  description.textContent = tool.definition.description;
-  header.appendChild(description);
-
-  card.appendChild(header);
-  card.appendChild(renderSchemaSection(tool.definition.schema));
-
-  return card;
-};
-
-/**
- * Renders the registered tools inside the Tools tab.
- */
-export const renderToolCatalog = (
-  listContainer: HTMLElement | null,
-  countBadge: HTMLElement | null,
-  uiState: UIState,
-): void => {
-  if (!listContainer) {
-    return;
-  }
-
-  const tools = buildToolEntries();
-  listContainer.innerHTML = '';
-
-  if (tools.length === 0) {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'tool-placeholder';
-    placeholder.textContent = 'No tools registered.';
-    listContainer.appendChild(placeholder);
-    if (countBadge) {
-      countBadge.textContent = '0 tools';
-    }
-    return;
-  }
-
-  for (let index = 0; index < tools.length; index += 1) {
-    const tool = tools[index];
-    if (!tool) {
-      continue;
-    }
-    const card = renderToolCard(tool);
-    listContainer.appendChild(card);
-  }
-
-  if (countBadge) {
-    const suffix = tools.length === 1 ? '' : 's';
-    countBadge.textContent = `${tools.length} tool${suffix}`;
-  }
-
-  uiState.addLog(`Tool catalog loaded (${tools.length})`);
 };
 
 const truncateText = (value: string, limit: number): string => {
@@ -372,191 +230,6 @@ const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetail
   return entry;
 };
 
-export type ImageAttachmentStore = {
-  getAttachment: () => ImageAttachment | null;
-  consumeAttachment: () => ImageAttachment | null;
-};
-
-type ImageAttachmentElements = {
-  promptInput: HTMLTextAreaElement;
-  uploadButton: HTMLButtonElement | null;
-  captureButton: HTMLButtonElement | null;
-  fileInput: HTMLInputElement | null;
-  attachmentRow: HTMLElement | null;
-  attachmentName: HTMLElement | null;
-  clearButton: HTMLButtonElement | null;
-  uiState: UIState;
-};
-
-/**
- * Updates the attachment status row.
- */
-const updateAttachmentUi = (
-  elements: ImageAttachmentElements,
-  attachment: ImageAttachment | null,
-): void => {
-  const { attachmentRow, attachmentName } = elements;
-  if (!attachmentRow || !attachmentName) {
-    return;
-  }
-
-  if (!attachment) {
-    attachmentRow.classList.add('hidden');
-    attachmentRow.removeAttribute('data-source');
-    attachmentName.textContent = 'None';
-    return;
-  }
-
-  attachmentRow.classList.remove('hidden');
-  attachmentRow.dataset.source = attachment.source;
-  attachmentName.textContent = `${attachment.name} (${attachment.source.toUpperCase()})`;
-};
-
-/**
- * Extracts the first image file from a FileList.
- */
-const extractFirstImageFile = (files: FileList | null): File | null => {
-  if (!files || files.length === 0) {
-    return null;
-  }
-
-  for (let index = 0; index < files.length; index += 1) {
-    const file = files.item(index);
-    if (file && file.type.startsWith('image/')) {
-      return file;
-    }
-  }
-
-  return null;
-};
-
-/**
- * Returns true when the drag event contains file data.
- */
-const isFileDrag = (event: DragEvent): boolean => {
-  const types = event.dataTransfer?.types;
-  if (!types) {
-    return false;
-  }
-
-  for (let index = 0; index < types.length; index += 1) {
-    if (types[index] === 'Files') {
-      return true;
-    }
-  }
-
-  return false;
-};
-
-/**
- * Wires up image upload, drop handling, and screenshot capture.
- */
-export const setupImageInput = (elements: ImageAttachmentElements): ImageAttachmentStore => {
-  let currentAttachment: ImageAttachment | null = null;
-  let dragDepth = 0;
-  const terminalRoot = elements.promptInput.closest<HTMLElement>('.input-terminal');
-
-  const setAttachment = (attachment: ImageAttachment | null): void => {
-    currentAttachment = attachment;
-    updateAttachmentUi(elements, attachment);
-  };
-
-  const handleAttachment = async (
-    file: File,
-    source: ImageAttachment['source'],
-  ): Promise<void> => {
-    const attachment = await buildImageAttachmentFromFile(file, source);
-    if (!attachment) {
-      elements.uiState.addLog('Unable to read image attachment.');
-      return;
-    }
-
-    setAttachment(attachment);
-    elements.uiState.addLog(`Image attached (${source}): ${attachment.name}`);
-  };
-
-  elements.uploadButton?.addEventListener('click', () => {
-    elements.fileInput?.click();
-  });
-
-  elements.fileInput?.addEventListener('change', async () => {
-    const file = extractFirstImageFile(elements.fileInput?.files ?? null);
-    if (!file) {
-      elements.uiState.addLog('Selected file is not an image.');
-      return;
-    }
-    await handleAttachment(file, 'upload');
-    if (elements.fileInput) {
-      elements.fileInput.value = '';
-    }
-  });
-
-  elements.clearButton?.addEventListener('click', () => {
-    setAttachment(null);
-    elements.uiState.addLog('Image attachment cleared.');
-  });
-
-  elements.captureButton?.addEventListener('click', async () => {
-    try {
-      const attachment = await captureScreenSelectionAttachment();
-      if (!attachment) {
-        elements.uiState.addLog('Screen capture not supported or canceled.');
-        return;
-      }
-      setAttachment(attachment);
-      elements.uiState.addLog(`Screenshot captured: ${attachment.name}`);
-    } catch (error) {
-      elements.uiState.addLog(`Screenshot capture failed: ${String(error)}`);
-    }
-  });
-
-  elements.promptInput.addEventListener('dragenter', (event) => {
-    if (!isFileDrag(event)) {
-      return;
-    }
-    dragDepth += 1;
-    terminalRoot?.classList.add('is-dropping');
-  });
-
-  elements.promptInput.addEventListener('dragover', (event) => {
-    if (!isFileDrag(event)) {
-      return;
-    }
-    event.preventDefault();
-  });
-
-  elements.promptInput.addEventListener('dragleave', () => {
-    dragDepth = Math.max(0, dragDepth - 1);
-    if (dragDepth === 0) {
-      terminalRoot?.classList.remove('is-dropping');
-    }
-  });
-
-  elements.promptInput.addEventListener('drop', async (event) => {
-    event.preventDefault();
-    dragDepth = 0;
-    terminalRoot?.classList.remove('is-dropping');
-
-    const file = extractFirstImageFile(event.dataTransfer?.files ?? null);
-    if (!file) {
-      elements.uiState.addLog('Dropped item is not an image.');
-      return;
-    }
-    await handleAttachment(file, 'drop');
-  });
-
-  return {
-    getAttachment: () => currentAttachment,
-    consumeAttachment: () => {
-      const attachment = currentAttachment;
-      if (attachment) {
-        setAttachment(null);
-      }
-      return attachment;
-    },
-  };
-};
-
 export const createQuestionHandler = (
   pipeline: Pipeline,
   uiState: UIState,
@@ -570,7 +243,7 @@ export const createQuestionHandler = (
     event.preventDefault();
 
     const question = promptInput.value.trim();
-    const pendingAttachment = imageStore?.getAttachment() ?? null;
+    const pendingAttachment = imageStore?.attachment() ?? null;
     if (!question && !pendingAttachment) {
       return;
     }
@@ -665,33 +338,6 @@ export const createQuestionHandler = (
       uiState.updateStats();
     }
   };
-};
-
-export const setupTabSwitching = (uiState: UIState) => {
-  const tabButtons = document.querySelectorAll('.tab-button');
-  const tabPanels = document.querySelectorAll('.tablet-panel');
-
-  for (const button of tabButtons) {
-    button.addEventListener('click', () => {
-      const targetTab = button.getAttribute('data-tab');
-
-      for (const btn of tabButtons) {
-        btn.classList.remove('active');
-      }
-      button.classList.add('active');
-
-      for (const panel of tabPanels) {
-        panel.classList.remove('active');
-      }
-
-      const targetPanel = document.getElementById(`panel-${targetTab}`);
-      if (targetPanel) {
-        targetPanel.classList.add('active');
-      }
-
-      uiState.addLog(`Switched to ${targetTab!.toUpperCase()} panel`);
-    });
-  }
 };
 
 const JSON_TOGGLE_ACTION = 'toggle';
@@ -936,7 +582,7 @@ const markButtonCopied = (button: HTMLButtonElement): void => {
   }, COPY_FEEDBACK_DURATION);
 };
 
-const handleRichContentInteraction = (event: Event): void => {
+export const handleRichContentInteraction = (event: Event): void => {
   const target = event.target as HTMLElement | null;
   if (!target) {
     return;
@@ -1033,19 +679,5 @@ const handleRichContentInteraction = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
     void openPathInExplorer(decodeURIComponent(encoded));
-  }
-};
-
-export const setupContentInteractions = (...containers: Array<HTMLElement | null>) => {
-  for (let index = 0; index < containers.length; index += 1) {
-    const container = containers[index];
-    if (!container) {
-      continue;
-    }
-
-    container.dataset.historyRoot = 'true';
-    container.addEventListener('click', (event) => {
-      handleRichContentInteraction(event);
-    });
   }
 };
