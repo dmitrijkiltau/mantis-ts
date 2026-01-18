@@ -19,7 +19,12 @@ const TOOL_ARGUMENT_VERIFICATION_RETRIES = 1;
 const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
 const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-const LOW_SCORE_THRESHOLD = 4;
+const LOW_SCORE_THRESHOLD = 5;
+
+type PipelineRunOptions = {
+  intentModelOverride?: string;
+  allowLowScoreRetry?: boolean;
+};
 
 export type DetectedLanguage = { language: string; name: string };
 
@@ -187,6 +192,43 @@ export class Pipeline {
     userInput: string,
     attachments?: ImageAttachment[],
     contextSnapshot?: ContextSnapshot,
+    options?: PipelineRunOptions,
+  ): Promise<PipelineResult> {
+    const allowLowScoreRetry = options?.allowLowScoreRetry ?? true;
+    const intentModelOverride = options?.intentModelOverride;
+    const result = await this.runOnce(
+      userInput,
+      attachments,
+      contextSnapshot,
+      intentModelOverride,
+    );
+
+    if (
+      allowLowScoreRetry &&
+      result.ok &&
+      result.evaluationAlert === 'low_scores' &&
+      !intentModelOverride
+    ) {
+      const upgradedModel = 'llama3.2:3b';
+      Logger.warn('pipeline', 'Low scores detected, retrying with stronger intent model', {
+        model: upgradedModel,
+      });
+      return this.runOnce(
+        userInput,
+        attachments,
+        contextSnapshot,
+        upgradedModel,
+      );
+    }
+
+    return result;
+  }
+
+  private async runOnce(
+    userInput: string,
+    attachments?: ImageAttachment[],
+    contextSnapshot?: ContextSnapshot,
+    intentModelOverride?: string,
   ): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
     Logger.debug('pipeline', 'Starting pipeline execution', {
@@ -220,6 +262,7 @@ export class Pipeline {
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(
       userInput,
       contextSnapshot,
+      intentModelOverride,
     );
     const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(

@@ -191,11 +191,20 @@ export class Orchestrator {
   public buildIntentClassificationPrompt(
     userInput: string,
     contextSnapshot?: ContextSnapshot,
+    modelOverride?: string,
   ): ContractPrompt {
-    return this.buildPrompt('INTENT_CLASSIFICATION', {
+    const prompt = this.buildPrompt('INTENT_CLASSIFICATION', {
       USER_INPUT: this.normalize(userInput),
       TOOL_REFERENCE: this.formatToolReference(),
     }, contextSnapshot);
+    if (!modelOverride) {
+      return prompt;
+    }
+
+    return {
+      ...prompt,
+      model: modelOverride,
+    };
   }
 
   public buildLanguageDetectionPrompt(userInput: string): ContractPrompt {

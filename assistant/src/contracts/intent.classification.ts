@@ -5,7 +5,7 @@ import { extractFirstJsonObject } from './parsing.js';
  * Contract for intent classification.
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
-  MODEL: 'llama3.2:3b',
+  MODEL: 'qwen2.5:1.5b',
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Pick one tool intent when the request matches that tool's capability.
