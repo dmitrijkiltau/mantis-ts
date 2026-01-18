@@ -12,6 +12,7 @@ import type { FieldType } from './contracts/definition.js';
 import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
+import type { HttpResponseResult } from './tools/web/http-core.js';
 
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
@@ -57,6 +58,28 @@ function formatLanguageDisplayName(code: string): string {
 
   return `${code.charAt(0).toUpperCase()}${code.slice(1)}`;
 }
+
+const isHttpResponseResult = (value: unknown): value is HttpResponseResult => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.url === 'string'
+    && typeof record.finalUrl === 'string'
+    && typeof record.method === 'string'
+    && typeof record.status === 'number'
+    && typeof record.statusText === 'string'
+    && typeof record.headers === 'object'
+    && (typeof record.contentType === 'string' || record.contentType === null)
+    && typeof record.content === 'string'
+    && typeof record.bytesRead === 'number'
+    && typeof record.totalBytes === 'number'
+    && typeof record.truncated === 'boolean'
+    && typeof record.redirected === 'boolean'
+  );
+};
 
 /**
  * Normalize an ISO code into a DetectedLanguage, deriving a friendly name via Intl when available.
@@ -1635,6 +1658,10 @@ export class Pipeline {
    * Serializes tool output into a string for summarization prompts.
    */
   private stringifyToolResult(toolResult: unknown): string {
+    if (isHttpResponseResult(toolResult) && toolResult.status === 200) {
+      return toolResult.content;
+    }
+
     if (typeof toolResult === 'string') {
       return toolResult;
     }

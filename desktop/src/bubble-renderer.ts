@@ -997,7 +997,11 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
   return null;
 };
 
-const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
+const renderHttpResponsePayload = (
+  payload: HttpResponseResult,
+  options?: { compactHeader?: boolean },
+): string => {
+  const compactHeader = options?.compactHeader ?? false;
   const finalUrl = payload.finalUrl || payload.url;
   const statusLabel = `${payload.status}${payload.statusText ? ` ${payload.statusText.trim()}` : ''}`.trim();
   const language = deriveLanguageFromContentType(payload.contentType);
@@ -1015,12 +1019,18 @@ const renderHttpResponsePayload = (payload: HttpResponseResult): string => {
     badges.push('<span class="http-preview-badge warning">TRUNCATED</span>');
   }
 
-  return `
-    <div class="http-preview">
+  const headerHtml = compactHeader
+    ? ''
+    : `
       <div class="http-preview-header">
         <span class="http-preview-label">HTTP RESPONSE</span>
         <span class="http-preview-status">${escapeHtml(statusLabel)}</span>
       </div>
+    `;
+
+  return `
+    <div class="http-preview${compactHeader ? ' http-preview--compact' : ''}">
+      ${headerHtml}
       <div class="http-preview-meta">
         <div class="http-meta-method">
           <span class="http-meta-key">METHOD</span>
@@ -1119,6 +1129,41 @@ const renderToolOutputPreview = (raw: unknown): string => {
 const renderToolJsonAccordion = (raw: unknown): string => {
   if (isFilePayload(raw)) {
     return renderFileOutputAccordion(raw);
+  }
+
+  if (isHttpResponsePayload(raw)) {
+    const statusLabel = `${raw.status}${raw.statusText ? ` ${raw.statusText.trim()}` : ''}`.trim();
+    const urlDisplay = truncatePathForDisplay(raw.finalUrl || raw.url);
+    const urlTitle = escapeHtml(raw.finalUrl || raw.url);
+    const rawAttr = encodeJsonForAttribute(raw.content);
+
+    return `
+      <details
+        class="tool-output-accordion tool-output-accordion--http"
+        data-view-root="true"
+        data-view="preview"
+        data-raw-copy="${rawAttr}"
+      >
+        <summary class="tool-output-accordion-summary">
+          <div class="tool-output-accordion-title">
+            <div class="tool-output-http-title">
+              <span class="tool-output-accordion-label">HTTP</span>
+              <span class="tool-output-http-status">${escapeHtml(statusLabel)}</span>
+              <span class="tool-output-http-method">${escapeHtml(raw.method)}</span>
+            </div>
+            <span class="tool-output-http-url" title="${urlTitle}">${escapeHtml(urlDisplay)}</span>
+          </div>
+          <div class="tool-output-accordion-controls" role="group" aria-label="HTTP actions">
+            <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy response body">
+              <span class="view-button-text">COPY</span>
+            </button>
+          </div>
+        </summary>
+        <div class="tool-output-accordion-body">
+          ${renderHttpResponsePayload(raw, { compactHeader: true })}
+        </div>
+      </details>
+    `;
   }
 
   const serialized = safeJsonStringify(raw);

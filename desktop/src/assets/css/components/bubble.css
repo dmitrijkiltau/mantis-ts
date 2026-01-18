@@ -160,7 +160,7 @@
       }
 
       .http-preview-meta {
-        @apply grid grid-cols-3 gap-2;
+        @apply grid grid-cols-4 gap-2;
 
         &
           :is(
@@ -173,7 +173,11 @@
           @apply flex flex-col gap-1;
         }
 
-        & :is(.http-meta-content-type, .http-meta-url) {
+        & .http-meta-size {
+          @apply col-span-2;
+        }
+
+        & .http-meta-url {
           @apply col-span-3;
         }
 
@@ -336,6 +340,22 @@
           @apply text-[10px] font-bold tracking-widest text-terminal-emerald;
         }
 
+        .tool-output-http-title {
+          @apply flex flex-wrap items-center gap-2;
+        }
+
+        .tool-output-http-status {
+          @apply text-[10px] font-bold tracking-widest text-terminal-emerald;
+        }
+
+        .tool-output-http-method {
+          @apply text-[10px] font-bold tracking-widest text-terminal-cyan;
+        }
+
+        .tool-output-http-url {
+          @apply text-[10px] font-mono text-primary-60;
+        }
+
         .tool-output-accordion-controls {
           @apply flex items-center gap-2 opacity-0 pointer-events-none -translate-y-0.5 transition-all duration-150;
         }
@@ -344,7 +364,15 @@
           @apply flex flex-col gap-4 p-3;
         }
 
-        &--file .tool-output-accordion-body {
+        &.tool-output-accordion--file .tool-output-accordion-body {
+          @apply p-0;
+        }
+
+        &.tool-output-accordion--http .http-preview {
+          @apply border-0 rounded-none shadow-none;
+        }
+
+        &.tool-output-accordion--http .tool-output-accordion-body {
           @apply p-0;
         }
       }
