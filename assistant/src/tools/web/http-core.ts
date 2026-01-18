@@ -229,12 +229,49 @@ const readResponseContent = async (
   };
 };
 
-type TauriHttpResponse = {
-  url: string;
-  status: number;
-  statusText?: string;
-  headers: Record<string, string>;
-  data: Uint8Array | string;
+/**
+ * Normalizes a fetch Response into the tool response payload.
+ */
+const buildHttpResponseResult = async (
+  requestUrl: string,
+  response: Response,
+  options: HttpRequestOptions,
+): Promise<HttpResponseResult> => {
+  let { content, bytesRead, totalBytes, truncated } = await readResponseContent(
+    response,
+    options.maxBytes,
+  );
+
+  if (options.bypassCookieNotices) {
+    const contentType = response.headers.get('content-type');
+    const isHtml = contentType?.includes('text/html');
+    if (isHtml) {
+      content = stripCookieNoticeElements(content);
+    }
+  }
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+
+  const finalUrl = response.url || requestUrl;
+  const redirected = response.redirected || finalUrl !== requestUrl;
+
+  return {
+    url: requestUrl,
+    finalUrl,
+    method: options.method,
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+    contentType: response.headers.get('content-type'),
+    content,
+    bytesRead,
+    totalBytes,
+    truncated,
+    redirected,
+  };
 };
 
 type TauriHttpModule = {
@@ -242,7 +279,7 @@ type TauriHttpModule = {
     method?: string;
     headers?: Record<string, string>;
     body?: string;
-  }) => Promise<TauriHttpResponse>;
+  }) => Promise<Response>;
 };
 
 let tauriHttpModule: TauriHttpModule | null = null;
@@ -258,7 +295,7 @@ const loadTauriHttp = async (): Promise<TauriHttpModule | null> => {
       method?: string;
       headers?: Record<string, string>;
       body?: string;
-    }) => Promise<TauriHttpResponse> };
+    }) => Promise<Response> };
     return tauriHttpModule;
   } catch {
     // Not in Tauri environment, will fall back to browser fetch
@@ -285,43 +322,7 @@ export const executeHttpRequest = async (
         body: options.body,
       });
 
-      // Handle response data - may be string, Uint8Array, or undefined
-      let dataBytes: Uint8Array;
-      if (response.data === undefined || response.data === null) {
-        dataBytes = new Uint8Array(0);
-      } else if (typeof response.data === 'string') {
-        dataBytes = new TextEncoder().encode(response.data);
-      } else {
-        dataBytes = response.data;
-      }
-      
-      const totalBytes = dataBytes.length;
-      const truncated = totalBytes > options.maxBytes;
-      const view = truncated ? dataBytes.subarray(0, options.maxBytes) : dataBytes;
-      const decoder = new TextDecoder();
-      let content = decoder.decode(view);
-
-      if (options.bypassCookieNotices) {
-        const isHtml = response.headers['content-type']?.includes('text/html');
-        if (isHtml) {
-          content = stripCookieNoticeElements(content);
-        }
-      }
-
-      return {
-        url,
-        finalUrl: response.url,
-        method: options.method,
-        status: response.status,
-        statusText: response.statusText || '',
-        headers: response.headers,
-        contentType: response.headers['content-type'] || null,
-        content,
-        bytesRead: view.byteLength,
-        totalBytes,
-        truncated,
-        redirected: response.url !== url,
-      };
+      return buildHttpResponseResult(url, response, options);
     } catch (error) {
       throw new Error(
         `HTTP request failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -345,38 +346,7 @@ export const executeHttpRequest = async (
       signal: controller.signal,
     });
 
-    let { content, bytesRead, totalBytes, truncated } = await readResponseContent(
-      response,
-      options.maxBytes,
-    );
-
-    if (options.bypassCookieNotices) {
-      const contentType = response.headers.get('content-type');
-      const isHtml = contentType?.includes('text/html');
-      if (isHtml) {
-        content = stripCookieNoticeElements(content);
-      }
-    }
-
-    const responseHeaders: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
-    });
-
-    return {
-      url,
-      finalUrl: response.url,
-      method: options.method,
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders,
-      contentType: response.headers.get('content-type'),
-      content,
-      bytesRead,
-      totalBytes,
-      truncated,
-      redirected: response.redirected,
-    };
+    return buildHttpResponseResult(url, response, options);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Request to ${url} timed out after ${options.timeoutMs}ms.`);
