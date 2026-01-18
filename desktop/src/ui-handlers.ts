@@ -856,6 +856,51 @@ const applyViewSelection = (
 };
 
 /**
+ * Cycles through view options on a single toggle button.
+ */
+const handleViewCycle = (event: Event, target: HTMLElement): boolean => {
+  const button = target.closest<HTMLButtonElement>('[data-view-cycle]');
+  if (!button) {
+    return false;
+  }
+
+  const options = (button.getAttribute('data-view-options') ?? '')
+    .split(',')
+    .map((option) => option.trim())
+    .filter(Boolean);
+  if (options.length < 2) {
+    return false;
+  }
+
+  const root = button.closest<HTMLElement>('[data-view-root]');
+  if (!root) {
+    return false;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const labels = (button.getAttribute('data-view-labels') ?? '')
+    .split(',')
+    .map((label) => label.trim())
+    .filter(Boolean);
+  const current = root.getAttribute('data-view') ?? options[0]!;
+  const currentIndex = Math.max(0, options.indexOf(current));
+  const nextIndex = (currentIndex + 1) % options.length;
+  const nextView = options[nextIndex] ?? options[0]!;
+  root.setAttribute('data-view', nextView);
+
+  const label = labels[nextIndex] ?? nextView.toUpperCase();
+  const textNode = button.querySelector<HTMLElement>('.view-button-text');
+  if (textNode) {
+    textNode.textContent = label;
+  }
+  button.setAttribute('aria-label', `Toggle view: ${label}`);
+
+  return true;
+};
+
+/**
  * Handles clicks on view switcher buttons.
  */
 const handleViewSwitch = (event: Event, target: HTMLElement): boolean => {
@@ -899,6 +944,10 @@ const handleRichContentInteraction = (event: Event): void => {
 
   const root = target.closest<HTMLElement>('[data-history-root], #bubble-answer, #history');
   if (!root) {
+    return;
+  }
+
+  if (handleViewCycle(event, target)) {
     return;
   }
 
@@ -947,8 +996,12 @@ const handleRichContentInteraction = (event: Event): void => {
       event.stopPropagation();
 
       let raw = '';
+      const rawContainer = codeControl.closest<HTMLElement>('[data-raw-copy]');
+      if (rawContainer?.dataset.rawCopy) {
+        raw = decodeURIComponent(rawContainer.dataset.rawCopy);
+      }
       const block = codeControl.closest<HTMLElement>('.code-block, .code-block-markdown, .code-block-json');
-      if (block) {
+      if (!raw && block) {
         if (block.classList.contains('code-block-markdown')) {
           raw = block.dataset.markdownRaw ? decodeURIComponent(block.dataset.markdownRaw) : '';
         } else if (block.classList.contains('code-block-json')) {

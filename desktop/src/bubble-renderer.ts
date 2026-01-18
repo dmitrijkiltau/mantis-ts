@@ -58,13 +58,6 @@ type FileTreeRow = {
   itemCount?: number;
 };
 
-type ViewButtonConfig = {
-  target: string;
-  label: string;
-  pressed: boolean;
-  text?: string;
-};
-
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -106,6 +99,18 @@ const FILE_TREE_LANGS = new Set([
 
 const trimTrailingNewline = (value: string): string => value.replace(/\n$/, '');
 
+/**
+ * Truncates long paths for compact UI display.
+ */
+const truncatePathForDisplay = (value: string, maxLength = 52): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  const middle = '...';
+  const keep = Math.max(8, Math.floor((maxLength - middle.length) / 2));
+  return `${value.slice(0, keep)}${middle}${value.slice(value.length - keep)}`;
+};
+
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (character) => {
     switch (character) {
@@ -137,25 +142,6 @@ const normalizeLanguage = (language: string | null | undefined): string | null =
   return LANGUAGE_ALIASES[trimmed] ?? trimmed;
 };
 
-/**
- * Renders a set of icon buttons that switch the active view for a container.
- */
-const renderViewButtons = (buttons: ViewButtonConfig[], className: string): string => {
-  let html = '';
-
-  for (const button of buttons) {
-    const pressed = button.pressed ? 'true' : 'false';
-    const viewText = escapeHtml(button.text ?? button.label);
-    html += `
-      <button type="button" class="${className}" data-view-target="${button.target}" aria-pressed="${pressed}" aria-label="${escapeHtml(button.label)}">
-        <span class="view-button-text">${viewText}</span>
-      </button>
-    `;
-  }
-
-  return html;
-};
-
 const inferLanguageFromPath = (path: string): string | null => {
   const normalized = path.replace(/\\/g, '/');
   const segments = normalized.split('/');
@@ -170,6 +156,15 @@ const inferLanguageFromPath = (path: string): string | null => {
   }
 
   return normalizeLanguage(extension);
+};
+
+/**
+ * Extracts a filename from a full path for display.
+ */
+const getFilenameFromPath = (path: string): string => {
+  const normalized = path.replace(/\\/g, '/');
+  const segments = normalized.split('/');
+  return segments[segments.length - 1] ?? path;
 };
 
 const highlightCodeBlock = (code: string, language: string | null): string => {
@@ -238,32 +233,22 @@ const renderCodeBlock = (code: string, language: string | null): string => {
   const isMarkdown = normalizedLanguage === 'markdown';
   if (isMarkdown) {
     const preview = marked.parse(code, { renderer: bubbleRenderer }) as string;
-    const viewButtons = renderViewButtons(
-      [
-        {
-          target: 'preview',
-          label: 'Markdown preview',
-          text: 'PREVIEW',
-          pressed: true,
-        },
-        {
-          target: 'raw',
-          label: 'Raw markdown',
-          text: 'RAW',
-          pressed: false,
-        },
-      ],
-      'code-block-button view-switcher-button',
-    );
 
     return `
       <div class="code-block code-block-markdown" data-view-root="true" data-view="preview" data-markdown-raw="${rawAttr}">
         <div class="code-block-header">
           <span class="code-block-lang">${escapeHtml(label)}</span>
           <div class="code-block-controls">
-            <div class="view-switcher" data-view-group="true" role="group" aria-label="Markdown view">
-              ${viewButtons}
-            </div>
+            <button
+              type="button"
+              class="code-block-button view-cycle-button"
+              data-view-cycle="true"
+              data-view-options="preview,raw"
+              data-view-labels="PREVIEW,RAW"
+              aria-label="Toggle markdown view"
+            >
+              <span class="view-button-text">PREVIEW</span>
+            </button>
             <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
               <span class="view-button-text">COPY</span>
             </button>
@@ -296,31 +281,21 @@ const renderCodeBlock = (code: string, language: string | null): string => {
     if (viewer) {
       const pretty = JSON.stringify(parsed, null, 2);
       const prettyHighlighted = highlightCodeBlock(pretty, 'json');
-      const viewButtons = renderViewButtons(
-        [
-          {
-            target: 'pretty',
-            label: 'Pretty JSON view',
-            text: 'PRETTY',
-            pressed: false,
-          },
-          {
-            target: 'viewer',
-            label: 'Structured JSON view',
-            text: 'STRUCTURED',
-            pressed: true,
-          },
-        ],
-        'code-block-button view-switcher-button',
-      );
       return `
         <div class="code-block code-block-json" data-view-root="true" data-view="viewer" data-json-raw="${rawAttr}">
           <div class="code-block-header">
             <span class="code-block-lang">${escapeHtml(label)}</span>
             <div class="code-block-controls">
-              <div class="view-switcher" data-view-group="true" role="group" aria-label="JSON view">
-                ${viewButtons}
-              </div>
+              <button
+                type="button"
+                class="code-block-button view-cycle-button"
+                data-view-cycle="true"
+                data-view-options="viewer,pretty"
+                data-view-labels="STRUCTURED,PRETTY"
+                aria-label="Toggle JSON view"
+              >
+                <span class="view-button-text">STRUCTURED</span>
+              </button>
               <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy to clipboard">
                 <span class="view-button-text">COPY</span>
               </button>
@@ -353,6 +328,73 @@ const renderCodeBlock = (code: string, language: string | null): string => {
       </div>
     `;
   };
+
+/**
+ * Builds file panels for accordion display.
+ */
+const renderFilePanels = (
+  content: string,
+  language: string | null,
+): { html: string; view: string; viewOptions: Array<{ id: string; label: string }> } => {
+  const normalizedLanguage = normalizeLanguage(language);
+  const rawHighlighted = highlightCodeBlock(content, normalizedLanguage);
+  const languageClass = normalizedLanguage ? `language-${normalizedLanguage}` : 'language-text';
+
+  if (normalizedLanguage === 'markdown') {
+    const preview = marked.parse(content, { renderer: bubbleRenderer }) as string;
+    return {
+      view: 'preview',
+      viewOptions: [
+        { id: 'preview', label: 'PREVIEW' },
+        { id: 'raw', label: 'RAW' },
+      ],
+      html: `
+        <div class="file-output-panel" data-view-panel="preview">
+          <div class="markdown-preview-content">${preview}</div>
+        </div>
+        <div class="file-output-panel" data-view-panel="raw">
+          <pre><code class="${languageClass}">${rawHighlighted}</code></pre>
+        </div>
+      `,
+    };
+  }
+
+  if (normalizedLanguage === 'json') {
+    try {
+      const parsed = JSON.parse(content);
+      const pretty = JSON.stringify(parsed, null, 2);
+      const prettyHighlighted = highlightCodeBlock(pretty, 'json');
+      const viewer = renderJsonViewer(parsed);
+      return {
+        view: 'viewer',
+        viewOptions: [
+          { id: 'viewer', label: 'STRUCTURED' },
+          { id: 'pretty', label: 'PRETTY' },
+        ],
+        html: `
+          <div class="file-output-panel" data-view-panel="viewer">
+            <div class="code-block-json-viewer">${viewer}</div>
+          </div>
+          <div class="file-output-panel" data-view-panel="pretty">
+            <pre><code class="${languageClass}">${prettyHighlighted}</code></pre>
+          </div>
+        `,
+      };
+    } catch {
+      // Fall back to raw view.
+    }
+  }
+
+  return {
+    view: 'raw',
+    viewOptions: [],
+    html: `
+      <div class="file-output-panel" data-view-panel="raw">
+        <pre><code class="${languageClass}">${rawHighlighted}</code></pre>
+      </div>
+    `,
+  };
+};
 
 const getTreeDepth = (line: string): number => {
   const branchMatch = line.match(/(?:\u251c|\u2514|\+|\\|\|)?(?:\u2500|-){2,}/);
@@ -780,6 +822,80 @@ const renderFilePayload = (payload: BubbleFilePayload): string => {
   `;
 };
 
+/**
+ * Renders a file payload inside a tool output accordion.
+ */
+const renderFileOutputAccordion = (payload: BubbleFilePayload): string => {
+  const language = inferLanguageFromPath(payload.path);
+  const filename = getFilenameFromPath(payload.path);
+  const truncatedPath = truncatePathForDisplay(payload.path);
+  const pathTitle = escapeHtml(payload.path);
+  const encodedPath = encodePathForAttribute(payload.path);
+  const rawAttr = encodeJsonForAttribute(payload.content);
+  const truncation = payload.truncated ? '<span class="file-tree-warning">TRUNCATED</span>' : '';
+  const panels = renderFilePanels(payload.content, language);
+
+  const viewOptions = panels.viewOptions;
+  const viewButton = viewOptions.length > 1
+    ? `
+      <button
+        type="button"
+        class="code-block-button view-cycle-button"
+        data-view-cycle="true"
+        data-view-options="${viewOptions.map((option) => option.id).join(',')}"
+        data-view-labels="${viewOptions.map((option) => option.label).join(',')}"
+        aria-label="Toggle file view"
+      >
+        <span class="view-button-text">${viewOptions[0]?.label ?? 'VIEW'}</span>
+      </button>
+    `
+    : '';
+
+  const languageBadge = language
+    ? `<span class="tool-output-file-lang">${escapeHtml(language.toUpperCase())}</span>`
+    : '';
+
+  return `
+    <details
+      class="tool-output-accordion tool-output-accordion--file"
+      data-view-root="true"
+      data-view="${escapeHtml(panels.view)}"
+      data-raw-copy="${rawAttr}"
+    >
+      <summary class="tool-output-accordion-summary">
+        <div class="tool-output-accordion-title">
+          <div class="tool-output-file-title">
+            <span class="tool-output-accordion-label">FILE</span>
+            <span class="tool-output-file-name">${escapeHtml(filename)}</span>
+            ${languageBadge}
+            ${truncation}
+          </div>
+          <span class="tool-output-file-path" title="${pathTitle}">${escapeHtml(truncatedPath)}</span>
+        </div>
+        <div class="tool-output-accordion-controls" role="group" aria-label="File actions">
+          ${viewButton}
+          <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy file contents">
+            <span class="view-button-text">COPY</span>
+          </button>
+          <button
+            type="button"
+            class="code-block-button"
+            data-file-path="${encodedPath}"
+            aria-label="Open file in explorer"
+          >
+            <span class="view-button-text">OPEN</span>
+          </button>
+        </div>
+      </summary>
+      <div class="tool-output-accordion-body">
+        <div class="file-output-block">
+          ${panels.html}
+        </div>
+      </div>
+    </details>
+  `;
+};
+
 const isFilePayload = (value: unknown): value is BubbleFilePayload => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -991,48 +1107,32 @@ const renderToolOutputPreview = (raw: unknown): string => {
 };
 
 const renderToolJsonAccordion = (raw: unknown): string => {
+  if (isFilePayload(raw)) {
+    return renderFileOutputAccordion(raw);
+  }
+
   const serialized = safeJsonStringify(raw);
   const preview = renderToolOutputPreview(raw);
-  const rawBlock = serialized
-    ? renderHttpJsonPreview(serialized) || renderCodeBlock(serialized, 'json')
-    : renderCodeBlock(String(raw), 'text');
-  const viewButtons = renderViewButtons(
-    [
-      {
-        target: 'preview',
-        label: 'Preview output',
-        text: 'PREVIEW',
-        pressed: true,
-      },
-      {
-        target: 'raw',
-        label: 'Raw JSON output',
-        text: 'RAW',
-        pressed: false,
-      },
-    ],
-    'code-block-button view-switcher-button',
-  );
+  const rawCopy = typeof raw === 'string' ? raw : serialized ?? String(raw);
+  const rawAttr = encodeJsonForAttribute(rawCopy);
 
   return `
-    <details class="tool-output-accordion" data-view-root="true" data-view="preview">
+    <details class="tool-output-accordion" data-view-root="true" data-view="preview" data-raw-copy="${rawAttr}">
       <summary class="tool-output-accordion-summary">
         <div class="tool-output-accordion-title">
           <span class="tool-output-accordion-label">OUTPUT DATA</span>
-          <span class="tool-output-accordion-hint">Preview / raw JSON</span>
+          <span class="tool-output-accordion-hint">Preview output</span>
         </div>
-        <div class="tool-output-accordion-controls view-switcher" data-view-group="true" role="group" aria-label="Output view">
-          ${viewButtons}
+        <div class="tool-output-accordion-controls" role="group" aria-label="Output actions">
+          <button type="button" class="code-block-button" data-code-action="copy" aria-label="Copy output JSON">
+            <span class="view-button-text">COPY</span>
+          </button>
         </div>
       </summary>
       <div class="tool-output-accordion-body">
         <div class="tool-output-panel" data-view-panel="preview">
           <div class="tool-output-panel-label">PREVIEW</div>
           ${preview}
-        </div>
-        <div class="tool-output-panel" data-view-panel="raw">
-          <div class="tool-output-panel-label">RAW JSON</div>
-          ${rawBlock}
         </div>
       </div>
     </details>
