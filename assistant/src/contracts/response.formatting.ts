@@ -7,16 +7,13 @@ import { type ContractValidator } from "../types";
 export const CONTRACT_RESPONSE_FORMATTING = {
   MODEL: 'ministral-3:3b',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You format responses concisely so they faithfully reflect the raw result provided.
-The raw result may be markdown or JSON; if JSON, summarize the key facts exactly as given, without inventing data.
+The raw result may be JSON: Summarize the key facts exactly as given, without inventing data.
 Do not add new information, actions, opinions, or context beyond what appears in the payload.
-If the payload does not contain the answer to the user's question, state that the data lacks the requested information instead of guessing.
-No preamble.
-No explanations.
-No follow-up questions.
 Ground the wording in the provided tool output and tool name when available.
 Keep it brief and direct (one sentence preferred).
 Always respond in {{LANGUAGE}}.`,
-  USER_PROMPT: `User request:
+  USER_PROMPT: `
+User request:
 {{REQUEST_CONTEXT}}
 
 Tool: {{TOOL_NAME}}
