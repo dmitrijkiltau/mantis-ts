@@ -11,7 +11,6 @@ import type { FieldType } from './contracts/definition.js';
 import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
-import { ensureHttpUrl } from './tools/web/http-core.js';
 
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
@@ -896,13 +895,7 @@ export class Pipeline {
       return null;
     }
     const url = this.stripWrappingQuotes(urlToken);
-    if (!url) {
-      return null;
-    }
-
-    try {
-      ensureHttpUrl(url);
-    } catch {
+    if (!url || !this.isHttpUrl(url)) {
       return null;
     }
 
@@ -963,6 +956,54 @@ export class Pipeline {
     }
 
     return candidate.includes('.');
+  }
+
+  /**
+   * Lightweight HTTP URL validator for direct commands.
+   */
+  private isHttpUrl(candidate: string): boolean {
+    if (!candidate) {
+      return false;
+    }
+
+    const value = candidate.trim();
+    if (!value) {
+      return false;
+    }
+
+    const tryParse = (raw: string): URL | null => {
+      try {
+        return new URL(raw);
+      } catch {
+        return null;
+      }
+    };
+
+    const hasScheme = /^[a-zA-Z][a-zA-Z\d+-.]*:/.test(value);
+    let parsed = tryParse(value);
+    if (!parsed && !hasScheme) {
+      const prefixed = value.startsWith('//') ? `https:${value}` : `https://${value}`;
+      parsed = tryParse(prefixed);
+    }
+
+    if (!parsed) {
+      return false;
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const host = parsed.hostname;
+    if (!host) {
+      return false;
+    }
+
+    if (host === 'localhost') {
+      return true;
+    }
+
+    return host.includes('.') || host.includes(':');
   }
 
   private extractPathCandidate(userInput: string): string | null {
