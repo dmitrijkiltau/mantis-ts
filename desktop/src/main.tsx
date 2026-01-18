@@ -1,7 +1,3 @@
-import { OllamaClient } from '../../assistant/src/models/ollama';
-import { Orchestrator } from '../../assistant/src/orchestrator';
-import { Pipeline } from '../../assistant/src/pipeline';
-import { Runner } from '../../assistant/src/runner';
 import { CONTRACTS } from '../../assistant/src/contracts/registry';
 import contractIntentClassificationSource from '../../assistant/src/contracts/intent.classification.ts?raw';
 import contractLanguageDetectionSource from '../../assistant/src/contracts/language.detection.ts?raw';
@@ -15,7 +11,6 @@ import contractImageRecognitionSource from '../../assistant/src/contracts/image.
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import { UIState } from './ui-state';
-import { ContextStore } from './context-store';
 import {
   createQuestionHandler,
   renderToolCatalog,
@@ -26,13 +21,12 @@ import {
 import { renderToolOutputContent } from './bubble-renderer';
 import { startIdleChatter } from './idle-chatter';
 import App from './App';
+import { DesktopServicesProvider } from './state/desktop-context';
+import { createDesktopServices } from './state/desktop-services';
 
 import './styles.css';
 
-const orchestrator = new Orchestrator();
-const runner = new Runner(orchestrator, new OllamaClient());
-const pipeline = new Pipeline(orchestrator, runner);
-const contextStore = new ContextStore();
+const services = createDesktopServices();
 
 /**
  * Mounts the Solid UI shell into the document.
@@ -43,7 +37,11 @@ const mountApp = (): void => {
     throw new Error('Missing #root mount point for the desktop UI.');
   }
 
-  render(() => <App />, root);
+  render(() => (
+    <DesktopServicesProvider services={services}>
+      <App />
+    </DesktopServicesProvider>
+  ), root);
 };
 
 /**
@@ -338,13 +336,13 @@ const initializeDesktopUI = (): void => {
 
   const handleQuestion = promptInput && form && historyElement
     ? createQuestionHandler(
-      pipeline,
+      services.pipeline,
       uiState,
       promptInput,
       form,
       historyElement,
       imageStore,
-      contextStore,
+      services.contextStore,
     )
     : null;
   
