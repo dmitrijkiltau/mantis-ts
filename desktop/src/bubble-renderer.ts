@@ -83,6 +83,7 @@ const HIGHLIGHT_LANGS = new Set([
   'javascript',
   'jsx',
   'json',
+  'html',
   'bash',
   'powershell',
 ]);
@@ -167,6 +168,68 @@ const getFilenameFromPath = (path: string): string => {
   return segments[segments.length - 1] ?? path;
 };
 
+const highlightHtmlAttributes = (raw: string): string => {
+  if (!raw) {
+    return '';
+  }
+
+  const attrRegex = /([^\s=]+)(\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?/g;
+  let result = '';
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = attrRegex.exec(raw)) !== null) {
+    const matchIndex = match.index ?? 0;
+    if (matchIndex > lastIndex) {
+      result += escapeHtml(raw.slice(lastIndex, matchIndex));
+    }
+
+    const name = match[1] ?? '';
+    const value = match[2] ?? '';
+    result += `<span class="token-attr-name">${escapeHtml(name)}</span>`;
+    if (value) {
+      result += `<span class="token-attr-value">${escapeHtml(value)}</span>`;
+    }
+    lastIndex = matchIndex + match[0].length;
+  }
+
+  if (lastIndex < raw.length) {
+    result += escapeHtml(raw.slice(lastIndex));
+  }
+
+  return result;
+};
+
+const highlightHtmlBlock = (code: string): string => {
+  const tagPattern = /<\/?[a-zA-Z][^>\n]*>/g;
+  let result = '';
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagPattern.exec(code)) !== null) {
+    const matchIndex = match.index ?? 0;
+    if (matchIndex > lastIndex) {
+      result += escapeHtml(code.slice(lastIndex, matchIndex));
+    }
+
+    const tagText = match[0] ?? '';
+    const tagNameMatch = tagText.match(/^<\/?([a-zA-Z0-9:-]+)/);
+    const tagName = tagNameMatch?.[1] ?? '';
+    const tagStart = tagText.startsWith('</') ? '&lt;/' : '&lt;';
+    const attrsStartIndex = tagNameMatch?.[0].length ?? 1;
+    const attrs = tagText.slice(attrsStartIndex, -1);
+    const attrsHtml = highlightHtmlAttributes(attrs);
+    result += `${tagStart}<span class="token-tag-name">${escapeHtml(tagName)}</span>${attrsHtml}&gt;`;
+    lastIndex = matchIndex + tagText.length;
+  }
+
+  if (lastIndex < code.length) {
+    result += escapeHtml(code.slice(lastIndex));
+  }
+
+  return result;
+};
+
 const highlightCodeBlock = (code: string, language: string | null): string => {
   const normalizedLanguage = normalizeLanguage(language);
   const looksLikeJson = normalizedLanguage === null && /^[\s]*[\[{]/.test(code);
@@ -174,6 +237,10 @@ const highlightCodeBlock = (code: string, language: string | null): string => {
 
   if (!shouldHighlight) {
     return escapeHtml(code);
+  }
+
+  if (normalizedLanguage === 'html') {
+    return highlightHtmlBlock(code);
   }
 
   const tokenPattern =
@@ -232,12 +299,12 @@ const addLineNumbers = (highlighted: string): string => {
     .join('');
 };
 
-const renderCodeBlock = (code: string, language: string | null): string => {
+const renderCodeBlock = (code: string, language: string | null, rawOverride?: string): string => {
   const normalizedLanguage = normalizeLanguage(language);
   const label = normalizedLanguage ? normalizedLanguage.toUpperCase() : 'TEXT';
   const highlighted = highlightCodeBlock(code, normalizedLanguage);
   const languageClass = normalizedLanguage ? `language-${normalizedLanguage}` : 'language-text';
-  const rawAttr = encodeJsonForAttribute(code);
+  const rawAttr = encodeJsonForAttribute(rawOverride ?? code);
 
   // Check if this is markdown that should have preview
   const isMarkdown = normalizedLanguage === 'markdown';
@@ -997,6 +1064,16 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
   return null;
 };
 
+const formatHtmlContent = (content: string): string => {
+  if (!content.includes('<')) {
+    return content;
+  }
+
+  return content
+    .replace(/>\s+</g, '>\n<')
+    .trim();
+};
+
 const renderHttpResponsePayload = (
   payload: HttpResponseResult,
   options?: { compactHeader?: boolean },
@@ -1009,7 +1086,8 @@ const renderHttpResponsePayload = (
   const headerSummary = `${headerCount} entries`;
   const sizeText = `${formatBytes(payload.bytesRead)} read / ${formatBytes(payload.totalBytes)} total`;
   const jsonPreview = language === 'json' ? renderHttpJsonPreview(payload.content) : '';
-  const bodyContent = jsonPreview || renderCodeBlock(payload.content, language);
+  const formattedBody = language === 'html' ? formatHtmlContent(payload.content) : payload.content;
+  const bodyContent = jsonPreview || renderCodeBlock(formattedBody, language, payload.content);
 
   const badges: string[] = [];
   if (payload.redirected) {

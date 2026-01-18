@@ -115,6 +115,15 @@
     .token-constant {
       @apply text-terminal-orange font-semibold;
     }
+    .token-tag-name {
+      @apply text-terminal-cyan font-semibold;
+    }
+    .token-attr-name {
+      @apply text-terminal-emerald;
+    }
+    .token-attr-value {
+      @apply text-terminal-amber;
+    }
 
     .file-preview {
       @apply flex flex-col gap-3;
