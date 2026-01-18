@@ -92,18 +92,56 @@ export const validateToolArguments = (
     }
 
     const value = parsed[schemaKey];
+    const allowsNull = type.endsWith('|null');
+    const baseType = allowsNull ? type.slice(0, -5) : type;
 
     // Validate nullability and type
-    if (value === null && !type.endsWith('|null')) {
-      return { ok: false, error: `NULL_NOT_ALLOWED:${schemaKey}` };
+    if (value === null) {
+      if (!allowsNull) {
+        return { ok: false, error: `NULL_NOT_ALLOWED:${schemaKey}` };
+      }
+      continue;
     }
 
-    // Validate type
-    if (value !== null) {
-      const actualType = type.includes('|') ? type.split('|')[0] : type;
-      if (typeof value !== actualType) {
+    if (baseType === 'array') {
+      if (!Array.isArray(value)) {
         return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
       }
+      continue;
+    }
+
+    if (baseType.endsWith('[]')) {
+      if (!Array.isArray(value)) {
+        return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
+      }
+      const elementType = baseType.slice(0, -2);
+      for (let valueIndex = 0; valueIndex < value.length; valueIndex += 1) {
+        const element = value[valueIndex];
+        if (element === null || element === undefined) {
+          return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
+        }
+        if (elementType === 'object') {
+          if (typeof element !== 'object') {
+            return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
+          }
+          continue;
+        }
+        if (typeof element !== elementType) {
+          return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
+        }
+      }
+      continue;
+    }
+
+    if (baseType === 'object') {
+      if (typeof value !== 'object') {
+        return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
+      }
+      continue;
+    }
+
+    if (typeof value !== baseType) {
+      return { ok: false, error: `INVALID_TYPE:${schemaKey}` };
     }
   }
 

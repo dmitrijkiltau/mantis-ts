@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { z } from 'zod';
 import {
   applyQueryParamEntries,
   buildRequestBody,
@@ -32,6 +33,20 @@ type HttpToolArgs = {
 };
 
 type HttpToolResult = HttpResponseResult;
+
+const httpQueryPrimitive = z.union([z.string(), z.number(), z.boolean()]);
+const httpQueryValue = z.union([httpQueryPrimitive, z.array(httpQueryPrimitive)]);
+
+const httpArgsSchema = z.object({
+  url: z.string().min(1),
+  method: z.string().nullable(),
+  headers: z.record(httpQueryPrimitive.nullable()).nullable(),
+  queryParams: z.record(httpQueryValue.nullable()).nullable(),
+  body: z.string().nullable(),
+  maxBytes: z.number().int().positive().nullable(),
+  timeoutMs: z.number().int().positive().nullable(),
+  bypassCookieNotices: z.boolean().nullable(),
+});
 
 /* ------------------------------------------------------------------------- *
  * HELPERS
@@ -134,6 +149,7 @@ export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
     timeoutMs: 'number|null',
     bypassCookieNotices: 'boolean|null',
   },
+  argsSchema: httpArgsSchema,
   async execute(args) {
     const baseUrl = ensureHttpUrl(args.url);
     const queryEntries = buildQueryParamEntries(args.queryParams);

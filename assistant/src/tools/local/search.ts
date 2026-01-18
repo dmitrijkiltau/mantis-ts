@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '../definition.js';
 import { clampPositiveInteger, clampNonNegativeInteger, normalizePath } from '../internal/helpers.js';
+import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -57,6 +58,17 @@ const DEFAULT_IGNORES = new Set<string>([
   '.cache',
   'target',
 ]);
+
+const searchArgsSchema = z.object({
+  query: z.string().min(1),
+  baseDir: z.string().min(1),
+  startPath: z.string().nullable().optional(),
+  maxResults: z.number().int().positive().nullable().optional(),
+  maxDepth: z.number().int().nonnegative().nullable().optional(),
+  includeFiles: z.boolean().nullable().optional(),
+  includeDirectories: z.boolean().nullable().optional(),
+  exactMatch: z.boolean().nullable().optional(),
+});
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -262,7 +274,13 @@ const searchFileSystem = async (
 
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
-  description: 'DISCOVERY. Use to find files/dirs by name or pattern when the path is unknown. Do NOT use when the user provides a specific path; use filesystem list/read instead. Skips common build/VC dirs (e.g., .git, node_modules). Triggers: "find", "locate", "where is".',
+  description: `DISCOVERY. Use to find files/dirs by name or pattern when the path is unknown.
+Do NOT use when the user provides a specific path; use filesystem list/read instead.
+Skips common build/VC dirs (e.g., .git, node_modules).
+
+Examples:
+- "Find package.json under this repo" -> query: "package.json", baseDir: "."
+- "Locate config in C:/App" -> query: "config", baseDir: "C:/App"`,
   schema: {
     query: 'string',
     baseDir: 'string',
@@ -273,6 +291,7 @@ export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
     includeDirectories: 'boolean|null',
     exactMatch: 'boolean|null',
   },
+  argsSchema: searchArgsSchema,
   async execute(args) {
     return searchFileSystem(args);
   },

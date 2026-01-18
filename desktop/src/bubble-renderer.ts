@@ -500,7 +500,8 @@ const renderDirectoryPayload = (payload: BubbleDirectoryPayload): string => {
 
   for (const entry of payload.entries) {
     const kind = entry.type === 'directory' ? 'folder' : entry.type === 'file' ? 'file' : 'other';
-    rows.push({ name: entry.name, kind, depth: 0, sizeBytes: entry.sizeBytes ?? null });
+    const sizeBytes = entry.type === 'file' ? entry.sizeBytes ?? null : undefined;
+    rows.push({ name: entry.name, kind, depth: 0, sizeBytes });
   }
 
   return renderFileTree(rows, {

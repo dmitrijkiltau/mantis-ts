@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '../definition.js';
 import { getPlatform } from '../internal/helpers.js';
+import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -104,6 +105,13 @@ const DESTRUCTIVE_PATTERNS = [
   /--force/i,
   /--recursive/i,
 ];
+
+const shellArgsSchema = z.object({
+  action: z.string().min(1),
+  program: z.string().min(1),
+  args: z.array(z.string()).nullable().optional(),
+  timeoutMs: z.number().int().positive().nullable().optional(),
+});
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -343,9 +351,10 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   schema: {
     action: 'string',
     program: 'string',
-    args: 'object|null',
+    args: 'string[]|null',
     timeoutMs: 'number|null',
   },
+  argsSchema: shellArgsSchema,
   async execute(args) {
     normalizeAction(args.action);
     const normalizedArgs = normalizeArgs(args.args);

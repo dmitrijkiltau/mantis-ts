@@ -17,7 +17,6 @@ Decisions:
 - abort: the tool appears incorrect or unsafe for this request.
 
 Only use "clarify" if you are confident the tool is the correct choice.
-If the user provides an explicit path and the tool is "search", prefer "abort" or "clarify" with a reason to use the filesystem list/read tool instead.
 
 Return JSON only.
 

@@ -12,13 +12,6 @@ Pick one tool intent when the request matches that tool's capability.
 
 **Priority Rule:**
 Always prefer specific structured tools (filesystem, process, http) over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
-If the user provides an explicit path or asks for contents of a path, choose 'tool.filesystem' (list/read) and do NOT choose 'tool.search'.
-If a path is known, do NOT use 'tool.search'. 'tool.search' is only for finding unknown files/dirs by name/pattern.
-
-Examples:
-- "What is in /var/log?" -> tool.filesystem
-- "List D:\\Projects" -> tool.filesystem
-- "Find package.json under the repo" -> tool.search
 
 Allowed intents:
 {{TOOL_REFERENCE}}

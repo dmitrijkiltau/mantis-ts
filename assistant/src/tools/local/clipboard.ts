@@ -1,5 +1,6 @@
 import type { ExecFileOptionsWithStringEncoding } from 'node:child_process';
 import type { ToolDefinition } from '../definition.js';
+import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -209,6 +210,11 @@ const resolveLinuxDriver = async (): Promise<ClipboardDriver> => {
 const READ_ALIASES = new Set(['read', 'paste', 'get', 'get_clipboard_content']);
 const WRITE_ALIASES = new Set(['write', 'copy', 'set']);
 
+const clipboardArgsSchema = z.object({
+  action: z.string().min(1),
+  text: z.string().nullable().optional(),
+});
+
 export const CLIPBOARD_TOOL: ToolDefinition<ClipboardToolArgs, ClipboardToolResult> = {
   name: 'clipboard',
   description: 'Reads from or writes to the OS clipboard.',
@@ -216,6 +222,7 @@ export const CLIPBOARD_TOOL: ToolDefinition<ClipboardToolArgs, ClipboardToolResu
     action: 'string',
     text: 'string|null',
   },
+  argsSchema: clipboardArgsSchema,
   async execute(args) {
     const action = args.action.trim().toLowerCase();
     const driver = await getClipboardDriver();

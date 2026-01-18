@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
+import { z } from 'zod';
 import {
   applyQueryParamEntries,
   buildRequestBody,
@@ -29,6 +30,17 @@ type FetchToolArgs = {
 };
 
 type FetchToolResult = HttpResponseResult;
+
+const fetchArgsSchema = z.object({
+  url: z.string().min(1),
+  method: z.string().nullable(),
+  headers: z.string().nullable(),
+  body: z.string().nullable(),
+  queryParams: z.string().nullable(),
+  maxBytes: z.number().int().positive().nullable(),
+  timeoutMs: z.number().int().positive().nullable(),
+  bypassCookieNotices: z.boolean().nullable(),
+});
 
 const parseHeaders = (raw: string | null): Record<string, string> => {
   if (!raw?.trim()) {
@@ -157,6 +169,7 @@ export const FETCH_TOOL: ToolDefinition<FetchToolArgs, FetchToolResult> = {
     timeoutMs: 'number|null',
     bypassCookieNotices: 'boolean|null',
   },
+  argsSchema: fetchArgsSchema,
   async execute(args) {
     const baseUrl = ensureHttpUrl(args.url);
     const targetUrl = applyQueryParams(baseUrl, args.queryParams);

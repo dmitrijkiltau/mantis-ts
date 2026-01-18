@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '../definition.js';
 import { getPlatform } from '../internal/helpers.js';
+import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -63,6 +64,11 @@ type ShellModule = {
 
 const DEFAULT_METRICS = ['system', 'cpu', 'memory', 'disk'];
 const VALID_METRICS = new Set(['system', 'cpu', 'memory', 'disk']);
+
+const pcInfoArgsSchema = z.object({
+  metrics: z.array(z.string()).nullable().optional(),
+  detailLevel: z.enum(['basic', 'detailed']).nullable().optional(),
+});
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -463,9 +469,10 @@ export const PCINFO_TOOL: ToolDefinition<PcInfoToolArgs, PcInfoToolResult> = {
   name: 'pcinfo',
   description: 'Gets system hardware stats (CPU, RAM, Disk usage).',
   schema: {
-    metrics: 'object|null',
+    metrics: 'string[]|null',
     detailLevel: 'string|null',
   },
+  argsSchema: pcInfoArgsSchema,
   async execute(args) {
     const metrics = normalizeMetrics(args.metrics ?? null);
     return getPcInfo(metrics);

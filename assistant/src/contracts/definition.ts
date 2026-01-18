@@ -6,10 +6,20 @@ export type FieldType =
   | 'boolean'
   | 'number'
   | 'object'
+  | 'array'
+  | 'string[]'
+  | 'number[]'
+  | 'boolean[]'
+  | 'object[]'
   | 'string|null'
   | 'number|null'
   | 'boolean|null'
-  | 'object|null';
+  | 'object|null'
+  | 'array|null'
+  | 'string[]|null'
+  | 'number[]|null'
+  | 'boolean[]|null'
+  | 'object[]|null';
 
 /**
  * Type defining the structure of a contract.

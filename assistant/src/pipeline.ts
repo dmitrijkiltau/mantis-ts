@@ -340,35 +340,42 @@ export class Pipeline {
       toolArgs = toolArgResult.value as Record<string, unknown>;
     }
 
-    const verification = await this.verifyToolArguments(
-      activeToolName,
-      tool.description,
-      tool.schema,
-      userInput,
-      toolArgs,
-    );
-    attemptsSoFar += verification.attempts;
-    if (!verification.ok) {
-      Logger.warn(
-        'pipeline',
-        `Tool argument verification failed for ${activeToolName}, falling back to strict answer`,
-      );
-      const result = await this.runNonToolAnswer(
+    const schemaValidation = this.validateToolArgsSchema(tool, toolArgs);
+    let verificationResult: ToolArgumentVerificationResult;
+    if (!schemaValidation.ok) {
+      verificationResult = schemaValidation.result;
+    } else {
+      toolArgs = schemaValidation.value;
+      const verification = await this.verifyToolArguments(
+        activeToolName,
+        tool.description,
+        tool.schema,
         userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
+        toolArgs,
       );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_failed',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
+      attemptsSoFar += verification.attempts;
+      if (!verification.ok) {
+        Logger.warn(
+          'pipeline',
+          `Tool argument verification failed for ${activeToolName}, falling back to strict answer`,
+        );
+        const result = await this.runNonToolAnswer(
+          userInput,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+          personalityDescription,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'argument_verification_failed',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
 
-    let verificationResult = verification.value;
+      verificationResult = verification.value;
+    }
     Logger.debug('pipeline', 'Tool argument verification decision', {
       tool: activeToolName,
       decision: verificationResult.decision,
@@ -417,6 +424,19 @@ export class Pipeline {
       }
 
       toolArgs = retryResult.value as Record<string, unknown>;
+      const retrySchemaValidation = this.validateToolArgsSchema(tool, toolArgs);
+      if (!retrySchemaValidation.ok) {
+        verificationResult = retrySchemaValidation.result;
+        Logger.debug('pipeline', 'Tool argument verification decision', {
+          tool: activeToolName,
+          decision: verificationResult.decision,
+          confidence: verificationResult.confidence,
+          reason: verificationResult.reason,
+        });
+        continue;
+      }
+
+      toolArgs = retrySchemaValidation.value;
       const retryVerification = await this.verifyToolArguments(
         activeToolName,
         tool.description,
@@ -447,7 +467,7 @@ export class Pipeline {
 
       verificationResult = retryVerification.value;
       Logger.debug('pipeline', 'Tool argument verification decision', {
-        tool: toolName,
+        tool: activeToolName,
         decision: verificationResult.decision,
         confidence: verificationResult.confidence,
         reason: verificationResult.reason,
@@ -1019,6 +1039,50 @@ export class Pipeline {
       notes.push(`Suggested args: ${JSON.stringify(verification.suggestedArgs)}`);
     }
     return notes.join('\n');
+  }
+
+  private validateToolArgsSchema(
+    tool: ReturnType<typeof getToolDefinition>,
+    args: Record<string, unknown>,
+  ): { ok: true; value: Record<string, unknown> } | { ok: false; result: ToolArgumentVerificationResult } {
+    if (!tool.argsSchema) {
+      return { ok: true, value: args };
+    }
+
+    const parsed = tool.argsSchema.safeParse(args);
+    if (parsed.success) {
+      return { ok: true, value: parsed.data as Record<string, unknown> };
+    }
+
+    const missingFields = new Set<string>();
+    const reasons: string[] = [];
+    for (let index = 0; index < parsed.error.issues.length; index += 1) {
+      const issue = parsed.error.issues[index];
+      if (!issue) {
+        continue;
+      }
+      const path = issue.path.join('.');
+      reasons.push(path ? `${path}: ${issue.message}` : issue.message);
+      if (issue.code === 'invalid_type' && issue.received === 'undefined') {
+        const field = issue.path[0];
+        if (typeof field === 'string') {
+          missingFields.add(field);
+        }
+      }
+    }
+
+    const reason = reasons.length > 0
+      ? `args_schema_validation_failed: ${reasons.join('; ')}`
+      : 'args_schema_validation_failed';
+    return {
+      ok: false,
+      result: {
+        decision: 'retry',
+        confidence: 1,
+        reason,
+        missingFields: missingFields.size > 0 ? Array.from(missingFields) : undefined,
+      },
+    };
   }
 
   /**

@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '../definition.js';
 import { clampPositiveInteger, getPlatform, escapePowerShellString } from '../internal/helpers.js';
+import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
  * TYPES
@@ -47,6 +48,12 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 const LIST_ALIASES = new Set(['list', 'ps', 'processes', 'show']);
+
+const processArgsSchema = z.object({
+  action: z.string().min(1),
+  query: z.string().nullable().optional(),
+  limit: z.number().int().positive().nullable().optional(),
+});
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -385,6 +392,7 @@ export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = 
     query: 'string|null',
     limit: 'number|null',
   },
+  argsSchema: processArgsSchema,
   async execute(args) {
     normalizeAction(args.action);
     const query = normalizeQuery(args.query ?? null);
