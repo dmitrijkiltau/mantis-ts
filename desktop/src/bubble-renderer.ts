@@ -222,6 +222,16 @@ const highlightCodeBlock = (code: string, language: string | null): string => {
   return result;
 };
 
+/**
+ * Wraps highlighted code lines for line-number styling.
+ */
+const addLineNumbers = (highlighted: string): string => {
+  const lines = highlighted.split('\n');
+  return lines
+    .map((line) => `<span class="code-line">${line.length === 0 ? '&nbsp;' : line}</span>`)
+    .join('');
+};
+
 const renderCodeBlock = (code: string, language: string | null): string => {
   const normalizedLanguage = normalizeLanguage(language);
   const label = normalizedLanguage ? normalizedLanguage.toUpperCase() : 'TEXT';
@@ -337,7 +347,7 @@ const renderFilePanels = (
   language: string | null,
 ): { html: string; view: string; viewOptions: Array<{ id: string; label: string }> } => {
   const normalizedLanguage = normalizeLanguage(language);
-  const rawHighlighted = highlightCodeBlock(content, normalizedLanguage);
+  const rawHighlighted = addLineNumbers(highlightCodeBlock(content, normalizedLanguage));
   const languageClass = normalizedLanguage ? `language-${normalizedLanguage}` : 'language-text';
 
   if (normalizedLanguage === 'markdown') {
@@ -353,7 +363,7 @@ const renderFilePanels = (
           <div class="markdown-preview-content">${preview}</div>
         </div>
         <div class="file-output-panel" data-view-panel="raw">
-          <pre><code class="${languageClass}">${rawHighlighted}</code></pre>
+          <pre class="line-numbers"><code class="${languageClass}">${rawHighlighted}</code></pre>
         </div>
       `,
     };
@@ -363,7 +373,7 @@ const renderFilePanels = (
     try {
       const parsed = JSON.parse(content);
       const pretty = JSON.stringify(parsed, null, 2);
-      const prettyHighlighted = highlightCodeBlock(pretty, 'json');
+      const prettyHighlighted = addLineNumbers(highlightCodeBlock(pretty, 'json'));
       const viewer = renderJsonViewer(parsed);
       return {
         view: 'viewer',
@@ -376,7 +386,7 @@ const renderFilePanels = (
             <div class="code-block-json-viewer">${viewer}</div>
           </div>
           <div class="file-output-panel" data-view-panel="pretty">
-            <pre><code class="${languageClass}">${prettyHighlighted}</code></pre>
+            <pre class="line-numbers"><code class="${languageClass}">${prettyHighlighted}</code></pre>
           </div>
         `,
       };
@@ -390,7 +400,7 @@ const renderFilePanels = (
     viewOptions: [],
     html: `
       <div class="file-output-panel" data-view-panel="raw">
-        <pre><code class="${languageClass}">${rawHighlighted}</code></pre>
+        <pre class="line-numbers"><code class="${languageClass}">${rawHighlighted}</code></pre>
       </div>
     `,
   };

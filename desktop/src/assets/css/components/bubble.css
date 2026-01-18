@@ -397,6 +397,42 @@
       @apply font-mono text-terminal-primary;
     }
 
+    .file-output-panel pre.line-numbers {
+      @apply text-xs overflow-x-auto;
+      counter-reset: line;
+      padding-left: 3.25rem;
+      line-height: 1.5;
+    }
+
+    .file-output-panel pre.line-numbers code {
+      display: block;
+      line-height: inherit;
+    }
+
+    .file-output-panel .code-line {
+      display: block;
+      position: relative;
+      padding-left: 0.5rem;
+      line-height: inherit;
+
+      .code-line {
+        @apply -left-2;
+      }
+    }
+
+    .file-output-panel .code-line::before {
+      counter-increment: line;
+      content: counter(line);
+      position: absolute;
+      top: 0;
+      left: -3.25rem;
+      width: 2.5rem;
+      text-align: right;
+      color: var(--color-primary-60);
+      font-size: 10px;
+      line-height: inherit;
+    }
+
     .tool-output-panel {
       @apply flex flex-col gap-2;
     }
