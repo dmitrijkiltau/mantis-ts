@@ -55,6 +55,7 @@ type FileTreeRow = {
   depth: number;
   path?: string;
   sizeBytes?: number | null;
+  itemCount?: number;
 };
 
 type ViewButtonConfig = {
@@ -426,18 +427,53 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
 
+const annotateFolderItemCounts = (rows: FileTreeRow[]): FileTreeRow[] => {
+  const annotated = rows.map((row) => ({ ...row }));
+  for (let index = 0; index < annotated.length; index += 1) {
+    const current = annotated[index];
+    if (!current || current.kind !== 'folder') {
+      continue;
+    }
+    const baseDepth = Number.isFinite(current.depth) ? current.depth : 0;
+    let childCount = 0;
+    for (let nextIndex = index + 1; nextIndex < annotated.length; nextIndex += 1) {
+      const next = annotated[nextIndex];
+      if (!next) {
+        continue;
+      }
+      const nextDepth = Number.isFinite(next.depth) ? next.depth : 0;
+      if (nextDepth <= baseDepth) {
+        break;
+      }
+      if (nextDepth === baseDepth + 1) {
+        childCount += 1;
+      }
+    }
+
+    if (childCount > 0) {
+      annotated[index] = { ...current, itemCount: childCount };
+    }
+  }
+  return annotated;
+};
+
 const renderFileTreeRows = (rows: FileTreeRow[]): string => {
   let html = '';
+  const annotatedRows = annotateFolderItemCounts(rows);
 
-  for (const row of rows) {
+  for (const row of annotatedRows) {
     const badge =
       row.kind === 'folder' ? 'DIR' : row.kind === 'file' ? 'FILE' : 'ITEM';
     const depth = Number.isFinite(row.depth) ? row.depth : 0;
     const pathHtml = row.path
       ? `<span class="file-node-path">${escapeHtml(row.path)}</span>`
       : '';
+    const folderItemCountText =
+      row.kind === 'folder' && typeof row.itemCount === 'number'
+        ? `${row.itemCount} item${row.itemCount === 1 ? '' : 's'}`
+        : null;
     const sizeText = row.sizeBytes === undefined
-      ? null
+      ? folderItemCountText
       : row.sizeBytes === null
         ? 'N/A'
         : formatBytes(row.sizeBytes);
