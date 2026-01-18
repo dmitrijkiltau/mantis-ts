@@ -363,9 +363,18 @@
       @apply flex flex-col gap-4 p-3;
     }
 
+    .tool-output-accordion--file .tool-output-accordion-body {
+      @apply p-0;
+    }
+
     .file-output-block {
       @apply flex flex-col rounded border overflow-hidden bg-bg-black border-primary-30;
       box-shadow: var(--shadow-inset-glow);
+    }
+
+    .tool-output-accordion-body .file-output-block {
+      @apply border-0 rounded-none;
+      box-shadow: none;
     }
 
     .file-output-panel {
