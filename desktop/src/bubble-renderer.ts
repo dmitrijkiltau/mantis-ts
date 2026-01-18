@@ -90,6 +90,7 @@ type PcInfoSections = {
   memoryCard: string;
   diskCard: string;
   primaryCount: number;
+  totalCount: number;
 };
 
 type FileTreeRow = {
@@ -1330,6 +1331,13 @@ const renderPcInfoUsageBar = (label: string, percent: number | null, detail?: st
   `;
 };
 
+type PcInfoCompactCard = {
+  label: string;
+  title: string;
+  subtitle: string;
+  body: string;
+};
+
 /**
  * Builds the card sections for PC info.
  */
@@ -1413,14 +1421,117 @@ const buildPcInfoSections = (payload: PcInfoPayload): PcInfoSections => {
     `
     : '';
 
-  const primaryCount = [cpuCard, memoryCard, diskCard].filter(Boolean).length;
+  let primaryCount = 0;
+  if (cpuCard) {
+    primaryCount += 1;
+  }
+  if (memoryCard) {
+    primaryCount += 1;
+  }
+  if (diskCard) {
+    primaryCount += 1;
+  }
+
+  let totalCount = primaryCount;
+  if (systemCard) {
+    totalCount += 1;
+  }
   return {
     systemCard,
     cpuCard,
     memoryCard,
     diskCard,
     primaryCount,
+    totalCount,
   };
+};
+
+/**
+ * Builds a compact PC info card when only one section exists.
+ */
+const buildPcInfoCompactCard = (payload: PcInfoPayload): PcInfoCompactCard | null => {
+  const cpu = payload.cpu;
+  if (cpu) {
+    const title = cpu.model ?? 'Unknown CPU';
+    const subtitle = `${cpu.cores ?? 'N/A'} cores / ${cpu.threads ?? 'N/A'} threads`;
+    return {
+      label: 'CPU',
+      title,
+      subtitle,
+      body: `
+        <div class="pcinfo-compact">
+          ${renderPcInfoUsageBar('Usage', cpu.usage, cpu.usage !== null ? 'Current load' : undefined)}
+        </div>
+      `,
+    };
+  }
+
+  const memory = payload.memory;
+  if (memory) {
+    const total = memory.totalBytes !== null ? formatBytes(memory.totalBytes) : 'Memory';
+    const usage = memory.usagePercent !== null && Number.isFinite(memory.usagePercent)
+      ? `${memory.usagePercent.toFixed(1)}%`
+      : 'N/A';
+    return {
+      label: 'MEMORY',
+      title: total,
+      subtitle: `Usage ${usage}`,
+      body: `
+        <div class="pcinfo-compact">
+          ${renderPcInfoUsageBar(
+            'Usage',
+            memory.usagePercent,
+            memory.totalBytes ? `${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes)}` : 'N/A',
+          )}
+          ${renderPcInfoRow('Free', memory.freeBytes !== null ? formatBytes(memory.freeBytes) : 'N/A')}
+        </div>
+      `,
+    };
+  }
+
+  const disks = payload.disks ?? [];
+  if (disks.length > 0) {
+    const disk = disks[0];
+    const title = disk?.path ?? 'Disk';
+    const usage = disk && disk.usagePercent !== null && Number.isFinite(disk.usagePercent)
+      ? `${disk.usagePercent.toFixed(1)}%`
+      : 'N/A';
+    return {
+      label: 'DISK',
+      title,
+      subtitle: `Usage ${usage}`,
+      body: `
+        <div class="pcinfo-compact">
+          ${disk ? renderPcInfoUsageBar(
+            'Usage',
+            disk.usagePercent,
+            disk.totalBytes ? `${formatBytes(disk.usedBytes ?? 0)} / ${formatBytes(disk.totalBytes)}` : 'N/A',
+          ) : ''}
+          ${disk ? renderPcInfoRow('Free', disk.freeBytes !== null ? formatBytes(disk.freeBytes) : 'N/A') : ''}
+        </div>
+      `,
+    };
+  }
+
+  const system = payload.system;
+  if (system) {
+    const title = system.hostname ?? system.platform ?? 'System';
+    const subtitle = `Uptime ${formatUptime(system.uptime)}`;
+    return {
+      label: 'SYSTEM',
+      title,
+      subtitle,
+      body: `
+        <div class="pcinfo-compact">
+          ${renderPcInfoRow('Platform', system.platform ?? 'N/A')}
+          ${renderPcInfoRow('Hostname', system.hostname ?? 'N/A')}
+          ${renderPcInfoRow('Uptime', formatUptime(system.uptime))}
+        </div>
+      `,
+    };
+  }
+
+  return null;
 };
 
 /**
@@ -1516,22 +1627,27 @@ const renderToolJsonAccordion = (raw: unknown): string => {
     const hostname = raw.system?.hostname ?? platform;
     const subtitle = raw.system ? `UPTIME ${formatUptime(raw.system.uptime)}` : platform;
     const sections = buildPcInfoSections(raw);
-    const useCompactCard = sections.primaryCount <= 1;
+    const useCompactCard = sections.totalCount === 1;
 
     if (useCompactCard) {
+      const compact = buildPcInfoCompactCard(raw);
+      if (!compact) {
+        return renderPcInfoPayload(raw);
+      }
+
       return `
         <div class="tool-output-card tool-output-card--pcinfo">
           <div class="tool-output-card-header">
             <div class="tool-output-accordion-title">
               <div class="tool-output-pcinfo-title">
-                <span class="tool-output-accordion-label">PC INFO</span>
-                <span class="tool-output-pcinfo-host">${escapeHtml(hostname)}</span>
+                <span class="tool-output-accordion-label">${escapeHtml(compact.label)}</span>
+                <span class="tool-output-pcinfo-host">${escapeHtml(compact.title)}</span>
               </div>
-              <span class="tool-output-pcinfo-subtitle">${escapeHtml(subtitle)}</span>
+              <span class="tool-output-pcinfo-subtitle">${escapeHtml(compact.subtitle)}</span>
             </div>
           </div>
           <div class="tool-output-card-body">
-            ${renderPcInfoPayload(raw)}
+            ${compact.body}
           </div>
         </div>
       `;

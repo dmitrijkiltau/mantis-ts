@@ -458,6 +458,10 @@
       @apply flex flex-col gap-3 p-3;
     }
 
+    .pcinfo-compact {
+      @apply flex flex-col gap-2 p-3;
+    }
+
     .pcinfo-card {
       @apply rounded border border-primary-30 bg-bg-black;
       box-shadow: var(--shadow-inset-glow);
