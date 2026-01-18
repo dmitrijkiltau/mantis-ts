@@ -441,6 +441,7 @@ export class Pipeline {
 
     if (result.kind === 'tool') {
       summary.tool = summary.tool ?? result.tool;
+      summary.args = result.args;
     }
 
     if (result.ok && result.evaluationAlert) {
