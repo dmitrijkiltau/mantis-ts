@@ -27,6 +27,33 @@ type PipelineRunOptions = {
   allowLowScoreRetry?: boolean;
 };
 
+type PcInfoSummary = {
+  system?: {
+    platform: string;
+    hostname: string | null;
+    uptime: number | null;
+  };
+  cpu?: {
+    cores: number | null;
+    threads: number | null;
+    model: string | null;
+    usage: number | null;
+  };
+  memory?: {
+    totalBytes: number | null;
+    usedBytes: number | null;
+    freeBytes: number | null;
+    usagePercent: number | null;
+  };
+  disks?: Array<{
+    path: string;
+    totalBytes: number | null;
+    usedBytes: number | null;
+    freeBytes: number | null;
+    usagePercent: number | null;
+  }>;
+};
+
 export type DetectedLanguage = { language: string; name: string };
 
 const LANGUAGE_FALLBACK: DetectedLanguage = {
@@ -78,6 +105,20 @@ const isHttpResponseResult = (value: unknown): value is HttpResponseResult => {
     && typeof record.totalBytes === 'number'
     && typeof record.truncated === 'boolean'
     && typeof record.redirected === 'boolean'
+  );
+};
+
+const isPcInfoSummary = (value: unknown): value is PcInfoSummary => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.system === 'object'
+    || typeof record.cpu === 'object'
+    || typeof record.memory === 'object'
+    || Array.isArray(record.disks)
   );
 };
 
@@ -423,6 +464,9 @@ export class Pipeline {
         });
       }
       toolArgs = toolArgResult.value as Record<string, unknown>;
+      if (activeToolName === 'pcinfo') {
+        toolArgs = this.normalizePcInfoArgs(userInput, toolArgs);
+      }
     }
 
     const schemaValidation = this.validateToolArgsSchema(tool, toolArgs);
@@ -1680,6 +1724,153 @@ export class Pipeline {
   }
 
   /**
+   * Normalizes pcinfo arguments to include all metrics for generic requests.
+   */
+  private normalizePcInfoArgs(
+    userInput: string,
+    args: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const metrics = args.metrics;
+    if (!Array.isArray(metrics)) {
+      return args;
+    }
+
+    const metricHints = /cpu|processor|ram|memory|disk|drive|storage|system|uptime|hostname|os|prozessor|speicher|festplatte|platte|laufzeit|betriebszeit|rechner/i;
+    if (!metricHints.test(userInput)) {
+      return { ...args, metrics: null };
+    }
+
+    return args;
+  }
+
+  /**
+   * Formats bytes into a human-readable string.
+   */
+  private formatBytes(bytes: number | null | undefined): string {
+    if (!bytes || !Number.isFinite(bytes)) {
+      return 'N/A';
+    }
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+
+  /**
+   * Formats uptime seconds into a short string.
+   */
+  private formatUptime(seconds: number | null | undefined): string {
+    if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
+      return 'N/A';
+    }
+    const totalSeconds = Math.max(0, Math.floor(seconds));
+    const days = Math.floor(totalSeconds / 86_400);
+    const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+    const minutes = Math.floor((totalSeconds % 3_600) / 60);
+    const parts: string[] = [];
+    if (days > 0) {
+      parts.push(`${days}d`);
+    }
+    if (hours > 0 || days > 0) {
+      parts.push(`${hours}h`);
+    }
+    parts.push(`${minutes}m`);
+    return parts.join(' ');
+  }
+
+  /**
+   * Builds a localized pcinfo summary from structured data.
+   */
+  private buildPcInfoSummary(result: PcInfoSummary, language: DetectedLanguage): string {
+    const isGerman = language.language.startsWith('de');
+    const labels = isGerman
+      ? {
+          system: 'System',
+          hostname: 'Hostname',
+          uptime: 'Betriebszeit',
+          platform: 'Plattform',
+          cpu: 'CPU',
+          memory: 'RAM',
+          disk: 'Datenträger',
+          usage: 'Auslastung',
+          cores: 'Kerne',
+          threads: 'Threads',
+          free: 'Frei',
+        }
+      : {
+          system: 'System',
+          hostname: 'Hostname',
+          uptime: 'Uptime',
+          platform: 'Platform',
+          cpu: 'CPU',
+          memory: 'RAM',
+          disk: 'Disk',
+          usage: 'Usage',
+          cores: 'cores',
+          threads: 'threads',
+          free: 'Free',
+        };
+
+    const lines: string[] = [];
+
+    if (result.system) {
+      const hostname = result.system.hostname ?? 'N/A';
+      const platform = result.system.platform ?? 'unknown';
+      const uptime = this.formatUptime(result.system.uptime);
+      lines.push(
+        `${labels.system}: ${labels.platform} ${platform}, ${labels.hostname} ${hostname}, ${labels.uptime} ${uptime}.`,
+      );
+    }
+
+    if (result.cpu) {
+      const model = result.cpu.model ?? 'Unknown CPU';
+      const cores = result.cpu.cores ?? 'N/A';
+      const threads = result.cpu.threads ?? 'N/A';
+      const usage = result.cpu.usage !== null && Number.isFinite(result.cpu.usage)
+        ? `${result.cpu.usage.toFixed(1)}%`
+        : 'N/A';
+      lines.push(
+        `${labels.cpu}: ${model} (${cores} ${labels.cores} / ${threads} ${labels.threads}), ${labels.usage} ${usage}.`,
+      );
+    }
+
+    if (result.memory) {
+      const total = this.formatBytes(result.memory.totalBytes);
+      const used = this.formatBytes(result.memory.usedBytes);
+      const free = this.formatBytes(result.memory.freeBytes);
+      const usage = result.memory.usagePercent !== null && Number.isFinite(result.memory.usagePercent)
+        ? `${result.memory.usagePercent.toFixed(1)}%`
+        : 'N/A';
+      lines.push(
+        `${labels.memory}: ${used} / ${total} (${labels.usage} ${usage}), ${labels.free} ${free}.`,
+      );
+    }
+
+    if (result.disks && result.disks.length > 0) {
+      const entries: string[] = [];
+      const count = Math.min(result.disks.length, 2);
+      for (let index = 0; index < count; index += 1) {
+        const disk = result.disks[index];
+        if (!disk) {
+          continue;
+        }
+        const total = this.formatBytes(disk.totalBytes);
+        const used = this.formatBytes(disk.usedBytes);
+        const usage = disk.usagePercent !== null && Number.isFinite(disk.usagePercent)
+          ? `${disk.usagePercent.toFixed(1)}%`
+          : 'N/A';
+        entries.push(`${disk.path}: ${used} / ${total} (${usage})`);
+      }
+      const extra = result.disks.length > 2
+        ? ` +${result.disks.length - 2} more`
+        : '';
+      lines.push(`${labels.disk}: ${entries.join('; ')}${extra}.`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
    * Builds a compact reference context for scoring comparisons.
    */
   private formatReferenceContext(
@@ -1719,6 +1910,10 @@ export class Pipeline {
     userInput: string,
     contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
+    if (toolName === 'pcinfo' && isPcInfoSummary(toolResult)) {
+      return this.buildPcInfoSummary(toolResult, language);
+    }
+
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
     const summaryContext = `User question: ${userInput}`;

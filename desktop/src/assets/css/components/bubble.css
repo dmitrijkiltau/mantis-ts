@@ -384,6 +384,10 @@
         &.tool-output-accordion--http .tool-output-accordion-body {
           @apply p-0;
         }
+
+        &.tool-output-accordion--pcinfo .tool-output-accordion-body {
+          @apply p-0;
+        }
       }
     }
 
@@ -436,6 +440,87 @@
           @apply absolute top-0 -left-13 w-10 text-right text-primary-60 text-[10px] leading-[inherit];
         }
       }
+    }
+
+    .pcinfo-panel {
+      @apply flex flex-col gap-3 p-3;
+    }
+
+    .pcinfo-card {
+      @apply rounded border border-primary-30 bg-bg-black;
+      box-shadow: var(--shadow-inset-glow);
+    }
+
+    .pcinfo-card + .pcinfo-card {
+      @apply border-t border-primary-30;
+    }
+
+    .pcinfo-card-header {
+      @apply px-3 py-2 text-[10px] font-bold tracking-widest text-terminal-cyan bg-primary-10 border-b border-primary-30;
+    }
+
+    .pcinfo-card-body {
+      @apply flex flex-col gap-2 p-3 text-[11px];
+    }
+
+    .pcinfo-title {
+      @apply text-terminal-primary font-semibold;
+    }
+
+    .pcinfo-row {
+      @apply flex items-center justify-between gap-3 text-[11px];
+    }
+
+    .pcinfo-row-label {
+      @apply text-primary-60 font-semibold tracking-widest;
+    }
+
+    .pcinfo-row-value {
+      @apply text-terminal-primary font-mono;
+    }
+
+    .pcinfo-bar {
+      @apply flex flex-col gap-1;
+    }
+
+    .pcinfo-bar-label {
+      @apply text-primary-60 font-semibold tracking-widest text-[10px];
+    }
+
+    .pcinfo-bar-track {
+      @apply relative h-3 rounded border border-primary-30 bg-bg-terminal;
+    }
+
+    .pcinfo-bar-fill {
+      @apply absolute left-0 top-0 h-full rounded bg-terminal-emerald/30;
+    }
+
+    .pcinfo-bar-value {
+      @apply absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-terminal-emerald;
+    }
+
+    .pcinfo-bar-detail {
+      @apply text-[10px] font-mono text-primary-60;
+    }
+
+    .pcinfo-disk {
+      @apply flex flex-col gap-2 border-t border-primary-30 pt-2;
+    }
+
+    .pcinfo-disk:first-child {
+      @apply border-t-0 pt-0;
+    }
+
+    .tool-output-pcinfo-title {
+      @apply flex flex-wrap items-center gap-2;
+    }
+
+    .tool-output-pcinfo-host {
+      @apply text-terminal-primary text-[11px] font-mono;
+    }
+
+    .tool-output-pcinfo-subtitle {
+      @apply text-[10px] font-mono text-primary-60;
     }
 
     .tool-output-panel {

@@ -49,6 +49,41 @@ type ProcessListResult = {
   processes: ProcessInfo[];
 };
 
+type PcInfoSystem = {
+  platform: string;
+  hostname: string | null;
+  uptime: number | null;
+};
+
+type PcInfoCpu = {
+  cores: number | null;
+  threads: number | null;
+  model: string | null;
+  usage: number | null;
+};
+
+type PcInfoMemory = {
+  totalBytes: number | null;
+  usedBytes: number | null;
+  freeBytes: number | null;
+  usagePercent: number | null;
+};
+
+type PcInfoDisk = {
+  path: string;
+  totalBytes: number | null;
+  usedBytes: number | null;
+  freeBytes: number | null;
+  usagePercent: number | null;
+};
+
+type PcInfoPayload = {
+  system?: PcInfoSystem;
+  cpu?: PcInfoCpu;
+  memory?: PcInfoMemory;
+  disks?: PcInfoDisk[];
+};
+
 type FileTreeRow = {
   name: string;
   kind: 'file' | 'folder' | 'other';
@@ -694,6 +729,30 @@ const formatRuntime = (seconds: number): string => {
   return `${hours}h ${mins}m`;
 };
 
+/**
+ * Formats uptime seconds into a human-readable short string.
+ */
+const formatUptime = (seconds: number | null): string => {
+  if (seconds === null || !Number.isFinite(seconds)) {
+    return 'N/A';
+  }
+
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+  if (hours > 0 || days > 0) {
+    parts.push(`${hours}h`);
+  }
+  parts.push(`${minutes}m`);
+  return parts.join(' ');
+};
+
 const renderProcessListPayload = (payload: ProcessListResult): string => {
   const header = `
     <div class="process-list-header">
@@ -1018,6 +1077,19 @@ const isProcessListPayload = (value: unknown): value is ProcessListResult => {
     && Array.isArray(record.processes);
 };
 
+const isPcInfoPayload = (value: unknown): value is PcInfoPayload => {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const hasSystem = isObjectRecord(record.system);
+  const hasCpu = isObjectRecord(record.cpu);
+  const hasMemory = isObjectRecord(record.memory);
+  const hasDisks = Array.isArray(record.disks);
+  return hasSystem || hasCpu || hasMemory || hasDisks;
+};
+
 const parseBubbleJson = (text: string): unknown | null => {
   const trimmed = text.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
@@ -1220,6 +1292,125 @@ const renderHttpResponsePayload = (
   `;
 };
 
+/**
+ * Renders a label/value row for PC info cards.
+ */
+const renderPcInfoRow = (label: string, value: string): string => `
+  <div class="pcinfo-row">
+    <span class="pcinfo-row-label">${escapeHtml(label)}</span>
+    <span class="pcinfo-row-value">${escapeHtml(value)}</span>
+  </div>
+`;
+
+/**
+ * Renders a usage bar for PC info metrics.
+ */
+const renderPcInfoUsageBar = (label: string, percent: number | null, detail?: string): string => {
+  const value = percent === null || !Number.isFinite(percent) ? null : Math.max(0, Math.min(100, percent));
+  const display = value === null ? 'N/A' : `${value.toFixed(1)}%`;
+  const detailText = detail ? `<span class="pcinfo-bar-detail">${escapeHtml(detail)}</span>` : '';
+
+  return `
+    <div class="pcinfo-bar">
+      <span class="pcinfo-bar-label">${escapeHtml(label)}</span>
+      <div class="pcinfo-bar-track">
+        <div class="pcinfo-bar-fill" style="width: ${value ?? 0}%"></div>
+        <span class="pcinfo-bar-value">${display}</span>
+      </div>
+      ${detailText}
+    </div>
+  `;
+};
+
+/**
+ * Renders the PC info payload into a card-based layout.
+ */
+const renderPcInfoPayload = (payload: PcInfoPayload): string => {
+  const system = payload.system;
+  const cpu = payload.cpu;
+  const memory = payload.memory;
+  const disks = payload.disks ?? [];
+
+  const systemRows = system
+    ? [
+        renderPcInfoRow('Platform', system.platform ?? 'N/A'),
+        renderPcInfoRow('Hostname', system.hostname ?? 'N/A'),
+        renderPcInfoRow('Uptime', formatUptime(system.uptime)),
+      ].join('')
+    : '';
+
+  const cpuModel = cpu?.model ?? 'Unknown CPU';
+  const cpuMeta = cpu
+    ? `${cpu.cores ?? 'N/A'} cores / ${cpu.threads ?? 'N/A'} threads`
+    : 'N/A';
+
+  const cpuSection = cpu
+    ? `
+      <div class="pcinfo-card">
+        <div class="pcinfo-card-header">CPU</div>
+        <div class="pcinfo-card-body">
+          <div class="pcinfo-title">${escapeHtml(cpuModel)}</div>
+          ${renderPcInfoRow('Topology', cpuMeta)}
+          ${renderPcInfoUsageBar('Usage', cpu.usage, cpu?.usage !== null ? 'Current load' : undefined)}
+        </div>
+      </div>
+    `
+    : '';
+
+  const memorySection = memory
+    ? `
+      <div class="pcinfo-card">
+        <div class="pcinfo-card-header">MEMORY</div>
+        <div class="pcinfo-card-body">
+          ${renderPcInfoUsageBar(
+            'Usage',
+            memory.usagePercent,
+            memory.totalBytes ? `${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes)}` : 'N/A',
+          )}
+          ${renderPcInfoRow('Free', memory.freeBytes !== null ? formatBytes(memory.freeBytes) : 'N/A')}
+        </div>
+      </div>
+    `
+    : '';
+
+  const diskSection = disks.length > 0
+    ? `
+      <div class="pcinfo-card">
+        <div class="pcinfo-card-header">DISK</div>
+        <div class="pcinfo-card-body">
+          ${disks.map((disk) => `
+            <div class="pcinfo-disk">
+              <div class="pcinfo-title">${escapeHtml(disk.path)}</div>
+              ${renderPcInfoUsageBar(
+                'Usage',
+                disk.usagePercent,
+                disk.totalBytes ? `${formatBytes(disk.usedBytes ?? 0)} / ${formatBytes(disk.totalBytes)}` : 'N/A',
+              )}
+              ${renderPcInfoRow('Free', disk.freeBytes !== null ? formatBytes(disk.freeBytes) : 'N/A')}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `
+    : '';
+
+  return `
+    <div class="pcinfo-panel">
+      ${systemRows ? `
+        <div class="pcinfo-card">
+          <div class="pcinfo-card-header">SYSTEM</div>
+          <div class="pcinfo-card-body">
+            ${systemRows}
+          </div>
+        </div>
+      ` : ''}
+      ${cpuSection}
+      ${memorySection}
+      ${diskSection}
+    </div>
+  `;
+};
+
 const isHttpResponsePayload = (value: unknown): value is HttpResponseResult => {
   if (!isObjectRecord(value)) {
     return false;
@@ -1275,6 +1466,10 @@ const renderToolOutputPreview = (raw: unknown): string => {
     return renderHttpResponsePayload(raw);
   }
 
+  if (isPcInfoPayload(raw)) {
+    return renderPcInfoPayload(raw);
+  }
+
   const serialized = safeJsonStringify(raw);
   if (serialized) {
     return renderCodeBlock(serialized, 'json');
@@ -1286,6 +1481,29 @@ const renderToolOutputPreview = (raw: unknown): string => {
 const renderToolJsonAccordion = (raw: unknown): string => {
   if (isFilePayload(raw)) {
     return renderFileOutputAccordion(raw);
+  }
+
+  if (isPcInfoPayload(raw)) {
+    const platform = raw.system?.platform ? raw.system.platform.toUpperCase() : 'SYSTEM';
+    const hostname = raw.system?.hostname ?? platform;
+    const subtitle = raw.system ? `UPTIME ${formatUptime(raw.system.uptime)}` : platform;
+
+    return `
+      <details class="tool-output-accordion tool-output-accordion--pcinfo" data-view-root="true" data-view="preview">
+        <summary class="tool-output-accordion-summary">
+          <div class="tool-output-accordion-title">
+            <div class="tool-output-pcinfo-title">
+              <span class="tool-output-accordion-label">PC INFO</span>
+              <span class="tool-output-pcinfo-host">${escapeHtml(hostname)}</span>
+            </div>
+            <span class="tool-output-pcinfo-subtitle">${escapeHtml(subtitle)}</span>
+          </div>
+        </summary>
+        <div class="tool-output-accordion-body">
+          ${renderPcInfoPayload(raw)}
+        </div>
+      </details>
+    `;
   }
 
   if (isHttpResponsePayload(raw)) {

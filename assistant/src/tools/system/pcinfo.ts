@@ -111,7 +111,11 @@ const normalizeMetrics = (metrics: string[] | null | undefined): string[] => {
     }
   }
 
-  return normalized.length > 0 ? normalized : DEFAULT_METRICS;
+  const result = normalized.length > 0 ? normalized : DEFAULT_METRICS;
+  if (!result.includes('system')) {
+    result.unshift('system');
+  }
+  return result;
 };
 
 /* -------------------------------------------------------------------------
