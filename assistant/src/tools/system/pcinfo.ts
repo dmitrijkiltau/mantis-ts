@@ -106,8 +106,9 @@ const normalizeMetrics = (metrics: string[] | null | undefined): string[] => {
       continue;
     }
     const lower = metric.toLowerCase().trim();
-    if (VALID_METRICS.has(lower)) {
-      normalized.push(lower);
+    const mapped = lower === 'ram' ? 'memory' : lower === 'storage' ? 'disk' : lower;
+    if (VALID_METRICS.has(mapped)) {
+      normalized.push(mapped);
     }
   }
 
