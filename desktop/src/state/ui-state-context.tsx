@@ -28,8 +28,6 @@ type UIRefSetters = {
   statusSystem: (element: HTMLElement) => void;
   statusState: (element: HTMLElement) => void;
   statusAction: (element: HTMLElement) => void;
-  contractModelList: (element: HTMLElement) => void;
-  contractModelCount: (element: HTMLElement) => void;
   statQueries: (element: HTMLElement) => void;
   statRuntime: (element: HTMLElement) => void;
   telemetryTotal: (element: HTMLElement) => void;
@@ -59,8 +57,6 @@ type UINodeAccessors = {
   statusSystem: Accessor<HTMLElement | null>;
   statusState: Accessor<HTMLElement | null>;
   statusAction: Accessor<HTMLElement | null>;
-  contractModelList: Accessor<HTMLElement | null>;
-  contractModelCount: Accessor<HTMLElement | null>;
   statQueries: Accessor<HTMLElement | null>;
   statRuntime: Accessor<HTMLElement | null>;
   telemetryTotal: Accessor<HTMLElement | null>;
@@ -102,8 +98,6 @@ export const UIStateProvider: ParentComponent = (props) => {
   const [statusSystem, setStatusSystem] = createSignal<HTMLElement | null>(null);
   const [statusState, setStatusState] = createSignal<HTMLElement | null>(null);
   const [statusAction, setStatusAction] = createSignal<HTMLElement | null>(null);
-  const [contractModelList, setContractModelList] = createSignal<HTMLElement | null>(null);
-  const [contractModelCount, setContractModelCount] = createSignal<HTMLElement | null>(null);
   const [statQueries, setStatQueries] = createSignal<HTMLElement | null>(null);
   const [statRuntime, setStatRuntime] = createSignal<HTMLElement | null>(null);
   const [telemetryTotal, setTelemetryTotal] = createSignal<HTMLElement | null>(null);
@@ -133,8 +127,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     statusSystem: (element) => setStatusSystem(element),
     statusState: (element) => setStatusState(element),
     statusAction: (element) => setStatusAction(element),
-    contractModelList: (element) => setContractModelList(element),
-    contractModelCount: (element) => setContractModelCount(element),
     statQueries: (element) => setStatQueries(element),
     statRuntime: (element) => setStatRuntime(element),
     telemetryTotal: (element) => setTelemetryTotal(element),
@@ -164,8 +156,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     statusSystem,
     statusState,
     statusAction,
-    contractModelList,
-    contractModelCount,
     statQueries,
     statRuntime,
     telemetryTotal,

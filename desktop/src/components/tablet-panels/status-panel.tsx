@@ -2,6 +2,7 @@
 import type { Component } from 'solid-js';
 import { useUIRefs } from '../../state/ui-state-context';
 import { useTabletTabs } from '../../state/tablet-tabs-context';
+import { ContractModels } from '../contract-models';
 
 /**
  * Renders the system status panel.
@@ -27,15 +28,7 @@ export const StatusPanel: Component = () => {
             <span class="status-value" id="status-action" ref={refs.statusAction}>NONE</span>
           </div>
         </div>
-        <div class="status-contracts">
-          <div class="status-section-header">
-            <div class="status-section-label">CONTRACT MODELS</div>
-            <div class="status-section-meta" id="contract-model-count" ref={refs.contractModelCount}>0 models</div>
-          </div>
-          <div class="contract-model-list" id="contract-models" ref={refs.contractModelList}>
-            <div class="contract-model-placeholder">Loading contract models...</div>
-          </div>
-        </div>
+        <ContractModels />
       </div>
     </div>
   );
