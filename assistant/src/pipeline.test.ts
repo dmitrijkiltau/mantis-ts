@@ -21,6 +21,7 @@ describe('Pipeline', () => {
       buildIntentClassificationPrompt: vi.fn(),
       buildLanguageDetectionPrompt: vi.fn(),
       buildToolArgumentPrompt: vi.fn(),
+      buildToolArgumentVerificationPrompt: vi.fn(),
       buildStrictAnswerPrompt: vi.fn(),
       buildResponseFormattingPrompt: vi.fn(),
       buildScoringPrompt: vi.fn().mockReturnValue({
@@ -32,6 +33,7 @@ describe('Pipeline', () => {
       validateIntentClassification: vi.fn(),
       validateLanguageDetection: vi.fn(),
       validateToolArguments: vi.fn(),
+      validateToolArgumentVerification: vi.fn(),
       validateStrictAnswer: vi.fn(),
       validateResponseFormatting: vi.fn(),
       validateScoring: vi.fn(),
@@ -464,29 +466,6 @@ describe('Pipeline', () => {
     it('should return false for confidence = 0', () => {
       const result = (pipeline as any).meetsToolConfidence(0);
       expect(result).toBe(false);
-    });
-  });
-
-  describe('hasExplicitToolTrigger', () => {
-    it('returns true when the user explicitly invokes the tool', () => {
-      const result = (pipeline as any).hasExplicitToolTrigger(
-        'Please copy this text from the clipboard',
-        'clipboard',
-      );
-      expect(result).toBe(true);
-    });
-
-    it('returns false when the tool intent is not supported by the user input', () => {
-      const result = (pipeline as any).hasExplicitToolTrigger(
-        'Welcher Wochentag ist heute?',
-        'clipboard',
-      );
-      expect(result).toBe(false);
-    });
-
-    it('returns true when a relevant trigger keyword exists for the tool', () => {
-      const result = (pipeline as any).hasExplicitToolTrigger('Show me running processes', 'process');
-      expect(result).toBe(true);
     });
   });
 

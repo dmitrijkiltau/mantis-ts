@@ -30,12 +30,15 @@ type SearchToolResult = {
 
 type NodeModules = {
   readDir: (path: string) => Promise<Array<{ name: string; isFile: boolean; isDirectory: boolean; isSymlink: boolean }>>;
+  readTextFile: (path: string) => Promise<string>;
 };
 
 type SearchFrame = {
   directory: string;
   depth: number;
 };
+
+type IgnoreMatcher = (relativePath: string, name: string, isDirectory: boolean) => boolean;
 
 /* -------------------------------------------------------------------------
  * CONSTANTS
@@ -45,6 +48,15 @@ const DEFAULT_MAX_RESULTS = 25;
 const MAX_MAX_RESULTS = 250;
 const DEFAULT_MAX_DEPTH = 4;
 const MAX_MAX_DEPTH = 10;
+const DEFAULT_IGNORES = new Set<string>([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  '.next',
+  '.cache',
+  'target',
+]);
 
 /* -------------------------------------------------------------------------
  * STATE
@@ -58,8 +70,8 @@ let nodeModules: NodeModules | null = null;
 
 const loadNodeModules = async (): Promise<NodeModules> => {
   if (nodeModules) return nodeModules;
-  const { readDir } = await import('@tauri-apps/plugin-fs');
-  nodeModules = { readDir };
+  const { readDir, readTextFile } = await import('@tauri-apps/plugin-fs');
+  nodeModules = { readDir, readTextFile };
   return nodeModules;
 };
 
@@ -85,6 +97,51 @@ const resolveSafeRoot = async (
   }
   
   return normalizedBase;
+};
+
+const buildGitignoreMatchers = (content: string): IgnoreMatcher[] => {
+  const lines = content.split('\n');
+  const matchers: IgnoreMatcher[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const dirOnly = line.endsWith('/');
+    const cleaned = line.replace(/\/+$/, '');
+    if (!cleaned) {
+      continue;
+    }
+    const lower = cleaned.toLowerCase();
+    const hasSlash = lower.includes('/');
+
+    if (hasSlash) {
+      matchers.push((relativePath) => relativePath.toLowerCase().startsWith(lower));
+      continue;
+    }
+
+    matchers.push((relativePath, name, isDirectory) => {
+      if (dirOnly && !isDirectory) {
+        return false;
+      }
+      if (name.toLowerCase() === lower) {
+        return true;
+      }
+      return relativePath.toLowerCase().split('/').includes(lower);
+    });
+  }
+
+  return matchers;
+};
+
+const loadGitignoreMatchers = async (root: string, modules: NodeModules): Promise<IgnoreMatcher[]> => {
+  try {
+    const content = await modules.readTextFile(`${root}/.gitignore`);
+    return buildGitignoreMatchers(content);
+  } catch {
+    return [];
+  }
 };
 
 /* -------------------------------------------------------------------------
@@ -123,6 +180,24 @@ const searchFileSystem = async (
   const matches: SearchMatch[] = [];
   const stack: SearchFrame[] = [{ directory: root, depth: 0 }];
   let truncated = false;
+  const gitignoreMatchers = await loadGitignoreMatchers(root, modules);
+
+  const isIgnored = (entryPath: string, name: string, isDirectory: boolean): boolean => {
+    const lowerName = name.toLowerCase();
+    if (DEFAULT_IGNORES.has(lowerName)) {
+      return true;
+    }
+
+    const relativePath = entryPath.slice(root.length + 1);
+    for (let index = 0; index < gitignoreMatchers.length; index += 1) {
+      const matcher = gitignoreMatchers[index];
+      if (!matcher) continue;
+      if (matcher(relativePath, name, isDirectory)) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const matchesQuery = (name: string): boolean => {
     const lowerName = name.toLowerCase();
@@ -152,6 +227,10 @@ const searchFileSystem = async (
 
       const entryPath = normalizePath(`${directory}/${entry.name}`);
       const nextDepth = depth + 1;
+
+      if (isIgnored(entryPath, entry.name, entry.isDirectory)) {
+        continue;
+      }
 
       if (entry.isDirectory) {
         if (includeDirectories && matchesQuery(entry.name)) {
@@ -183,7 +262,7 @@ const searchFileSystem = async (
 
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
-  description: 'DISCOVERY. Use to find files/dirs by name/pattern when the path is unknown. Triggers: "find", "locate", "where is".',
+  description: 'DISCOVERY. Use to find files/dirs by name or pattern when the path is unknown. Do NOT use when the user provides a specific path; use filesystem list/read instead. Skips common build/VC dirs (e.g., .git, node_modules). Triggers: "find", "locate", "where is".',
   schema: {
     query: 'string',
     baseDir: 'string',

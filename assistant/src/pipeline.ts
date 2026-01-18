@@ -8,11 +8,15 @@ import {
   type ToolName,
 } from './tools/registry.js';
 import type { FieldType } from './contracts/definition.js';
+import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
 
 const TOOL_INTENT_PREFIX = 'tool.';
 const MIN_TOOL_CONFIDENCE = 0.6;
+const TOOL_ARGUMENT_VERIFICATION_RETRIES = 1;
+const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
+const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
 const LOW_SCORE_THRESHOLD = 4;
 
@@ -70,17 +74,6 @@ function deriveDetectedLanguage(code?: string): DetectedLanguage {
     name: formatLanguageDisplayName(normalized),
   };
 }
-
-const TOOL_TRIGGERS: Record<ToolName, string[]> = {
-  clipboard: ['clipboard', 'copy', 'paste', 'clipboard text', 'clip'],
-  filesystem: ['file', 'read', 'list', 'ls', 'dir', 'cat', 'tree'],
-  search: ['search', 'lookup', 'find', 'google', 'bing', 'look up'],
-  fetch: ['fetch', 'download', 'get', 'grab'],
-  http: ['http', 'curl', 'post', 'request', 'headers', 'status'],
-  process: ['ps', 'process', 'task', 'processes', 'running processes'],
-  shell: ['run', 'execute', 'shell', 'command', 'script'],
-  pcinfo: ['pc', 'system', 'info', 'spec', 'hardware', 'configuration'],
-};
 
 /**
  * Helper to measure execution duration in milliseconds.
@@ -164,7 +157,6 @@ type PipelineSummaryStage =
   | 'non_tool_intent'
   | 'low_confidence'
   | 'tool_not_found'
-  | 'trigger_guard'
   | 'argument_extraction_failed'
   | 'null_tool_arguments';
 
@@ -299,120 +291,283 @@ export class Pipeline {
       });
     }
 
-    if (!this.hasExplicitToolTrigger(userInput, toolName)) {
-      Logger.debug(
-        'pipeline',
-        `Tool intent ${toolName} lacked an explicit trigger, falling back to non-tool answer`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'trigger_guard',
-        tool: toolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
+    const pathCandidate = this.extractPathCandidate(userInput);
+    let activeToolName = toolName;
+    let toolOverrideReason: string | undefined;
+    let extractionNotes: string | undefined;
+
+    if (toolName === 'search') {
+      extractionNotes =
+        'Queries are filenames or patterns, not full paths. Do not convert explicit paths into queries. Use provided paths as baseDir/startPath when present.';
+      if (pathCandidate) {
+        activeToolName = 'filesystem';
+        toolOverrideReason = 'search_to_filesystem_path_detected';
+        Logger.debug('pipeline', 'Overriding search intent to filesystem due to explicit path', {
+          path: pathCandidate,
+        });
+        extractionNotes = `Detected path: ${pathCandidate}\nUse action "list" unless user explicitly asked to read a file.`;
+      }
     }
 
-    const tool = getToolDefinition(toolName);
+    const tool = getToolDefinition(activeToolName);
     const schemaKeys = Object.keys(tool.schema);
-    if (schemaKeys.length === 0) {
-      Logger.debug('pipeline', `Executing tool: ${toolName} (no arguments)`);
-      const toolResult = await this.executeAndFormatTool(
-        toolName,
-        tool,
-        {},
-        userInput,
-        toneInstructions,
-        intent,
-        intentResult.attempts,
-        pipelineStartMs,
-      );
-      return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
-        tool: toolName,
-        reason: 'no_arguments',
-      });
+    let attemptsSoFar = intentResult.attempts;
+    let toolArgs: Record<string, unknown> = {};
+
+    if (schemaKeys.length > 0) {
+      Logger.debug('pipeline', `Extracting arguments for tool: ${activeToolName}`);
+      const toolArgResult = await this.extractToolArguments(tool, userInput, extractionNotes);
+      attemptsSoFar += toolArgResult.attempts;
+      if (!toolArgResult.ok) {
+        Logger.warn(
+          'pipeline',
+          `Tool argument extraction failed for ${activeToolName}, falling back to strict answer`,
+        );
+        const result = await this.runNonToolAnswer(
+          userInput,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+          personalityDescription,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'argument_extraction_failed',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+      toolArgs = toolArgResult.value as Record<string, unknown>;
     }
 
-    Logger.debug('pipeline', `Extracting arguments for tool: ${toolName}`);
-    const toolArgStartMs = Date.now();
-    const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
-      tool.name,
+    const verification = await this.verifyToolArguments(
+      activeToolName,
       tool.description,
       tool.schema,
       userInput,
+      toolArgs,
     );
-    const toolArgResult = await this.runner.executeContract(
-      'TOOL_ARGUMENT_EXTRACTION',
-      toolArgPrompt,
-      (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
-    );
-    const toolArgDurationMs = measureDurationMs(toolArgStartMs);
-    Logger.debug('pipeline', 'Tool argument extraction stage completed', {
-      durationMs: toolArgDurationMs,
-    });
-
-    if (!toolArgResult.ok) {
+    attemptsSoFar += verification.attempts;
+    if (!verification.ok) {
       Logger.warn(
         'pipeline',
-        `Tool argument extraction failed for ${toolName}, falling back to strict answer`,
+        `Tool argument verification failed for ${activeToolName}, falling back to strict answer`,
       );
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
-        intentResult.attempts + toolArgResult.attempts,
+        attemptsSoFar,
         toneInstructions,
         personalityDescription,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_extraction_failed',
-        tool: toolName,
+        reason: 'argument_verification_failed',
+        tool: activeToolName,
         intent: intent.intent,
         intentConfidence: intent.confidence,
       });
     }
 
-    if (this.shouldSkipToolExecution(tool.schema, toolArgResult.value)) {
+    let verificationResult = verification.value;
+    Logger.debug('pipeline', 'Tool argument verification decision', {
+      tool: activeToolName,
+      decision: verificationResult.decision,
+      confidence: verificationResult.confidence,
+      reason: verificationResult.reason,
+    });
+
+    for (let retry = 0; retry < TOOL_ARGUMENT_VERIFICATION_RETRIES; retry += 1) {
+      if (verificationResult.decision !== 'retry') {
+        break;
+      }
+      if (schemaKeys.length === 0) {
+        break;
+      }
+
+      const verifierNotes = this.buildVerificationNotes(verificationResult);
+      Logger.debug('pipeline', 'Retrying tool argument extraction', {
+        tool: activeToolName,
+        attempt: retry + 1,
+        reason: verificationResult.reason,
+      });
+      const retryResult = await this.extractToolArguments(
+        tool,
+        userInput,
+        verifierNotes || extractionNotes,
+      );
+      attemptsSoFar += retryResult.attempts;
+      if (!retryResult.ok) {
+        Logger.warn(
+          'pipeline',
+          `Tool argument retry failed for ${activeToolName}, falling back to strict answer`,
+        );
+        const result = await this.runNonToolAnswer(
+          userInput,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+          personalityDescription,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'argument_extraction_failed',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+
+      toolArgs = retryResult.value as Record<string, unknown>;
+      const retryVerification = await this.verifyToolArguments(
+        activeToolName,
+        tool.description,
+        tool.schema,
+        userInput,
+        toolArgs,
+      );
+      attemptsSoFar += retryVerification.attempts;
+      if (!retryVerification.ok) {
+        Logger.warn(
+          'pipeline',
+          `Tool argument verification retry failed for ${activeToolName}, falling back to strict answer`,
+        );
+        const result = await this.runNonToolAnswer(
+          userInput,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+          personalityDescription,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'argument_verification_failed',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+
+      verificationResult = retryVerification.value;
+      Logger.debug('pipeline', 'Tool argument verification decision', {
+        tool: toolName,
+        decision: verificationResult.decision,
+        confidence: verificationResult.confidence,
+        reason: verificationResult.reason,
+      });
+    }
+
+    if (verificationResult.decision === 'retry') {
       Logger.debug(
         'pipeline',
-        `Tool arguments are mostly null for ${toolName}, using strict answer instead`,
+        `Tool argument verification retries exhausted for ${activeToolName}, falling back to strict answer`,
       );
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
-        intentResult.attempts + toolArgResult.attempts,
+        attemptsSoFar,
+        toneInstructions,
+        personalityDescription,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'argument_verification_retry_exhausted',
+        tool: activeToolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
+    }
+
+    if (verificationResult.decision === 'abort') {
+      Logger.debug(
+        'pipeline',
+        `Tool argument verification aborted for ${activeToolName}, falling back to strict answer`,
+      );
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        attemptsSoFar,
+        toneInstructions,
+        personalityDescription,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'argument_verification_abort',
+        tool: activeToolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
+    }
+
+    if (verificationResult.decision === 'clarify') {
+      if (this.shouldClarifyToolArguments(intent.confidence, verificationResult)) {
+        const result = await this.runToolClarification(
+          userInput,
+          activeToolName,
+          verificationResult.missingFields,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'tool_clarify',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+
+      Logger.debug(
+        'pipeline',
+        `Clarify requested for ${activeToolName} but confidence too low, falling back to strict answer`,
+      );
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        attemptsSoFar,
+        toneInstructions,
+        personalityDescription,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'argument_verification_clarify_denied',
+        tool: activeToolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
+    }
+
+    if (this.shouldSkipToolExecution(tool.schema, toolArgs)) {
+      Logger.debug(
+        'pipeline',
+        `Tool arguments are mostly null for ${activeToolName}, using strict answer instead`,
+      );
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        attemptsSoFar,
         toneInstructions,
         personalityDescription,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
-        tool: toolName,
+        tool: activeToolName,
         intent: intent.intent,
         intentConfidence: intent.confidence,
       });
     }
 
-    Logger.debug('pipeline', `Executing tool: ${toolName}`, {
-      args: toolArgResult.value,
+    Logger.debug('pipeline', `Executing tool: ${activeToolName}`, {
+      args: toolArgs,
     });
 
     const toolResult = await this.executeAndFormatTool(
-      toolName,
+      activeToolName,
       tool,
-      toolArgResult.value as Record<string, unknown>,
+      toolArgs,
       userInput,
       toneInstructions,
       intent,
-      intentResult.attempts + toolArgResult.attempts,
+      attemptsSoFar,
       pipelineStartMs,
     );
     return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
-      tool: toolName,
+      tool: activeToolName,
+      ...(toolOverrideReason ? { reason: toolOverrideReason } : {}),
     });
   }
 
@@ -783,6 +938,24 @@ export class Pipeline {
     return candidate.includes('.');
   }
 
+  private extractPathCandidate(userInput: string): string | null {
+    const tokens = userInput.split(/\s+/);
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (!token) {
+        continue;
+      }
+      const unwrapped = this.stripWrappingQuotes(token.replace(/[?,]/g, ''));
+      if (!unwrapped) {
+        continue;
+      }
+      if (this.looksLikePath(unwrapped)) {
+        return unwrapped;
+      }
+    }
+    return null;
+  }
+
   private isHttpUrl(candidate: string): boolean {
     try {
       const url = new URL(candidate);
@@ -817,24 +990,146 @@ export class Pipeline {
     return confidence >= MIN_TOOL_CONFIDENCE;
   }
 
-  private hasExplicitToolTrigger(userInput: string, toolName: ToolName): boolean {
-    const triggers = TOOL_TRIGGERS[toolName];
-    if (!triggers || triggers.length === 0) {
-      return true;
-    }
-    const normalized = userInput.trim().toLowerCase();
+  /**
+   * Allows clarification only when tool intent confidence is very high.
+   */
+  private shouldClarifyToolArguments(
+    intentConfidence: number,
+    verification: ToolArgumentVerificationResult,
+  ): boolean {
+    return (
+      verification.decision === 'clarify' &&
+      intentConfidence >= MIN_CLARIFY_INTENT_CONFIDENCE &&
+      verification.confidence >= MIN_CLARIFY_VERIFICATION_CONFIDENCE
+    );
+  }
 
-    for (let index = 0; index < triggers.length; index += 1) {
-      const keyword = triggers[index];
-      if (!keyword) {
-        continue;
+  /**
+   * Builds retry notes for tool-argument extraction based on verification feedback.
+   */
+  private buildVerificationNotes(verification: ToolArgumentVerificationResult): string {
+    const notes: string[] = [];
+    if (verification.reason) {
+      notes.push(`Reason: ${verification.reason}`);
+    }
+    if (verification.missingFields && verification.missingFields.length > 0) {
+      notes.push(`Missing fields: ${verification.missingFields.join(', ')}`);
+    }
+    if (verification.suggestedArgs && Object.keys(verification.suggestedArgs).length > 0) {
+      notes.push(`Suggested args: ${JSON.stringify(verification.suggestedArgs)}`);
+    }
+    return notes.join('\n');
+  }
+
+  /**
+   * Builds a concise clarification question for missing tool arguments.
+   */
+  private buildClarificationQuestion(
+    toolName: ToolName,
+    missingFields?: string[],
+  ): string {
+    if (missingFields && missingFields.length > 0) {
+      if (missingFields.length === 1 && missingFields[0] === 'path') {
+        return 'Which path should I use?';
       }
-      if (normalized.includes(keyword)) {
-        return true;
-      }
+      return `I can use the ${toolName} tool, but I need ${missingFields.join(', ')}.`;
     }
 
-    return false;
+    return `I can use the ${toolName} tool for that, but I need a bit more detail.`;
+  }
+
+  /**
+   * Runs a clarification response when a tool is clearly intended.
+   */
+  private async runToolClarification(
+    userInput: string,
+    toolName: ToolName,
+    missingFields: string[] | undefined,
+    intent: { intent: string; confidence: number },
+    attempts: number,
+    toneInstructions: string | undefined,
+  ): Promise<PipelineResult> {
+    const languageResult = await this.detectLanguage(userInput);
+    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
+    const language = languageResult.language;
+    const question = this.buildClarificationQuestion(toolName, missingFields);
+    const formatted = await this.formatResponse(
+      question,
+      language,
+      toneInstructions,
+      userInput,
+      toolName,
+      question,
+    );
+    const scoring = await this.runScoringEvaluation(`tool.${toolName}.clarify`, formatted);
+    return {
+      ok: true,
+      kind: 'strict_answer',
+      value: formatted,
+      evaluation: scoring.evaluation,
+      evaluationAlert: scoring.alert,
+      intent,
+      language,
+      attempts: attempts + attemptOffset + scoring.attempts,
+    };
+  }
+
+  /**
+   * Extracts tool arguments using the argument extraction contract.
+   */
+  private async extractToolArguments(
+    tool: ReturnType<typeof getToolDefinition>,
+    userInput: string,
+    verifierNotes?: string,
+  ) {
+    const toolArgStartMs = Date.now();
+    const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
+      tool.name,
+      tool.description,
+      tool.schema,
+      userInput,
+      verifierNotes,
+    );
+    const toolArgResult = await this.runner.executeContract(
+      'TOOL_ARGUMENT_EXTRACTION',
+      toolArgPrompt,
+      (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
+    );
+    const toolArgDurationMs = measureDurationMs(toolArgStartMs);
+    Logger.debug('pipeline', 'Tool argument extraction stage completed', {
+      durationMs: toolArgDurationMs,
+    });
+    return toolArgResult;
+  }
+
+  /**
+   * Verifies tool arguments with a dedicated verification contract.
+   */
+  private async verifyToolArguments(
+    toolName: ToolName,
+    description: string,
+    schema: Record<string, FieldType>,
+    userInput: string,
+    extractedArgs: Record<string, unknown>,
+  ) {
+    const stageStartMs = Date.now();
+    const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
+      toolName,
+      description,
+      schema,
+      userInput,
+      extractedArgs,
+    );
+    const result = await this.runner.executeContract(
+      'TOOL_ARGUMENT_VERIFICATION',
+      prompt,
+      (raw) => this.orchestrator.validateToolArgumentVerification(raw),
+    );
+    const durationMs = measureDurationMs(stageStartMs);
+    Logger.debug('pipeline', 'Tool argument verification stage completed', {
+      durationMs,
+    });
+    return result;
   }
 
   private shouldSkipToolExecution(

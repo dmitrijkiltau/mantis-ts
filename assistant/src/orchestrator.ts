@@ -7,6 +7,10 @@ import {
 import {
   validateToolArguments,
 } from './contracts/tool.argument.extraction.js';
+import {
+  type ToolArgumentVerificationResult,
+  validateToolArgumentVerification,
+} from './contracts/tool.argument.verification.js';
 import { validateTextTransformation } from './contracts/text.transformation.js';
 import { validateScoring } from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
@@ -195,12 +199,45 @@ export class Orchestrator {
     description: string,
     schema: ToolSchema,
     userInput: string,
+    verifierNotes?: string,
   ): ContractPrompt {
+    const normalizedInput = this.normalize(userInput);
+    const normalizedNotes = verifierNotes?.trim();
+    const searchGuidance = toolName === 'search'
+      ? 'Tool-specific guidance: queries are filenames or patterns, not full paths. Do not convert explicit paths into query globs. Use provided paths as baseDir/startPath when present.'
+      : null;
+    const parts = [normalizedInput];
+    if (searchGuidance) {
+      parts.push(searchGuidance);
+    }
+    if (normalizedNotes) {
+      parts.push(`Verifier notes:\n${normalizedNotes}`);
+    }
+    const inputWithNotes = parts.join('\n\n');
     return this.buildPrompt('TOOL_ARGUMENT_EXTRACTION', {
       TOOL_NAME: toolName,
       TOOL_DESCRIPTION: description,
       TOOL_SCHEMA: this.formatToolSchema(schema),
+      USER_INPUT: inputWithNotes,
+    });
+  }
+
+  /**
+   * Builds a prompt to verify extracted tool arguments against user intent.
+   */
+  public buildToolArgumentVerificationPrompt(
+    toolName: string,
+    description: string,
+    schema: ToolSchema,
+    userInput: string,
+    extractedArgs: Record<string, unknown>,
+  ): ContractPrompt {
+    return this.buildPrompt('TOOL_ARGUMENT_VERIFICATION', {
+      TOOL_NAME: toolName,
+      TOOL_DESCRIPTION: description,
+      TOOL_SCHEMA: this.formatToolSchema(schema),
       USER_INPUT: this.normalize(userInput),
+      EXTRACTED_ARGS: this.formatToolArguments(extractedArgs),
     });
   }
 
@@ -305,6 +342,15 @@ export class Orchestrator {
     return validateToolArguments(schema)(raw);
   }
 
+  /**
+   * Validates tool-argument verification output.
+   */
+  public validateToolArgumentVerification(
+    raw: string,
+  ): ValidationResult<ToolArgumentVerificationResult> {
+    return validateToolArgumentVerification(raw);
+  }
+
   public validateTextTransformation(raw: string): ValidationResult<string> {
     return validateTextTransformation(raw);
   }
@@ -337,6 +383,17 @@ export class Orchestrator {
 
   public validateImageRecognition(raw: string): ValidationResult<string> {
     return validateImageRecognition(raw);
+  }
+
+  /**
+   * Formats tool arguments for deterministic prompt inclusion.
+   */
+  private formatToolArguments(args: Record<string, unknown>): string {
+    try {
+      return JSON.stringify(args, null, 2);
+    } catch {
+      return String(args);
+    }
   }
 
 }

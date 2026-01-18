@@ -15,7 +15,7 @@ type FilesystemToolArgs = {
 type DirectoryEntrySummary = {
   name: string;
   type: 'file' | 'directory' | 'other';
-  sizeBytes: number | null;
+  sizeBytes?: number | null;
 };
 
 type FileOpenResult = {
@@ -163,7 +163,7 @@ const listDirectory = async (
       continue;
     }
     let type: DirectoryEntrySummary['type'] = 'other';
-    let sizeBytes: number | null = null;
+    let sizeBytes: number | null | undefined = undefined;
 
     if (entry.isDirectory) {
       type = 'directory';
@@ -171,7 +171,7 @@ const listDirectory = async (
       type = 'file';
     }
 
-    if (type !== 'other') {
+    if (type === 'file') {
       const entryPath = joinPath(targetPath, entry.name);
       try {
         const stats = await fs.stat(entryPath);
