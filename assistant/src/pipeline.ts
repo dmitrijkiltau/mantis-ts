@@ -1715,11 +1715,12 @@ export class Pipeline {
     language: DetectedLanguage,
     toneInstructions: string | undefined,
     toolName: ToolName,
+    userInput: string,
     contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
-    const summaryContext = `Tool ${toolName} output only.`;
+    const summaryContext = `User question: ${userInput}`;
     return this.formatResponse(
       payload,
       language,
@@ -1868,6 +1869,7 @@ export class Pipeline {
         language,
         toneInstructions,
         toolName,
+        userInput,
         contextSnapshot,
       );
     }

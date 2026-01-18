@@ -1064,14 +1064,93 @@ const deriveLanguageFromContentType = (contentType: string | null): string | nul
   return null;
 };
 
+const VOID_HTML_TAGS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
+
 const formatHtmlContent = (content: string): string => {
   if (!content.includes('<')) {
     return content;
   }
 
-  return content
-    .replace(/>\s+</g, '>\n<')
-    .trim();
+  const tokenPattern = /<!--[\s\S]*?-->|<\/?[a-zA-Z][^>]*>/g;
+  const lines: string[] = [];
+  let indent = 0;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let inScriptStyle = false;
+
+  const pushText = (text: string): void => {
+    if (!text) {
+      return;
+    }
+    if (inScriptStyle) {
+      const parts = text.split(/\r?\n/);
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed) {
+          lines.push(`${'  '.repeat(indent)}${trimmed}`);
+        }
+      }
+      return;
+    }
+    const trimmed = text.replace(/\s+/g, ' ').trim();
+    if (trimmed) {
+      lines.push(`${'  '.repeat(indent)}${trimmed}`);
+    }
+  };
+
+  while ((match = tokenPattern.exec(content)) !== null) {
+    const matchIndex = match.index ?? 0;
+    if (matchIndex > lastIndex) {
+      pushText(content.slice(lastIndex, matchIndex));
+    }
+
+    const tagText = match[0] ?? '';
+    const tagNameMatch = tagText.match(/^<\/?([a-zA-Z0-9:-]+)/);
+    const tagName = (tagNameMatch?.[1] ?? '').toLowerCase();
+    const isClosing = tagText.startsWith('</');
+    const isSelfClosing = tagText.endsWith('/>') || VOID_HTML_TAGS.has(tagName);
+
+    if (tagName === 'script' || tagName === 'style') {
+      if (isClosing) {
+        inScriptStyle = false;
+      } else if (!isSelfClosing) {
+        inScriptStyle = true;
+      }
+    }
+
+    if (isClosing) {
+      indent = Math.max(0, indent - 1);
+    }
+
+    lines.push(`${'  '.repeat(indent)}${tagText.trim()}`);
+
+    if (!isClosing && !isSelfClosing) {
+      indent += 1;
+    }
+
+    lastIndex = matchIndex + tagText.length;
+  }
+
+  if (lastIndex < content.length) {
+    pushText(content.slice(lastIndex));
+  }
+
+  return lines.join('\n');
 };
 
 const renderHttpResponsePayload = (
