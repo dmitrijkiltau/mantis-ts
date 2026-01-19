@@ -1,4 +1,4 @@
-import { renderBubbleContent } from './bubble-renderer';
+import { BubbleContent } from './bubble/bubble-components';
 import { UIState } from './ui-state';
 
 const IDLE_MIN_MS = 45000;
@@ -57,7 +57,7 @@ export const startIdleChatter = (uiState: UIState): void => {
     lastLineIndex = next.index;
     lastSmalltalkAt = now;
 
-    uiState.showSmalltalk(renderBubbleContent(next.line));
+    uiState.showSmalltalk(() => BubbleContent({ text: next.line }));
     uiState.addLog(`Idle smalltalk: "${next.line}"`);
     uiState.setMood('speaking');
 

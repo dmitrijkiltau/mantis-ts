@@ -1,3 +1,5 @@
+import type { JSX } from 'solid-js';
+import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import type { AvatarMood } from './avatar';
 import type { EvaluationAlert } from '../../assistant/src/pipeline';
@@ -25,6 +27,7 @@ export class UIState {
   private sessionStart = Date.now();
   private lastActivityAt = Date.now();
   private isBusy = false;
+  private bubbleDispose: (() => void) | null = null;
   private telemetryNodes: TelemetryNodes = {
     totalEvaluations: null,
     lowScoreCount: null,
@@ -124,17 +127,27 @@ export class UIState {
     }
   }
 
-  showBubble(html: string): void {
-    this.setBubble(html, 'response');
+  showBubble(content: string | (() => JSX.Element)): void {
+    this.setBubble(content, 'response');
   }
 
-  showSmalltalk(html: string): void {
-    this.setBubble(html, 'smalltalk');
+  showSmalltalk(content: string | (() => JSX.Element)): void {
+    this.setBubble(content, 'smalltalk');
   }
 
-  private setBubble(html: string, kind: 'response' | 'smalltalk'): void {
+  private setBubble(content: string | (() => JSX.Element), kind: 'response' | 'smalltalk'): void {
     if (this.speechBubble && this.bubbleAnswer) {
-      this.bubbleAnswer.innerHTML = html;
+      if (this.bubbleDispose) {
+        this.bubbleDispose();
+        this.bubbleDispose = null;
+      }
+
+      if (typeof content === 'string') {
+        this.bubbleAnswer.innerHTML = content;
+      } else {
+        this.bubbleAnswer.innerHTML = '';
+        this.bubbleDispose = render(content, this.bubbleAnswer);
+      }
       this.speechBubble.dataset.bubbleKind = kind;
       this.speechBubble.classList.remove('hidden');
     }
@@ -144,6 +157,13 @@ export class UIState {
     if (this.speechBubble) {
       delete this.speechBubble.dataset.bubbleKind;
       this.speechBubble.classList.add('hidden');
+    }
+    if (this.bubbleAnswer) {
+      if (this.bubbleDispose) {
+        this.bubbleDispose();
+        this.bubbleDispose = null;
+      }
+      this.bubbleAnswer.innerHTML = '';
     }
   }
 

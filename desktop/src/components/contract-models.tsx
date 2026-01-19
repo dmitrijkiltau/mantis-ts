@@ -10,7 +10,7 @@ import contractStrictAnswerSource from '../../../assistant/src/contracts/strict.
 import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
-import { renderToolOutputContent } from '../bubble-renderer';
+import { ToolOutputContent } from '../bubble/bubble-components';
 import { useUIStateContext } from '../state/ui-state-context';
 
 type ContractSource = {
@@ -156,7 +156,7 @@ export const ContractModels: Component = () => {
     };
     const summary = `Contract source loaded for \`${contractKey}\`.`;
     const state = uiState();
-    state?.showBubble(renderToolOutputContent(summary, payload));
+    state?.showBubble(() => ToolOutputContent({ summary, raw: payload }));
     state?.setMood('speaking');
     state?.markActivity();
     state?.addLog(`Contract source opened: ${contractKey}`);

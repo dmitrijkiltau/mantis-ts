@@ -3,6 +3,7 @@ import { Logger } from '../../assistant/src/logger';
 import { UIState } from './ui-state';
 import type { ContextStore } from './context-store';
 import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
+import { BubbleContent, ToolOutputContent } from './bubble/bubble-components';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
 import {
@@ -49,6 +50,21 @@ const renderToolOutput = (result: PipelineResult & { kind: 'tool' }): string => 
   }
 
   return renderHistoryContent(result.result);
+};
+
+type BubbleRenderFn = () => ReturnType<typeof BubbleContent>;
+
+const buildBubbleContent = (text: string): BubbleRenderFn => {
+  return () => BubbleContent({ text });
+};
+
+const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): BubbleRenderFn => {
+  if (hasToolSummary(result) && typeof result.result !== 'string') {
+    return () => ToolOutputContent({ summary: result.summary, raw: result.result });
+  }
+
+  const payload = typeof result.result === 'string' ? result.result : formatPayload(result.result);
+  return buildBubbleContent(payload);
 };
 
 const createHistoryContentShell = (contentHtml: string): HTMLDivElement => {
@@ -291,14 +307,14 @@ export const createQuestionHandler = (
           uiState.setStatus('OPERATIONAL', 'COMPLETE', `TOOL_${result.tool.toUpperCase()}`);
           uiState.addLog(`Tool executed: ${result.tool}`);
 
-          uiState.showBubble(renderToolOutput(result));
+          uiState.showBubble(buildToolBubbleContent(result));
         } else {
           Logger.info('ui', 'Strict answer generated');
           uiState.setMood('speaking');
           uiState.setStatus('OPERATIONAL', 'COMPLETE', 'ANSWER_GENERATED');
           uiState.addLog('Answer generated successfully');
 
-          uiState.showBubble(renderBubbleContent(result.value));
+          uiState.showBubble(buildBubbleContent(result.value));
         }
         logEvaluationOutcome(result, uiState);
       } else {
@@ -310,7 +326,7 @@ export const createQuestionHandler = (
           : 'No valid response after retries.';
         uiState.addLog(`ERROR: ${errorDetail}`);
 
-        uiState.showBubble(renderBubbleContent(`Error: ${errorDetail}`));
+        uiState.showBubble(buildBubbleContent(`Error: ${errorDetail}`));
       }
 
       historyElement.prepend(record);
@@ -332,7 +348,7 @@ export const createQuestionHandler = (
         });
       historyElement.prepend(errCard);
 
-      uiState.showBubble(renderBubbleContent(`Critical Error: ${String(error)}`));
+      uiState.showBubble(buildBubbleContent(`Critical Error: ${String(error)}`));
     } finally {
       settle();
       uiState.updateStats();
