@@ -1,0 +1,234 @@
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply relative isolate min-h-screen font-mono antialiased text-terminal-primary;
+    background: radial-gradient(
+        ellipse at top left,
+        var(--color-gradient-top),
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at bottom right,
+        var(--color-gradient-bottom),
+        transparent 50%
+      ),
+      var(--color-bg-dark);
+
+    /* CRT scanlines overlay */
+    &::before {
+      content: "";
+      @apply pointer-events-none fixed inset-0 z-0 opacity-5;
+      background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        var(--color-scanline) 2px,
+        var(--color-scanline) 4px
+      );
+      animation: scanlines 8s linear infinite;
+    }
+
+    /* Subtle screen flicker for authentic CRT feel */
+    &::after {
+      content: "";
+      @apply pointer-events-none fixed inset-0 z-0;
+      background: transparent;
+      animation: crt-flicker 0.15s infinite;
+      opacity: 0;
+    }
+  }
+
+  /* Phosphor text glow effect for terminal aesthetic */
+  .phosphor-text {
+    text-shadow: 
+      0 0 2px var(--color-terminal-primary),
+      0 0 4px rgba(0, 255, 136, 0.5);
+    filter: blur(var(--phosphor-blur));
+  }
+
+  /* Unified scrollbar styling - applies globally */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-black-soft;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded bg-primary-40;
+
+    &:hover {
+      @apply bg-primary-60;
+    }
+  }
+
+  /* Scrollbar color for Firefox */
+  * {
+    scrollbar-color: var(--color-primary-40) var(--color-bg-black-soft);
+    scrollbar-width: thin;
+  }
+
+  @keyframes scanlines {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(4px);
+    }
+  }
+
+  /* Subtle CRT flicker - very subtle to avoid annoyance */
+  @keyframes crt-flicker {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 0.01; }
+  }
+
+  .app-shell {
+    @apply relative min-h-screen w-full max-w-4xl mx-auto px-4 py-8 z-10;
+    @apply flex flex-col justify-center gap-8;
+  }
+}
+
+@layer components {
+  button {
+    @apply cursor-pointer;
+  }
+
+  .button {
+    @apply inline-flex items-center justify-center px-6 py-2 text-sm font-semibold;
+    @apply transition-all duration-200 ease-out font-mono;
+
+    &:hover {
+      @apply brightness-125;
+    }
+
+    &:active {
+      @apply scale-95;
+    }
+
+    &:disabled {
+      @apply cursor-not-allowed opacity-40;
+    }
+  }
+
+  /* Vault-Tec inspired decorative frame corners */
+  .vault-frame {
+    @apply relative;
+
+    &::before,
+    &::after {
+      content: "";
+      @apply absolute w-4 h-4 border-terminal-primary;
+    }
+
+    &::before {
+      @apply top-0 left-0 border-t-2 border-l-2;
+    }
+
+    &::after {
+      @apply bottom-0 right-0 border-b-2 border-r-2;
+    }
+  }
+
+  /* Pip-Boy style status indicator */
+  .pip-status {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold tracking-wider;
+    @apply border border-primary-40 bg-primary-10 text-terminal-primary;
+    box-shadow: var(--shadow-glow-primary-soft);
+
+    &::before {
+      content: "";
+      @apply w-2 h-2 rounded-full bg-terminal-primary;
+      animation: pip-blink 1.5s ease-in-out infinite;
+    }
+
+    &[data-status="warning"] {
+      @apply border-amber-40 text-terminal-amber;
+      
+      &::before {
+        @apply bg-terminal-amber;
+      }
+    }
+
+    &[data-status="error"] {
+      border-color: var(--color-danger-40);
+      color: var(--color-danger);
+      
+      &::before {
+        background: var(--color-danger);
+      }
+    }
+
+    &[data-status="success"] {
+      @apply border-emerald-40 text-terminal-emerald;
+      
+      &::before {
+        @apply bg-terminal-emerald;
+      }
+    }
+  }
+
+  @keyframes pip-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Retro terminal border decoration */
+  .terminal-border {
+    @apply relative border-2 border-primary-40 rounded;
+    box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
+
+    &::before {
+      content: "";
+      @apply absolute inset-0 pointer-events-none opacity-30;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 255, 136, 0.1) 0%,
+        transparent 50%,
+        rgba(0, 255, 136, 0.05) 100%
+      );
+    }
+  }
+
+  /* Vault-Tec style section divider */
+  .vault-divider {
+    @apply flex items-center gap-3 my-4;
+
+    &::before,
+    &::after {
+      content: "";
+      @apply flex-1 h-px bg-linear-to-r from-transparent via-primary-40 to-transparent;
+    }
+
+    .vault-divider-text {
+      @apply text-[10px] font-bold tracking-widest text-primary-60 uppercase;
+    }
+  }
+
+  /* Retro data readout styling */
+  .data-readout {
+    @apply font-mono text-xs px-2 py-1 rounded border;
+    @apply bg-bg-black border-primary-30 text-terminal-primary;
+    text-shadow: var(--shadow-text-primary-soft);
+    letter-spacing: var(--tracking-normal);
+  }
+}
+
+/* Accessibility: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  body::after {
+    display: none;
+  }
+}

@@ -72,8 +72,8 @@
       .code-block-button {
         @apply inline-flex items-center justify-center gap-1 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold tracking-[0.3em] uppercase text-terminal-primary;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-18;
+        @apply text-[10px] font-semibold tracking-widest uppercase text-terminal-primary;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-18 font-mono;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;
@@ -274,7 +274,7 @@
         @apply inline-flex items-center justify-center gap-2 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
         @apply text-[10px] font-semibold uppercase tracking-[0.3em] text-terminal-primary;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5 font-mono;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;

@@ -19,7 +19,7 @@ export const FilePayloadView: Component<{ payload: BubbleFilePayload }> = (props
         <span class="file-preview-label">FILE</span>
         <button
           type="button"
-          class="file-preview-path"
+          class="button file-preview-path"
           data-file-path={encodedPath}
           aria-label="Open file in explorer"
           title="Open in file explorer"

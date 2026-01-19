@@ -201,7 +201,7 @@ const openCaptureOverlay = (captures: DisplayCapture[]): Promise<ImageAttachment
 
     const fullButton = document.createElement('button');
     fullButton.type = 'button';
-    fullButton.className = 'capture-button';
+    fullButton.className = 'button capture-button';
     fullButton.textContent = 'FULL';
 
     leftGroup.appendChild(fullButton);
@@ -211,12 +211,12 @@ const openCaptureOverlay = (captures: DisplayCapture[]): Promise<ImageAttachment
 
     const cancelButton = document.createElement('button');
     cancelButton.type = 'button';
-    cancelButton.className = 'capture-button';
+    cancelButton.className = 'button capture-button';
     cancelButton.textContent = 'CANCEL';
 
     const confirmButton = document.createElement('button');
     confirmButton.type = 'button';
-    confirmButton.className = 'capture-button primary';
+    confirmButton.className = 'button capture-button primary';
     confirmButton.textContent = 'CAPTURE';
 
     rightGroup.appendChild(cancelButton);
@@ -334,7 +334,7 @@ const openCaptureOverlay = (captures: DisplayCapture[]): Promise<ImageAttachment
       }
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = 'capture-screen-card';
+      card.className = 'button capture-screen-card';
       card.textContent = '';
 
       const thumb = document.createElement('img');

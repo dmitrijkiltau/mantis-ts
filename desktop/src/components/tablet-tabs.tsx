@@ -30,7 +30,7 @@ export const TabletTabs: Component = () => {
     <div class="tablet-tabs">
       {TAB_ITEMS.map((tab) => (
         <button
-          class="tab-button"
+          class="button tab-button"
           classList={{ active: activeTab() === tab.id }}
           data-tab={tab.id}
           onClick={() => handleSelect(tab.id)}

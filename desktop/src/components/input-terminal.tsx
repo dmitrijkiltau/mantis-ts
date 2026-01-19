@@ -209,7 +209,7 @@ export const InputTerminal: Component = () => {
           <button
             type="button"
             id="terminal-attachment-clear"
-            class="terminal-action-button"
+            class="button terminal-action-button"
             ref={refs.attachmentClear}
             onClick={handleClearAttachment}
           >
@@ -221,7 +221,7 @@ export const InputTerminal: Component = () => {
             <button
               type="button"
               id="image-upload-button"
-              class="terminal-action-button"
+              class="button terminal-action-button"
               ref={refs.imageUploadButton}
               onClick={handleUploadClick}
             >
@@ -230,7 +230,7 @@ export const InputTerminal: Component = () => {
             <button
               type="button"
               id="image-capture-button"
-              class="terminal-action-button"
+              class="button terminal-action-button"
               ref={refs.imageCaptureButton}
               onClick={handleCaptureClick}
             >
@@ -245,7 +245,7 @@ export const InputTerminal: Component = () => {
               onChange={handleFileChange}
             />
           </div>
-          <button type="submit" class="terminal-button">
+          <button type="submit" class="button terminal-button">
             <span class="button-bracket">[</span> EXECUTE <span class="button-bracket">]</span>
           </button>
         </div>
