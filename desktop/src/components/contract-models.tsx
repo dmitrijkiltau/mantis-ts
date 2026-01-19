@@ -10,7 +10,7 @@ import contractStrictAnswerSource from '../../../assistant/src/contracts/strict.
 import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
-import { ToolOutputContent } from '../bubble/bubble-components';
+import { ToolOutputContent } from '../bubble/tool-output';
 import { useUIStateContext } from '../state/ui-state-context';
 
 type ContractSource = {

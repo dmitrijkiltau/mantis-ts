@@ -1,9 +1,11 @@
 import { Pipeline, type PipelineResult, type EvaluationAlert } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
+import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import { UIState } from './ui-state';
 import type { ContextStore } from './context-store';
-import { BubbleContent, ToolOutputContent } from './bubble/bubble-components';
+import { renderBubbleContent } from './bubble/render-bubble';
+import { ToolOutputContent } from './bubble/tool-output';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
 import {
@@ -39,23 +41,23 @@ const truncateText = (value: string, limit: number): string => {
   return `${value.slice(0, limit - 3)}...`;
 };
 
-const renderHistoryContent = (value: unknown) => {
+type BubbleRenderFn = () => JSX.Element;
+
+const renderHistoryContent = (value: unknown): BubbleRenderFn => {
   const payload = typeof value === 'string' ? value : formatPayload(value);
-  return BubbleContent({ text: payload });
+  return () => renderBubbleContent(payload);
 };
 
-const renderToolOutput = (result: PipelineResult & { kind: 'tool' }) => {
+const renderToolOutput = (result: PipelineResult & { kind: 'tool' }): BubbleRenderFn => {
   if (hasToolSummary(result) && typeof result.result !== 'string') {
-    return ToolOutputContent({ summary: result.summary, raw: result.result });
+    return () => ToolOutputContent({ summary: result.summary, raw: result.result });
   }
 
   return renderHistoryContent(result.result);
 };
 
-type BubbleRenderFn = () => ReturnType<typeof BubbleContent>;
-
 const buildBubbleContent = (text: string): BubbleRenderFn => {
-  return () => BubbleContent({ text });
+  return () => renderBubbleContent(text);
 };
 
 const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): BubbleRenderFn => {
@@ -67,13 +69,13 @@ const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): Bubb
   return buildBubbleContent(payload);
 };
 
-const createHistoryContentShell = (contentNode: ReturnType<typeof renderHistoryContent>): HTMLDivElement => {
+const createHistoryContentShell = (contentNode: BubbleRenderFn): HTMLDivElement => {
   const shell = document.createElement('div');
   shell.className = 'speech-bubble history-bubble-shell';
 
   const content = document.createElement('div');
   content.className = 'bubble-content history-content';
-  render(() => contentNode, content);
+  render(contentNode, content);
 
   shell.appendChild(content);
   return shell;
