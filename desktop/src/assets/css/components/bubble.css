@@ -6,6 +6,17 @@
     animation: bubble-appear 0.4s ease-out;
     max-height: min(60vh, 520px);
 
+    /* Phosphor screen effect */
+    &::before {
+      content: "";
+      @apply absolute inset-0 pointer-events-none rounded-xl;
+      background: radial-gradient(
+        ellipse at center,
+        rgba(0, 255, 136, 0.02) 0%,
+        transparent 70%
+      );
+    }
+
     &.hidden {
       @apply hidden;
     }
@@ -764,28 +775,6 @@
     @apply w-0 h-0 absolute -top-5 left-1/2 -translate-x-1/2 rotate-180;
     @apply border-l-15 border-r-15 border-b-20 border-b-terminal-primary;
     filter: drop-shadow(0 2px 4px var(--color-primary-30));
-  }
-
-  :is(
-      .bubble-content,
-      .code-block-preview,
-      .code-block-json-viewer,
-      .code-block-json-pretty pre,
-      .http-json-viewer,
-      .http-json-pretty pre
-    ) {
-    scrollbar-color: var(--color-primary-40) var(--color-bg-black-soft);
-
-    &::-webkit-scrollbar {
-      @apply w-2;
-
-      &-track {
-        @apply bg-bg-black-soft;
-      }
-      &-thumb {
-        @apply rounded bg-primary-40 hover:bg-primary-60;
-      }
-    }
   }
 
   @keyframes bubble-appear {

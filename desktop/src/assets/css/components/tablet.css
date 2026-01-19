@@ -5,15 +5,27 @@
     background: linear-gradient(135deg, var(--color-bg-tablet), var(--color-bg-tablet-alt));
     box-shadow: var(--shadow-glow-primary-strong), var(--shadow-inset-glow-strong);
 
+    /* CRT scanlines overlay */
     &::before {
       content: "";
-      @apply absolute inset-0 pointer-events-none;
+      @apply absolute inset-0 pointer-events-none z-10;
       background: repeating-linear-gradient(
         0deg,
         transparent,
         transparent 2px,
         var(--color-scanline) 2px,
         var(--color-scanline) 4px
+      );
+    }
+
+    /* CRT screen curvature simulation */
+    &::after {
+      content: "";
+      @apply absolute inset-0 pointer-events-none z-10 rounded-lg;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 60%,
+        rgba(0, 0, 0, 0.15) 100%
       );
     }
   }
@@ -402,19 +414,6 @@
 
   .logs-console {
     @apply flex flex-col gap-1 max-h-100 overflow-y-auto text-xs font-mono;
-
-    &::-webkit-scrollbar {
-      @apply w-2;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: var(--color-bg-black-soft);
-    }
-
-    &::-webkit-scrollbar-thumb {
-      @apply rounded;
-      background: var(--color-primary-40);
-    }
   }
 
   .log-entry {

@@ -1,17 +1,35 @@
 @layer components {
   .input-terminal {
-    @apply rounded-lg bg-bg-terminal border-2 border-primary-40 overflow-hidden;
+    @apply rounded-lg bg-bg-terminal border-2 border-primary-40 overflow-hidden relative;
     box-shadow: var(--shadow-glow-primary-soft), inset 0 1px 0 var(--color-primary-10);
+
+    /* Subtle CRT curvature effect */
+    &::before {
+      content: "";
+      @apply absolute inset-0 pointer-events-none rounded-lg z-10;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 70%,
+        rgba(0, 0, 0, 0.08) 100%
+      );
+    }
   }
 
   .terminal-header {
-    @apply flex items-center justify-between px-4 py-2;
+    @apply flex items-center justify-between px-4 py-2 relative z-20;
     background: var(--color-primary-10);
     border-bottom: 1px solid var(--color-primary-30);
+
+    /* Vault-Tec style decorative dots */
+    &::before {
+      content: "● ● ●";
+      @apply absolute left-4 text-[8px] text-primary-40 tracking-widest;
+      letter-spacing: 0.3em;
+    }
   }
 
   .terminal-title {
-    @apply text-xs font-bold tracking-wider text-terminal-primary;
+    @apply text-xs font-bold tracking-wider text-terminal-primary ml-12;
     text-shadow: var(--shadow-text-primary);
   }
 
