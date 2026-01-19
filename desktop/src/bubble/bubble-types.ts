@@ -1,3 +1,5 @@
+import type { JSX } from 'solid-js';
+
 export type BubbleFilePayload = {
   action: 'file';
   path: string;
@@ -82,10 +84,10 @@ export type PcInfoPayload = {
 };
 
 export type PcInfoSections = {
-  systemCard: string;
-  cpuCard: string;
-  memoryCard: string;
-  diskCard: string;
+  systemCard: JSX.Element | null;
+  cpuCard: JSX.Element | null;
+  memoryCard: JSX.Element | null;
+  diskCard: JSX.Element | null;
   primaryCount: number;
   totalCount: number;
 };

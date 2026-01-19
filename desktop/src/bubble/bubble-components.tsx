@@ -1,19 +1,19 @@
 /** @jsxImportSource solid-js */
 import { createMemo, type Component } from 'solid-js';
-import { renderBubbleContent, renderToolOutputContent } from '../bubble-renderer';
+import { renderBubbleContent } from '../bubble/render-bubble';
+import { ToolOutputContent as ToolOutputContentComponent } from '../bubble/tool-output';
 
 /**
  * Renders assistant bubble content with markdown/tool formatting.
  */
 export const BubbleContent: Component<{ text: string }> = (props) => {
-  const html = createMemo(() => renderBubbleContent(props.text));
-  return <div class="bubble-render-root" innerHTML={html()} />;
+  const node = createMemo(() => renderBubbleContent(props.text));
+  return node();
 };
 
 /**
  * Renders tool output summaries with structured previews.
  */
-export const ToolOutputContent: Component<{ summary: string; raw: unknown }> = (props) => {
-  const html = createMemo(() => renderToolOutputContent(props.summary, props.raw));
-  return <div class="bubble-render-root" innerHTML={html()} />;
-};
+export const ToolOutputContent: Component<{ summary: string; raw: unknown }> = (props) => (
+  <ToolOutputContentComponent summary={props.summary} raw={props.raw} />
+);

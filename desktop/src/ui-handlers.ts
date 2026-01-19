@@ -1,8 +1,8 @@
 import { Pipeline, type PipelineResult, type EvaluationAlert } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
+import { render } from 'solid-js/web';
 import { UIState } from './ui-state';
 import type { ContextStore } from './context-store';
-import { renderBubbleContent, renderToolOutputContent } from './bubble-renderer';
 import { BubbleContent, ToolOutputContent } from './bubble/bubble-components';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
@@ -39,14 +39,14 @@ const truncateText = (value: string, limit: number): string => {
   return `${value.slice(0, limit - 3)}...`;
 };
 
-const renderHistoryContent = (value: unknown): string => {
+const renderHistoryContent = (value: unknown) => {
   const payload = typeof value === 'string' ? value : formatPayload(value);
-  return renderBubbleContent(payload);
+  return BubbleContent({ text: payload });
 };
 
-const renderToolOutput = (result: PipelineResult & { kind: 'tool' }): string => {
+const renderToolOutput = (result: PipelineResult & { kind: 'tool' }) => {
   if (hasToolSummary(result) && typeof result.result !== 'string') {
-    return renderToolOutputContent(result.summary, result.result);
+    return ToolOutputContent({ summary: result.summary, raw: result.result });
   }
 
   return renderHistoryContent(result.result);
@@ -67,13 +67,13 @@ const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): Bubb
   return buildBubbleContent(payload);
 };
 
-const createHistoryContentShell = (contentHtml: string): HTMLDivElement => {
+const createHistoryContentShell = (contentNode: ReturnType<typeof renderHistoryContent>): HTMLDivElement => {
   const shell = document.createElement('div');
   shell.className = 'speech-bubble history-bubble-shell';
 
   const content = document.createElement('div');
   content.className = 'bubble-content history-content';
-  content.innerHTML = contentHtml;
+  render(() => contentNode, content);
 
   shell.appendChild(content);
   return shell;
@@ -336,16 +336,16 @@ export const createQuestionHandler = (
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
       uiState.addLog(`FATAL ERROR: ${String(error)}`);
 
-        const errCard = buildHistoryEntry(displayQuestion, {
-          ok: false,
-          kind: 'error',
-          stage: 'tool_execution',
-          attempts: 0,
-          error: {
-            code: 'unhandled_exception',
-            message: String(error),
-          },
-        });
+      const errCard = buildHistoryEntry(displayQuestion, {
+        ok: false,
+        kind: 'error',
+        stage: 'tool_execution',
+        attempts: 0,
+        error: {
+          code: 'unhandled_exception',
+          message: String(error),
+        },
+      });
       historyElement.prepend(errCard);
 
       uiState.showBubble(buildBubbleContent(`Critical Error: ${String(error)}`));
