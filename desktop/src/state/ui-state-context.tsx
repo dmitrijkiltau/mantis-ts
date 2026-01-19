@@ -17,8 +17,6 @@ type UIRefSetters = {
   speechBubble: (element: HTMLElement) => void;
   bubbleAnswer: (element: HTMLElement) => void;
   logsConsole: (element: HTMLElement) => void;
-  toolList: (element: HTMLElement) => void;
-  toolCountBadge: (element: HTMLElement) => void;
   imageUploadButton: (element: HTMLButtonElement) => void;
   imageCaptureButton: (element: HTMLButtonElement) => void;
   imageUploadInput: (element: HTMLInputElement) => void;
@@ -46,8 +44,6 @@ type UINodeAccessors = {
   speechBubble: Accessor<HTMLElement | null>;
   bubbleAnswer: Accessor<HTMLElement | null>;
   logsConsole: Accessor<HTMLElement | null>;
-  toolList: Accessor<HTMLElement | null>;
-  toolCountBadge: Accessor<HTMLElement | null>;
   imageUploadButton: Accessor<HTMLButtonElement | null>;
   imageCaptureButton: Accessor<HTMLButtonElement | null>;
   imageUploadInput: Accessor<HTMLInputElement | null>;
@@ -87,8 +83,6 @@ export const UIStateProvider: ParentComponent = (props) => {
   const [speechBubble, setSpeechBubble] = createSignal<HTMLElement | null>(null);
   const [bubbleAnswer, setBubbleAnswer] = createSignal<HTMLElement | null>(null);
   const [logsConsole, setLogsConsole] = createSignal<HTMLElement | null>(null);
-  const [toolList, setToolList] = createSignal<HTMLElement | null>(null);
-  const [toolCountBadge, setToolCountBadge] = createSignal<HTMLElement | null>(null);
   const [imageUploadButton, setImageUploadButton] = createSignal<HTMLButtonElement | null>(null);
   const [imageCaptureButton, setImageCaptureButton] = createSignal<HTMLButtonElement | null>(null);
   const [imageUploadInput, setImageUploadInput] = createSignal<HTMLInputElement | null>(null);
@@ -116,8 +110,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     speechBubble: (element) => setSpeechBubble(element),
     bubbleAnswer: (element) => setBubbleAnswer(element),
     logsConsole: (element) => setLogsConsole(element),
-    toolList: (element) => setToolList(element),
-    toolCountBadge: (element) => setToolCountBadge(element),
     imageUploadButton: (element) => setImageUploadButton(element),
     imageCaptureButton: (element) => setImageCaptureButton(element),
     imageUploadInput: (element) => setImageUploadInput(element),
@@ -145,8 +137,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     speechBubble,
     bubbleAnswer,
     logsConsole,
-    toolList,
-    toolCountBadge,
     imageUploadButton,
     imageCaptureButton,
     imageUploadInput,
