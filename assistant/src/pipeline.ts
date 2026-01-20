@@ -6,6 +6,7 @@ import {
   GENERAL_ANSWER_INTENT,
   CONVERSATION_INTENT,
   getToolDefinition,
+  TOOL_TRIGGERS,
   type ToolName,
 } from './tools/registry.js';
 import type { FieldType } from './contracts/definition.js';
@@ -20,7 +21,7 @@ const TOOL_ARGUMENT_VERIFICATION_RETRIES = 1;
 const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
 const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-const LOW_SCORE_THRESHOLD = 5;
+const LOW_SCORE_THRESHOLD = 4;
 
 type PipelineRunOptions = {
   intentModelOverride?: string;
@@ -406,6 +407,26 @@ export class Pipeline {
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'tool_not_found',
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
+    }
+
+    if (!this.hasToolTrigger(userInput, toolName)) {
+      Logger.debug('pipeline', 'Tool intent missing trigger keywords, using strict answer', {
+        tool: toolName,
+      });
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        toneInstructions,
+        personalityDescription,
+        contextSnapshot,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'tool_trigger_missing',
+        tool: toolName,
         intent: intent.intent,
         intentConfidence: intent.confidence,
       });
@@ -867,6 +888,33 @@ export class Pipeline {
 
     try {
       const tool = getToolDefinition(directMatch.tool);
+      if (tool.argsSchema) {
+        const parsed = tool.argsSchema.safeParse(directMatch.args);
+        if (!parsed.success) {
+          const issues = parsed.error.issues
+            .map((issue) => {
+              const path = issue.path.join('.');
+              return path ? `${path}: ${issue.message}` : issue.message;
+            })
+            .join('; ');
+          return {
+            result: {
+              ok: false,
+              kind: 'error',
+              stage: 'tool_execution',
+              attempts: 0,
+              error: {
+                code: 'tool_error',
+                message: `Invalid direct tool arguments: ${issues || 'unknown error'}`,
+              },
+            },
+            metadata: {
+              tool: directMatch.tool,
+              reason: 'direct_tool_args_validation_failed',
+            },
+          };
+        }
+      }
       const toolResult = await tool.execute(directMatch.args);
       let formattedResult = toolResult;
       let summary: string | undefined;
@@ -1196,6 +1244,22 @@ export class Pipeline {
     }
 
     return intent.startsWith(TOOL_INTENT_PREFIX);
+  }
+
+  private hasToolTrigger(userInput: string, toolName: ToolName): boolean {
+    const triggers = TOOL_TRIGGERS[toolName];
+    if (!triggers || triggers.length === 0) {
+      return true;
+    }
+
+    const normalized = userInput.toLowerCase();
+    for (let index = 0; index < triggers.length; index += 1) {
+      const trigger = triggers[index];
+      if (trigger && normalized.includes(trigger)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private meetsToolConfidence(confidence: number): boolean {
