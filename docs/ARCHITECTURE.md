@@ -119,7 +119,7 @@ Formatting failures are graceful: the original response is returned unchanged an
 
 - **Parallel language detection & tool execution**: When executing tools, the pipeline runs language detection in parallel with tool execution (Promise.all) to reduce latency; the detected language (or fallback) is then used for response formatting and summarization.
 
-- **Scoring & evaluation**: The `SCORING_EVALUATION` contract is run for strict answers, conversational answers, tool outputs (including direct tools). A label is attached (e.g. `tool.<name>`, `strict_answer`, `conversational_answer`, `direct_tool.<name>`). If any numeric metric in the evaluation is below the configured low score threshold (currently 4) the pipeline sets an `evaluationAlert` of `low_scores`. Failures to evaluate are flagged as `scoring_failed`.
+- **Scoring & evaluation**: The `SCORING_EVALUATION` contract is run for strict answers, conversational answers, tool outputs (including direct tools). A label is attached (e.g. `tool.<name>`, `strict_answer`, `conversational_answer`, `direct_tool.<name>`). If any numeric metric in the evaluation is below the configured low score threshold (currently 3) the pipeline sets an `evaluationAlert` of `low_scores`. Failures to evaluate are flagged as `scoring_failed`.
 
 - **Attempts accounting & retries**: Attempts from each stage (intent, language detection, argument extraction, scoring, etc.) are tracked and summed into the overall `attempts` returned by pipeline results so callers can see how many contract invocations occurred.
 
