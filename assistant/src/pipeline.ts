@@ -1356,14 +1356,91 @@ export class Pipeline {
     toolName: ToolName,
     missingFields?: string[],
   ): string {
+    const hint = this.getClarificationHint(toolName, missingFields);
     if (missingFields && missingFields.length > 0) {
       if (missingFields.length === 1 && missingFields[0] === 'path') {
-        return 'Which path should I use?';
+        return hint ?? 'Which path should I use?';
+      }
+      if (hint) {
+        return hint;
       }
       return `I can use the ${toolName} tool, but I need ${missingFields.join(', ')}.`;
     }
 
-    return `I can use the ${toolName} tool for that, but I need a bit more detail.`;
+    return hint ?? `I can use the ${toolName} tool for that, but I need a bit more detail.`;
+  }
+
+  /**
+   * Provides tool-specific clarification hints when arguments are missing.
+   */
+  private getClarificationHint(
+    toolName: ToolName,
+    missingFields?: string[],
+  ): string | null {
+    const fields = missingFields ?? [];
+    const hasField = (fieldName: string): boolean => fields.includes(fieldName);
+
+    if (toolName === 'filesystem') {
+      if (hasField('path')) {
+        return 'Which file or folder path should I use?';
+      }
+      if (hasField('action')) {
+        return 'Should I list a folder or read a file? Share the path you want.';
+      }
+    }
+
+    if (toolName === 'search') {
+      if (hasField('query')) {
+        return 'What filename or pattern should I search for?';
+      }
+      if (hasField('baseDir')) {
+        return 'Which folder should I search in?';
+      }
+    }
+
+    if (toolName === 'http') {
+      if (hasField('url')) {
+        return 'Which URL should I fetch?';
+      }
+      if (hasField('method')) {
+        return 'Which HTTP method should I use (GET, POST, etc.)?';
+      }
+    }
+
+    if (toolName === 'clipboard') {
+      if (hasField('action')) {
+        return 'Do you want to copy to the clipboard or paste from it?';
+      }
+      if (hasField('content')) {
+        return 'What content should I copy to the clipboard?';
+      }
+    }
+
+    if (toolName === 'process') {
+      if (hasField('action')) {
+        return 'Should I list running processes?';
+      }
+      if (hasField('query')) {
+        return 'Which process name should I filter by?';
+      }
+    }
+
+    if (toolName === 'shell') {
+      if (hasField('program')) {
+        return 'Which command should I run?';
+      }
+      if (hasField('args')) {
+        return 'What arguments should I pass to the command?';
+      }
+    }
+
+    if (toolName === 'pcinfo') {
+      if (hasField('metrics')) {
+        return 'Which system info do you need (cpu, memory, disk, or system)?';
+      }
+    }
+
+    return null;
   }
 
   /**
