@@ -165,12 +165,16 @@ const renderToolJsonAccordion = (raw: unknown): JSX.Element => {
   );
 };
 
-export const ToolOutputContent: Component<{ summary: string; raw: unknown }> = (props) => {
-  const summaryHtml = renderMarkdown(props.summary.trim());
+export const ToolOutputContent: Component<{ summary: string; raw: unknown; summaryHtml?: string }> = (props) => {
+  const summaryHtml = props.summaryHtml ?? renderMarkdown(props.summary.trim());
 
   return (
     <div class="tool-output">
-      <div class="tool-output-summary" innerHTML={summaryHtml}></div>
+      <div
+        class="tool-output-summary"
+        data-typewriter-target="summary"
+        innerHTML={summaryHtml}
+      ></div>
       {renderToolJsonAccordion(props.raw)}
     </div>
   );

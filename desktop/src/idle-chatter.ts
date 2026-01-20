@@ -1,4 +1,5 @@
 import { renderBubbleContent } from './bubble/render-bubble';
+import type { BubbleContent } from './ui-state';
 import { UIState } from './ui-state';
 
 const IDLE_MIN_MS = 45000;
@@ -31,6 +32,15 @@ const pickNextLine = (lastIndex: number): { index: number; line: string } => {
 };
 
 /**
+ * Wraps idle chatter text for the live bubble typewriter.
+ */
+const buildSmalltalkContent = (text: string): BubbleContent => ({
+  kind: 'typewriter',
+  text,
+  render: () => renderBubbleContent(text),
+});
+
+/**
  * Starts the idle smalltalk loop for the assistant.
  */
 export const startIdleChatter = (uiState: UIState): void => {
@@ -57,7 +67,7 @@ export const startIdleChatter = (uiState: UIState): void => {
     lastLineIndex = next.index;
     lastSmalltalkAt = now;
 
-    uiState.showSmalltalk(() => renderBubbleContent(next.line));
+    uiState.showSmalltalk(buildSmalltalkContent(next.line));
     uiState.addLog(`Idle smalltalk: "${next.line}"`);
     uiState.setMood('speaking');
 

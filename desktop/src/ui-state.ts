@@ -13,6 +13,26 @@ export type TelemetryNodes = {
   recentList: HTMLElement | null;
 };
 
+export type BubbleRenderFn = () => JSX.Element;
+
+export type BubbleContent =
+  | {
+      kind: 'static';
+      render: BubbleRenderFn;
+    }
+  | {
+      kind: 'typewriter';
+      text: string;
+      render: BubbleRenderFn;
+    }
+  | {
+      kind: 'inline-typewriter';
+      text: string;
+      render: BubbleRenderFn;
+      targetSelector: string;
+      finalHtml: string;
+    };
+
 type EvaluationHistoryEntry = {
   timestamp: number;
   alert?: EvaluationAlert;
@@ -21,6 +41,9 @@ type EvaluationHistoryEntry = {
 };
 
 const TELEMETRY_HISTORY_LIMIT = 5;
+const TYPEWRITER_MIN_DELAY_MS = 12;
+const TYPEWRITER_MAX_DELAY_MS = 26;
+const TYPEWRITER_PUNCTUATION_PAUSE_MS = 140;
 
 export class UIState {
   private queryCount = 0;
@@ -39,6 +62,11 @@ export class UIState {
   private evaluationSums: Record<string, number> = {};
   private evaluationCounts: Record<string, number> = {};
   private evaluationHistory: EvaluationHistoryEntry[] = [];
+  private typewriterTimer: number | null = null;
+  private typewriterToken = 0;
+  private typingActive = false;
+  private deferredMood: AvatarMood | null = null;
+  private typingTarget: HTMLElement | null = null;
 
   constructor(
     private avatar: AssistantAvatar | null,
@@ -101,6 +129,14 @@ export class UIState {
   }
 
   setMood(mood: AvatarMood): void {
+    if (this.typingActive && mood === 'idle') {
+      this.deferredMood = mood;
+      return;
+    }
+    if (this.typingActive) {
+      this.deferredMood = null;
+    }
+
     this.avatar?.setMood(mood);
     if (this.moodLabel) {
       const title = mood.toUpperCase();
@@ -127,26 +163,26 @@ export class UIState {
     }
   }
 
-  showBubble(content: string | (() => JSX.Element)): void {
+  showBubble(content: BubbleContent): void {
     this.setBubble(content, 'response');
   }
 
-  showSmalltalk(content: string | (() => JSX.Element)): void {
+  showSmalltalk(content: BubbleContent): void {
     this.setBubble(content, 'smalltalk');
   }
 
-  private setBubble(content: string | (() => JSX.Element), kind: 'response' | 'smalltalk'): void {
+  private setBubble(content: BubbleContent, kind: 'response' | 'smalltalk'): void {
     if (this.speechBubble && this.bubbleAnswer) {
-      if (this.bubbleDispose) {
-        this.bubbleDispose();
-        this.bubbleDispose = null;
-      }
+      this.clearTypewriter();
+      this.resetBubbleContent();
 
-      if (typeof content === 'string') {
-        this.bubbleAnswer.innerHTML = content;
+      if (content.kind === 'typewriter') {
+        this.startTypewriter(content);
+      } else if (content.kind === 'inline-typewriter') {
+        this.renderBubbleContent(content.render);
+        this.startInlineTypewriter(content);
       } else {
-        this.bubbleAnswer.innerHTML = '';
-        this.bubbleDispose = render(content, this.bubbleAnswer);
+        this.renderBubbleContent(content.render);
       }
       this.speechBubble.dataset.bubbleKind = kind;
       this.speechBubble.classList.remove('hidden');
@@ -159,11 +195,8 @@ export class UIState {
       this.speechBubble.classList.add('hidden');
     }
     if (this.bubbleAnswer) {
-      if (this.bubbleDispose) {
-        this.bubbleDispose();
-        this.bubbleDispose = null;
-      }
-      this.bubbleAnswer.innerHTML = '';
+      this.clearTypewriter();
+      this.resetBubbleContent();
     }
   }
 
@@ -294,6 +327,164 @@ export class UIState {
           recentList.appendChild(this.createRecentItem(entry));
         }
       }
+    }
+  }
+
+  /**
+   * Clears any existing rendered bubble content.
+   */
+  private resetBubbleContent(): void {
+    if (this.bubbleDispose) {
+      this.bubbleDispose();
+      this.bubbleDispose = null;
+    }
+    if (this.bubbleAnswer) {
+      this.bubbleAnswer.innerHTML = '';
+    }
+  }
+
+  /**
+   * Renders bubble content into the live response container.
+   */
+  private renderBubbleContent(content: BubbleRenderFn): void {
+    if (!this.bubbleAnswer) {
+      return;
+    }
+    this.bubbleAnswer.innerHTML = '';
+    this.bubbleDispose = render(content, this.bubbleAnswer);
+  }
+
+  /**
+   * Cancels any active typewriter effect.
+   */
+  private clearTypewriter(): void {
+    if (this.typewriterTimer !== null) {
+      window.clearTimeout(this.typewriterTimer);
+      this.typewriterTimer = null;
+    }
+    this.typewriterToken += 1;
+    this.typingActive = false;
+    this.deferredMood = null;
+    if (this.typingTarget) {
+      this.typingTarget.classList.remove('typing');
+      this.typingTarget = null;
+    }
+    if (this.bubbleAnswer) {
+      this.bubbleAnswer.classList.remove('typing');
+    }
+  }
+
+  /**
+   * Computes the per-character delay for the typewriter animation.
+   */
+  private getTypewriterDelay(textLength: number): number {
+    if (textLength <= 0) {
+      return TYPEWRITER_MIN_DELAY_MS;
+    }
+
+    const scaled = Math.round(28 - textLength / 12);
+    return Math.min(TYPEWRITER_MAX_DELAY_MS, Math.max(TYPEWRITER_MIN_DELAY_MS, scaled));
+  }
+
+  /**
+   * Plays the typewriter animation for live bubble content.
+   */
+  private startTypewriter(content: Extract<BubbleContent, { kind: 'typewriter' }>): void {
+    if (!this.bubbleAnswer) {
+      return;
+    }
+
+    this.beginTypewriter(content.text, this.bubbleAnswer, () => {
+      this.renderBubbleContent(content.render);
+    });
+  }
+
+  /**
+   * Plays a typewriter animation inside a summary node.
+   */
+  private startInlineTypewriter(content: Extract<BubbleContent, { kind: 'inline-typewriter' }>): void {
+    if (!this.bubbleAnswer) {
+      return;
+    }
+
+    const target = this.bubbleAnswer.querySelector<HTMLElement>(content.targetSelector);
+    if (!target) {
+      return;
+    }
+
+    this.beginTypewriter(content.text, target, () => {
+      if (!this.bubbleAnswer) {
+        return;
+      }
+      const finalTarget = this.bubbleAnswer.querySelector<HTMLElement>(content.targetSelector);
+      if (!finalTarget) {
+        return;
+      }
+      finalTarget.innerHTML = content.finalHtml;
+    });
+  }
+
+  /**
+   * Runs a typewriter animation on a target element.
+   */
+  private beginTypewriter(text: string, target: HTMLElement, onComplete: () => void): void {
+    this.typingActive = true;
+    this.deferredMood = null;
+    this.typingTarget = target;
+    target.classList.add('typing');
+    this.setMood('speaking');
+
+    const token = this.typewriterToken;
+    const delay = this.getTypewriterDelay(text.length);
+    let index = 0;
+    target.textContent = '';
+
+    const tick = () => {
+      if (token !== this.typewriterToken || !this.typingTarget) {
+        return;
+      }
+
+      if (index >= text.length) {
+        this.finishTypewriter(onComplete, token);
+        return;
+      }
+
+      const nextChar = text[index] ?? '';
+      index += 1;
+      this.typingTarget.textContent = text.slice(0, index);
+      if (this.bubbleAnswer) {
+        this.bubbleAnswer.scrollTop = this.bubbleAnswer.scrollHeight;
+      }
+
+      const pause = /[.!?]/.test(nextChar) ? TYPEWRITER_PUNCTUATION_PAUSE_MS : 0;
+      this.typewriterTimer = window.setTimeout(tick, delay + pause);
+    };
+
+    tick();
+  }
+
+  /**
+   * Restores the rendered markup after the typewriter completes.
+   */
+  private finishTypewriter(onComplete: () => void, token: number): void {
+    if (token !== this.typewriterToken) {
+      return;
+    }
+
+    this.typewriterTimer = null;
+    this.typingActive = false;
+    if (this.typingTarget) {
+      this.typingTarget.classList.remove('typing');
+      this.typingTarget = null;
+    }
+    if (this.bubbleAnswer) {
+      this.bubbleAnswer.classList.remove('typing');
+    }
+    onComplete();
+    if (this.deferredMood) {
+      const mood = this.deferredMood;
+      this.deferredMood = null;
+      this.setMood(mood);
     }
   }
 

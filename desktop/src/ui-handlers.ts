@@ -2,9 +2,10 @@ import { Pipeline, type PipelineResult, type EvaluationAlert } from '../../assis
 import { Logger } from '../../assistant/src/logger';
 import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
-import { UIState } from './ui-state';
+import { UIState, type BubbleContent } from './ui-state';
 import type { ContextStore } from './context-store';
 import { renderBubbleContent } from './bubble/render-bubble';
+import { renderMarkdown } from './bubble/markdown';
 import { ToolOutputContent } from './bubble/tool-output';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
@@ -56,13 +57,35 @@ const renderToolOutput = (result: PipelineResult & { kind: 'tool' }): BubbleRend
   return renderHistoryContent(result.result);
 };
 
-const buildBubbleContent = (text: string): BubbleRenderFn => {
-  return () => renderBubbleContent(text);
+/**
+ * Wraps plain text for the live bubble typewriter flow.
+ */
+const buildBubbleContent = (text: string): BubbleContent => {
+  return {
+    kind: 'typewriter',
+    text,
+    render: () => renderBubbleContent(text),
+  };
 };
 
-const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): BubbleRenderFn => {
+/**
+ * Creates a bubble payload for tool results with a typed summary.
+ */
+const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): BubbleContent => {
   if (hasToolSummary(result) && typeof result.result !== 'string') {
-    return () => ToolOutputContent({ summary: result.summary, raw: result.result });
+    const summaryText = result.summary.trim();
+    const summaryHtml = renderMarkdown(summaryText);
+    return {
+      kind: 'inline-typewriter',
+      text: summaryText,
+      targetSelector: '[data-typewriter-target="summary"]',
+      finalHtml: summaryHtml,
+      render: () => ToolOutputContent({
+        summary: summaryText,
+        raw: result.result,
+        summaryHtml: '',
+      }),
+    };
   }
 
   const payload = typeof result.result === 'string' ? result.result : formatPayload(result.result);

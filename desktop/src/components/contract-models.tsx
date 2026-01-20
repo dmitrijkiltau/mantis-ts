@@ -156,7 +156,10 @@ export const ContractModels: Component = () => {
     };
     const summary = `Contract source loaded for \`${contractKey}\`.`;
     const state = uiState();
-    state?.showBubble(() => ToolOutputContent({ summary, raw: payload }));
+    state?.showBubble({
+      kind: 'static',
+      render: () => ToolOutputContent({ summary, raw: payload }),
+    });
     state?.setMood('speaking');
     state?.markActivity();
     state?.addLog(`Contract source opened: ${contractKey}`);

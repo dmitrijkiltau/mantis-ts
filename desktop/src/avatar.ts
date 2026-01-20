@@ -91,8 +91,8 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
     accent: '#00ff88',
     accent2: '#22d3ee',
     mouth: {
-      upper: 'M60 90 Q70 87 80 88 Q90 87 100 90',
-      lower: 'M60 90 Q70 93 80 92 Q90 93 100 90',
+      upper: 'M60 90 Q70 92 80 92 Q90 92 100 90',
+      lower: 'M60 90 Q70 92 80 92 Q90 92 100 90',
       openness: 0,
     },
     faceHighlight: 0.25,
