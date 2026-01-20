@@ -20,6 +20,7 @@ const MIN_TOOL_CONFIDENCE = 0.6;
 const TOOL_ARGUMENT_VERIFICATION_RETRIES = 1;
 const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
 const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
+const MIN_TOOL_TRIGGER_CONFIDENCE = 0.85;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
 const LOW_SCORE_THRESHOLD = 4;
 
@@ -413,21 +414,28 @@ export class Pipeline {
     }
 
     if (!this.hasToolTrigger(userInput, toolName)) {
-      Logger.debug('pipeline', 'Tool intent missing trigger keywords, using strict answer', {
+      if (intent.confidence < MIN_TOOL_TRIGGER_CONFIDENCE) {
+        Logger.debug('pipeline', 'Tool intent missing trigger keywords, using strict answer', {
+          tool: toolName,
+        });
+        const result = await this.runNonToolAnswer(
+          userInput,
+          intent,
+          intentResult.attempts,
+          toneInstructions,
+          personalityDescription,
+          contextSnapshot,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'tool_trigger_missing',
+          tool: toolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+
+      Logger.debug('pipeline', 'Tool trigger missing but confidence is high, proceeding', {
         tool: toolName,
-      });
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'tool_trigger_missing',
-        tool: toolName,
-        intent: intent.intent,
         intentConfidence: intent.confidence,
       });
     }
