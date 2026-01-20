@@ -1,5 +1,38 @@
 import { encodeJsonForAttribute, escapeHtml, isObjectRecord } from './shared';
 
+type JsonViewerOptions = {
+  linkDependencies?: boolean;
+};
+
+type JsonRenderContext = {
+  linkDependencies: boolean;
+  dependencyScope: boolean;
+};
+
+const dependencyKeys = new Set(['dependencies', 'devDependencies']);
+
+const isDependencyContainer = (key: string | undefined, context: JsonRenderContext): boolean =>
+  Boolean(key) && context.linkDependencies && dependencyKeys.has(key!);
+
+const renderJsonKey = (key: string, context: JsonRenderContext): string => {
+  if (!context.dependencyScope) {
+    return `<span class="json-node-key">${escapeHtml(key)}</span>`;
+  }
+
+  const encoded = encodeJsonForAttribute(key);
+  const label = escapeHtml(key);
+  return `
+    <button
+      type="button"
+      class="json-node-key npm-package-link"
+      data-npm-package="${encoded}"
+      aria-label="Open npm package ${label}"
+    >
+      ${label}
+    </button>
+  `;
+};
+
 const renderJsonLiteral = (value: unknown): string => {
   if (typeof value === 'string') {
     return `<span class="json-value json-value-string">"${escapeHtml(value)}"</span>`;
@@ -20,16 +53,16 @@ const renderJsonLiteral = (value: unknown): string => {
   return '<span class="json-value json-value-undefined">undefined</span>';
 };
 
-const renderJsonNode = (value: unknown, key?: string): string => {
+const renderJsonNode = (value: unknown, key: string | undefined, context: JsonRenderContext): string => {
   if (Array.isArray(value)) {
     const children = value
-      .map((item, index) => renderJsonNode(item, `[${index}]`))
+      .map((item, index) => renderJsonNode(item, `[${index}]`, { ...context, dependencyScope: false }))
       .join('');
 
     return `
       <details open class="json-node json-node-array">
         <summary>
-          ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+          ${key ? `${renderJsonKey(key, context)}: ` : ''}
           <span class="json-node-type">Array(${value.length})</span>
         </summary>
         <div class="json-node-children">
@@ -41,14 +74,18 @@ const renderJsonNode = (value: unknown, key?: string): string => {
 
   if (isObjectRecord(value)) {
     const entries = Object.keys(value);
+    const dependencyScope = isDependencyContainer(key, context);
     const children = entries
-      .map((entry) => renderJsonNode(value[entry], entry))
+      .map((entry) => renderJsonNode(value[entry], entry, {
+        linkDependencies: context.linkDependencies,
+        dependencyScope,
+      }))
       .join('');
 
     return `
       <details open class="json-node json-node-object">
         <summary>
-          ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+          ${key ? `${renderJsonKey(key, context)}: ` : ''}
           <span class="json-node-type">Object</span>
           <span class="json-node-count">${entries.length} keys</span>
         </summary>
@@ -61,15 +98,19 @@ const renderJsonNode = (value: unknown, key?: string): string => {
 
   return `
     <div class="json-node json-node-primitive">
-      ${key ? `<span class="json-node-key">${escapeHtml(key)}</span>: ` : ''}
+      ${key ? `${renderJsonKey(key, context)}: ` : ''}
       ${renderJsonLiteral(value)}
     </div>
   `;
 };
 
-export const renderJsonViewer = (value: unknown): string => (
-  `<div class="json-viewer-root">${renderJsonNode(value)}</div>`
-);
+export const renderJsonViewer = (value: unknown, options?: JsonViewerOptions): string => {
+  const context: JsonRenderContext = {
+    linkDependencies: Boolean(options?.linkDependencies),
+    dependencyScope: false,
+  };
+  return `<div class="json-viewer-root">${renderJsonNode(value, undefined, context)}</div>`;
+};
 
 export const renderHttpJsonPreview = (content: string): string => {
   let parsed: unknown;

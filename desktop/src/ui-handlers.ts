@@ -491,6 +491,14 @@ Start-Process explorer.exe -ArgumentList $args
 };
 
 /**
+ * Builds the PowerShell script for opening a URL in the default browser.
+ */
+const buildOpenUrlScript = (url: string): string => {
+  const safeUrl = url.replace(/'/g, "''");
+  return `Start-Process '${safeUrl}'`;
+};
+
+/**
  * Opens a file preview path in the system file explorer.
  */
 const openPathInExplorer = async (rawPath: string): Promise<void> => {
@@ -720,5 +728,50 @@ export const handleRichContentInteraction = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
     void openPathInExplorer(decodeURIComponent(encoded));
+    return;
+  }
+
+  const npmPackageButton = target.closest<HTMLElement>('[data-npm-package]');
+  if (npmPackageButton) {
+    const encoded = npmPackageButton.getAttribute('data-npm-package');
+    if (!encoded) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const packageName = decodeURIComponent(encoded);
+    const url = `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`;
+    void openUrlInBrowser(url);
+  }
+};
+
+/**
+ * Opens a URL in the system default browser.
+ */
+const openUrlInBrowser = async (rawUrl: string): Promise<void> => {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return;
+  }
+
+  try {
+    if (await isWindowsPlatform()) {
+      const command = Command.create('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        buildOpenUrlScript(trimmed),
+      ]);
+      await command.execute();
+      return;
+    }
+
+    const platformName = await getPlatformName();
+    const openCommand =
+      platformName === 'macos' || platformName === 'darwin' ? 'open' : 'xdg-open';
+    const command = Command.create(openCommand, [trimmed]);
+    await command.execute();
+  } catch (error) {
+    Logger.error('ui', 'Failed to open URL', { url: trimmed, error });
   }
 };

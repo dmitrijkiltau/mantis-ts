@@ -175,6 +175,18 @@ export const deriveLanguageFromContentType = (contentType: string | null): strin
   return null;
 };
 
+/**
+ * Returns true when the path is a package.json file.
+ */
+export const isPackageJsonPath = (path: string | null | undefined): boolean => {
+  if (!path) {
+    return false;
+  }
+
+  const normalized = path.replace(/\\/g, '/').toLowerCase();
+  return normalized.endsWith('/package.json') || normalized === 'package.json';
+};
+
 const VOID_HTML_TAGS = new Set([
   'area',
   'base',

@@ -1,7 +1,12 @@
 import { marked } from 'marked';
 import { parseFileTreeText, looksLikeFileTree, renderFileTree } from './file-tree';
 import { renderJsonViewer } from './json-viewer';
-import { encodeJsonForAttribute, escapeHtml, normalizeLanguage } from './shared';
+import {
+  encodeJsonForAttribute,
+  escapeHtml,
+  isPackageJsonPath,
+  normalizeLanguage,
+} from './shared';
 
 const HIGHLIGHT_LANGS = new Set([
   'typescript',
@@ -155,7 +160,12 @@ const addLineNumbers = (highlighted: string): string => {
     .join('');
 };
 
-export const renderCodeBlock = (code: string, language: string | null, rawOverride?: string): string => {
+export const renderCodeBlock = (
+  code: string,
+  language: string | null,
+  rawOverride?: string,
+  context?: { filePath?: string },
+): string => {
   const normalizedLanguage = normalizeLanguage(language);
   const label = normalizedLanguage ? normalizedLanguage.toUpperCase() : 'TEXT';
   const highlighted = highlightCodeBlock(code, normalizedLanguage);
@@ -206,7 +216,9 @@ export const renderCodeBlock = (code: string, language: string | null, rawOverri
     let viewer = '';
     try {
       parsed = JSON.parse(code);
-      viewer = renderJsonViewer(parsed);
+      viewer = renderJsonViewer(parsed, {
+        linkDependencies: isPackageJsonPath(context?.filePath ?? null),
+      });
     } catch {
       // If parsing fails, fall back to regular code block
     }
@@ -268,6 +280,7 @@ export const renderCodeBlock = (code: string, language: string | null, rawOverri
 export const renderFilePanels = (
   content: string,
   language: string | null,
+  filePath?: string,
 ): { html: string; view: string; viewOptions: Array<{ id: string; label: string }> } => {
   const normalizedLanguage = normalizeLanguage(language);
   const rawHighlighted = addLineNumbers(highlightCodeBlock(content, normalizedLanguage));
@@ -297,7 +310,9 @@ export const renderFilePanels = (
       const parsed = JSON.parse(content);
       const pretty = JSON.stringify(parsed, null, 2);
       const prettyHighlighted = addLineNumbers(highlightCodeBlock(pretty, 'json'));
-      const viewer = renderJsonViewer(parsed);
+      const viewer = renderJsonViewer(parsed, {
+        linkDependencies: isPackageJsonPath(filePath ?? null),
+      });
       return {
         view: 'viewer',
         viewOptions: [

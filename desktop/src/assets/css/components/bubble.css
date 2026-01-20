@@ -171,12 +171,12 @@
       }
 
       .http-preview-label {
-        @apply px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-[0.2em];
+        @apply px-2 py-1 rounded border text-[10px] font-semibold uppercase tracking-wide;
         @apply border-primary-40 text-terminal-cyan bg-primary-10;
       }
 
       .http-preview-status {
-        @apply text-[12px] font-bold tracking-[0.2em] text-terminal-emerald;
+        @apply text-[12px] font-bold tracking-wide text-terminal-emerald;
       }
 
       .http-preview-meta {
@@ -273,7 +273,7 @@
       .http-json-button {
         @apply inline-flex items-center justify-center gap-2 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold uppercase tracking-[0.3em] text-terminal-primary;
+        @apply text-[10px] font-semibold uppercase tracking-widest text-terminal-primary;
         @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5 font-mono;
 
         &:focus-visible {
@@ -758,6 +758,20 @@
 
     .json-node-primitive {
       @apply flex flex-wrap items-center gap-1;
+    }
+
+    .npm-package-link {
+      @apply inline-flex items-center gap-1 text-terminal-cyan underline;
+      @apply decoration-primary-40 underline-offset-2 bg-transparent border-0 p-0;
+      @apply transition-colors duration-150 cursor-pointer;
+
+      &:hover {
+        @apply text-terminal-primary decoration-terminal-primary;
+      }
+
+      &:focus-visible {
+        @apply outline outline-terminal-cyan outline-offset-1;
+      }
     }
 
     .file-tree {

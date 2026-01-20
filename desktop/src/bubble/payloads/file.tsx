@@ -28,7 +28,11 @@ export const FilePayloadView: Component<{ payload: BubbleFilePayload }> = (props
         </button>
         {props.payload.truncated ? <span class="file-tree-warning">TRUNCATED</span> : null}
       </div>
-      <div innerHTML={renderCodeBlock(props.payload.content, language)} />
+      <div
+        innerHTML={renderCodeBlock(props.payload.content, language, undefined, {
+          filePath: props.payload.path,
+        })}
+      />
     </div>
   );
 };
@@ -39,7 +43,7 @@ export const FileOutputAccordionView: Component<{ payload: BubbleFilePayload }> 
   const truncatedPath = truncatePathForDisplay(props.payload.path);
   const rawAttr = encodeJsonForAttribute(props.payload.content);
   const encodedPath = encodePathForAttribute(props.payload.path);
-  const panels = renderFilePanels(props.payload.content, language);
+  const panels = renderFilePanels(props.payload.content, language, props.payload.path);
   const viewOptions = panels.viewOptions;
   const viewButton = viewOptions.length > 1 ? (
     <button
@@ -95,4 +99,3 @@ export const FileOutputAccordionView: Component<{ payload: BubbleFilePayload }> 
     </details>
   );
 };
-
