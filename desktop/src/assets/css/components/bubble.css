@@ -1,10 +1,14 @@
 @layer components {
   .speech-bubble {
-    @apply relative flex flex-col rounded-xl p-6 max-w-2xl;
+    @apply max-w-full w-fit min-w-xl relative flex flex-col rounded-xl p-6;
     @apply bg-bg-bubble border-2 border-terminal-primary overflow-hidden;
     box-shadow: var(--shadow-glow-primary-soft), var(--shadow-inset-glow);
     animation: bubble-appear 0.4s ease-out;
-    max-height: min(60vh, 520px);
+    max-height: min(60vh, 640px);
+
+    &:has(.tool-output-accordion[open]) {
+      @apply w-full;
+    }
 
     /* Phosphor screen effect */
     &::before {
