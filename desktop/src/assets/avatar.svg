@@ -37,10 +37,6 @@
       opacity: 0.35;
     }
 
-    .mouth {
-      animation: mouthIdle 2.8s ease-in-out infinite;
-    }
-
     @keyframes bob {
       0%,100% { transform: translateY(0); }
       50% { transform: translateY(1.5px); }
@@ -61,13 +57,8 @@
       100% { transform: translateY(160px); }
     }
 
-    @keyframes mouthIdle {
-      0%,100% { opacity: 0.55; }
-      50% { opacity: 0.85; }
-    }
-
     @media (prefers-reduced-motion: reduce) {
-      .idle, .blink, .scanline, .mouth { animation: none !important; }
+      .idle, .blink, .scanline { animation: none !important; }
     }
   </style>
 
@@ -79,50 +70,90 @@
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
-    <clipPath id="faceClip" clipPathUnits="userSpaceOnUse">
-      <rect x="36" y="36" width="88" height="76" rx="10" />
-    </clipPath>
+    <filter id="crtGlowStrong">
+      <feGaussianBlur stdDeviation="2.4" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="screenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(0,255,136,0.08)" />
+      <stop offset="100%" style="stop-color:rgba(0,40,25,0.95)" />
+    </linearGradient>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="4" y2="0" stroke="rgba(0,0,0,0.15)" stroke-width="1" />
+    </pattern>
   </defs>
 
+  <!-- HUD corner brackets -->
+  <path d="M6 6 L6 28 M6 6 L28 6" stroke="var(--pip-dim)" stroke-width="1.6" />
+  <path d="M154 6 L154 28 M154 6 L132 6" stroke="var(--pip-dim)" stroke-width="1.6" />
+  <path d="M6 154 L6 132 M6 154 L28 154" stroke="var(--pip-dim)" stroke-width="1.6" />
+  <path d="M154 154 L154 132 M154 154 L132 154" stroke="var(--pip-dim)" stroke-width="1.6" />
+
   <g class="idle">
-    <!-- Device frame -->
-    <rect x="20" y="18" width="120" height="124" rx="8" fill="var(--bg)" stroke="var(--pip-soft)" stroke-width="1.4" />
+    <!-- Outer device frame (Pip-Boy style) -->
+    <rect x="18" y="14" width="124" height="132" rx="6" fill="var(--bg)" stroke="var(--pip-soft)" stroke-width="2" />
+    
+    <!-- Frame rivets -->
+    <circle cx="26" cy="22" r="2" fill="var(--pip-dim)" />
+    <circle cx="134" cy="22" r="2" fill="var(--pip-dim)" />
+    <circle cx="26" cy="138" r="2" fill="var(--pip-dim)" />
+    <circle cx="134" cy="138" r="2" fill="var(--pip-dim)" />
 
-    <!-- Inner CRT panel -->
-    <rect x="28" y="26" width="104" height="96" rx="5" fill="rgba(15,40,30,0.85)" stroke="var(--pip-dim)" stroke-width="1" />
+    <!-- Inner CRT bezel -->
+    <rect x="26" y="22" width="108" height="104" rx="4" fill="none" stroke="var(--pip-dim)" stroke-width="1" />
+    
+    <!-- CRT screen -->
+    <rect x="30" y="26" width="100" height="96" rx="3" fill="url(#screenGrad)" />
+    <rect x="30" y="26" width="100" height="96" rx="3" fill="url(#scanlines)" opacity="0.5" />
 
-    <!-- Eyebrows (interactive) -->
-    <path data-eyebrow="left" d="M50 52 Q61 50 72 52" stroke="var(--pip)" stroke-width="1.8" stroke-linecap="round" fill="none" filter="url(#crtGlow)" />
-    <path data-eyebrow="right" d="M88 52 Q99 50 110 52" stroke="var(--pip)" stroke-width="1.8" stroke-linecap="round" fill="none" filter="url(#crtGlow)" />
+    <!-- Screen phosphor glow -->
+    <ellipse cx="80" cy="70" rx="40" ry="35" fill="var(--pip)" opacity="0.03" />
 
-    <!-- Eyes (glyph-like, trackable pupils) -->
+    <!-- Vault-Tec style face -->
+    
+    <!-- Eyebrows (angular, robotic) -->
+    <path data-eyebrow="left" d="M46 48 L56 44 L68 48" stroke="var(--pip)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#crtGlow)" />
+    <path data-eyebrow="right" d="M92 48 L104 44 L114 48" stroke="var(--pip)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#crtGlow)" />
+
+    <!-- Eyes (rounded rectangles, more robotic) -->
     <g class="blink" filter="url(#crtGlow)">
-      <rect data-eye="left" x="50" y="62" width="22" height="10" fill="var(--pip)" />
-      <rect data-eye="right" x="88" y="62" width="22" height="10" fill="var(--pip)" />
+      <rect data-eye="left" x="46" y="56" width="26" height="14" rx="3" fill="var(--pip)" />
+      <rect data-eye="right" x="88" y="56" width="26" height="14" rx="3" fill="var(--pip)" />
 
-      <rect data-pupil="" x="58" y="65" width="4" height="4" fill="#08110d" />
-      <rect data-pupil="" x="96" y="65" width="4" height="4" fill="#08110d" />
+      <!-- Pupils (square, digital look) -->
+      <rect data-pupil="" x="56" y="60" width="6" height="6" rx="1" fill="#08110d" />
+      <rect data-pupil="" x="98" y="60" width="6" height="6" rx="1" fill="#08110d" />
     </g>
 
-    <!-- Mouth / waveform -->
-    <path
-      class="mouth"
-      d="M52 88 L58 90 L64 92 L70 90 L76 94 L82 92 L88 90 L94 92 L100 90 L108 88"
-      fill="none"
-      stroke="var(--pip)"
-      stroke-width="1.6"
-      stroke-linecap="round"
-      filter="url(#crtGlow)"
-    />
+    <!-- Nose hint (simple vertical line) -->
+    <line x1="80" y1="74" x2="80" y2="82" stroke="var(--pip)" stroke-width="1.2" opacity="0.4" stroke-linecap="round" />
 
-    <!-- Status text bars -->
-    <rect x="36" y="104" width="40" height="3" fill="var(--pip-dim)" />
-    <rect x="36" y="110" width="64" height="3" fill="var(--pip-dim)" />
+    <!-- Mouth group (opens/closes vertically) -->
+    <g data-mouth="" filter="url(#crtGlow)">
+      <!-- Upper lip -->
+      <path data-mouth-upper="" d="M60 90 Q70 87 80 88 Q90 87 100 90" stroke="var(--pip)" stroke-width="2" stroke-linecap="round" fill="none" />
+      <!-- Lower lip -->
+      <path data-mouth-lower="" d="M60 90 Q70 93 80 92 Q90 93 100 90" stroke="var(--pip)" stroke-width="2" stroke-linecap="round" fill="none" />
+      <!-- Mouth interior (dark, visible when open) -->
+      <ellipse data-mouth-interior="" cx="80" cy="90" rx="18" ry="0" fill="#08110d" opacity="0.8" />
+    </g>
+
+    <!-- Status bar area -->
+    <rect x="36" y="108" width="88" height="10" rx="2" fill="var(--bg)" stroke="var(--pip-dim)" stroke-width="0.8" />
+    
+    <!-- Status indicators -->
+    <rect x="40" y="111" width="12" height="4" rx="1" fill="var(--pip)" opacity="0.6" />
+    <rect x="56" y="111" width="20" height="4" rx="1" fill="var(--pip)" opacity="0.4" />
+    <rect x="80" y="111" width="8" height="4" rx="1" fill="var(--pip)" opacity="0.3" />
+    <rect x="92" y="111" width="28" height="4" rx="1" fill="var(--pip-dim)" />
   </g>
 
-  <!-- HUD corner brackets -->
-  <path d="M8 8 L8 32 M8 8 L32 8" stroke="var(--pip-dim)" stroke-width="1.4" />
-  <path d="M152 8 L152 32 M152 8 L128 8" stroke="var(--pip-dim)" stroke-width="1.4" />
-  <path d="M8 152 L8 128 M8 152 L32 152" stroke="var(--pip-dim)" stroke-width="1.4" />
-  <path d="M152 152 L152 128 M152 152 L128 152" stroke="var(--pip-dim)" stroke-width="1.4" />
+  <!-- Decorative tech lines -->
+  <line x1="14" y1="80" x2="18" y2="80" stroke="var(--pip-dim)" stroke-width="1" />
+  <line x1="142" y1="80" x2="146" y2="80" stroke="var(--pip-dim)" stroke-width="1" />
+  <line x1="80" y1="10" x2="80" y2="14" stroke="var(--pip-dim)" stroke-width="1" />
+  <line x1="80" y1="146" x2="80" y2="150" stroke="var(--pip-dim)" stroke-width="1" />
 </svg>

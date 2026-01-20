@@ -2,10 +2,16 @@ import AvatarGraphic from './assets/avatar.svg?raw';
 
 export type AvatarMood = 'idle' | 'listening' | 'thinking' | 'speaking' | 'concerned';
 
+type MouthShape = {
+  upper: string;
+  lower: string;
+  openness: number;
+};
+
 type MoodStyle = {
   accent: string;
   accent2: string;
-  mouth: string;
+  mouth: MouthShape;
   faceHighlight: number;
   browLeftY: number;
   browRightY: number;
@@ -16,11 +22,12 @@ type MoodStyle = {
   pupilScale: number;
   eyeScaleY?: number;
   pupilScaleY?: number;
+  gazeLocked?: { x: number; y: number };
 };
 
 type EmoteStyle = {
   durationMs: number;
-  mouth?: string;
+  mouth?: MouthShape;
   faceHighlight?: number;
   browLeftYOffset?: number;
   browRightYOffset?: number;
@@ -83,7 +90,11 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
   idle: {
     accent: '#00ff88',
     accent2: '#22d3ee',
-    mouth: 'M 65 102 C 72 107 88 107 95 102',
+    mouth: {
+      upper: 'M60 90 Q70 87 80 88 Q90 87 100 90',
+      lower: 'M60 90 Q70 93 80 92 Q90 93 100 90',
+      openness: 0,
+    },
     faceHighlight: 0.25,
     browLeftY: 0,
     browRightY: 0,
@@ -96,7 +107,11 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
   listening: {
     accent: '#22d3ee',
     accent2: '#00ff88',
-    mouth: 'M 64 101 C 72 109 88 109 96 101',
+    mouth: {
+      upper: 'M60 89 Q70 85 80 86 Q90 85 100 89',
+      lower: 'M60 91 Q70 95 80 94 Q90 95 100 91',
+      openness: 2,
+    },
     faceHighlight: 0.3,
     browLeftY: -2,
     browRightY: -2,
@@ -109,20 +124,29 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
   thinking: {
     accent: '#f59e0b',
     accent2: '#00ff88',
-    mouth: 'M 65 104 C 73 104 87 104 95 104',
+    mouth: {
+      upper: 'M62 90 Q70 89 80 89 Q90 89 98 90',
+      lower: 'M62 90 Q70 91 80 91 Q90 91 98 90',
+      openness: 0,
+    },
     faceHighlight: 0.2,
     browLeftY: -1,
     browRightY: 1,
     browLeftRotate: -2,
     browRightRotate: 8,
     eyeScale: 0.9,
-    eyeShiftY: 0.5,
+    eyeShiftY: -1.5,
     pupilScale: 0.95,
+    gazeLocked: { x: 1.2, y: -2.4 },
   },
   speaking: {
     accent: '#00ff88',
     accent2: '#10b981',
-    mouth: 'M 65 101 C 72 111 88 111 95 101',
+    mouth: {
+      upper: 'M60 88 Q70 84 80 85 Q90 84 100 88',
+      lower: 'M60 94 Q70 100 80 99 Q90 100 100 94',
+      openness: 6,
+    },
     faceHighlight: 0.35,
     browLeftY: -0.5,
     browRightY: -0.5,
@@ -135,7 +159,11 @@ const moodStyles: Record<AvatarMood, MoodStyle> = {
   concerned: {
     accent: '#f97316',
     accent2: '#00ff88',
-    mouth: 'M 65 106 C 72 100 88 100 95 106',
+    mouth: {
+      upper: 'M62 92 Q70 90 80 90 Q90 90 98 92',
+      lower: 'M62 92 Q70 95 80 94 Q90 95 98 92',
+      openness: 1,
+    },
     faceHighlight: 0.18,
     browLeftY: 1.5,
     browRightY: 1.5,
@@ -237,7 +265,11 @@ export class AssistantAvatar {
 
   private readonly svg: SVGSVGElement;
 
-  private readonly mouth: SVGPathElement | null;
+  private readonly mouthUpper: SVGPathElement | null;
+
+  private readonly mouthLower: SVGPathElement | null;
+
+  private readonly mouthInterior: SVGEllipseElement | null;
 
   private readonly faceHighlight: SVGCircleElement | null;
 
@@ -279,7 +311,9 @@ export class AssistantAvatar {
     this.svg = svg;
     this.svg.style.overflow = 'visible';
 
-    this.mouth = this.svg.querySelector<SVGPathElement>('[data-mouth]');
+    this.mouthUpper = this.svg.querySelector<SVGPathElement>('[data-mouth-upper]');
+    this.mouthLower = this.svg.querySelector<SVGPathElement>('[data-mouth-lower]');
+    this.mouthInterior = this.svg.querySelector<SVGEllipseElement>('[data-mouth-interior]');
     this.faceHighlight = this.svg.querySelector<SVGCircleElement>('[data-face-highlight]');
 
     this.pointerHandler = (event: PointerEvent) => {
@@ -348,11 +382,18 @@ export class AssistantAvatar {
   }
 
   /**
+   * Returns true when gaze tracking should be locked to a fixed position.
+   */
+  private isGazeLocked(): boolean {
+    return this.currentStyle?.gazeLocked !== undefined;
+  }
+
+  /**
    * Nudges pupils and head tilt toward the user's pointer position.
    */
   private handlePointer(event: PointerEvent): void {
     this.lastPointerAt = Date.now();
-    if (this.isEmoteActive()) {
+    if (this.isEmoteActive() || this.isGazeLocked()) {
       return;
     }
 
@@ -396,7 +437,7 @@ export class AssistantAvatar {
    * Returns the avatar gaze to neutral when the cursor exits the frame.
    */
   private resetGaze(): void {
-    if (this.isEmoteActive()) {
+    if (this.isEmoteActive() || this.isGazeLocked()) {
       return;
     }
 
@@ -422,11 +463,37 @@ export class AssistantAvatar {
   }
 
   /**
+   * Applies accent colors to all colorable SVG elements.
+   */
+  private applyAccentColors(accent: string, accent2: string): void {
+    this.svg.style.setProperty('--pip', accent);
+    this.svg.style.setProperty('--pip-soft', `${accent}26`);
+    this.svg.style.setProperty('--pip-dim', `${accent}14`);
+    this.svg.style.setProperty('--accent', accent);
+    this.svg.style.setProperty('--accent2', accent2);
+    this.container.style.setProperty('filter', `drop-shadow(0 0 30px ${accent}80)`);
+  }
+
+  /**
+   * Applies the mouth shape to the SVG elements.
+   */
+  private applyMouth(mouth: MouthShape): void {
+    if (this.mouthUpper) {
+      this.mouthUpper.setAttribute('d', mouth.upper);
+    }
+    if (this.mouthLower) {
+      this.mouthLower.setAttribute('d', mouth.lower);
+    }
+    if (this.mouthInterior) {
+      this.mouthInterior.setAttribute('ry', mouth.openness.toString());
+    }
+  }
+
+  /**
    * Applies the baseline style for a mood.
    */
   private applyStyle(style: MoodStyle): void {
-    this.svg.style.setProperty('--accent', style.accent);
-    this.svg.style.setProperty('--accent2', style.accent2);
+    this.applyAccentColors(style.accent, style.accent2);
     this.container.style.setProperty('--brow-left-y', `${style.browLeftY}px`);
     this.container.style.setProperty('--brow-right-y', `${style.browRightY}px`);
     this.container.style.setProperty('--brow-left-rotate', `${style.browLeftRotate}deg`);
@@ -437,12 +504,16 @@ export class AssistantAvatar {
     this.container.style.removeProperty('--eye-scale-y');
     this.container.style.removeProperty('--pupil-scale-y');
 
-    if (this.mouth) {
-      this.mouth.setAttribute('d', style.mouth);
-    }
+    this.applyMouth(style.mouth);
 
     if (this.faceHighlight) {
       this.faceHighlight.setAttribute('opacity', style.faceHighlight.toString());
+    }
+
+    if (style.gazeLocked) {
+      this.applyGaze(style.gazeLocked.x, style.gazeLocked.y);
+    } else {
+      this.resetGaze();
     }
   }
 
@@ -466,7 +537,7 @@ export class AssistantAvatar {
     if (this.currentMood !== 'idle') {
       return;
     }
-    if (this.isEmoteActive()) {
+    if (this.isEmoteActive() || this.isGazeLocked()) {
       return;
     }
 
@@ -564,9 +635,7 @@ export class AssistantAvatar {
     this.container.style.setProperty('--pupil-scale', pupilScale.toString());
     this.container.style.setProperty('--pupil-scale-y', pupilScaleY.toString());
 
-    if (this.mouth) {
-      this.mouth.setAttribute('d', emote.mouth ?? base.mouth);
-    }
+    this.applyMouth(emote.mouth ?? base.mouth);
 
     if (this.faceHighlight) {
       const highlight = emote.faceHighlight ?? base.faceHighlight;
