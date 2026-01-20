@@ -10,8 +10,10 @@ import contractStrictAnswerSource from '../../../assistant/src/contracts/strict.
 import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
+import { renderMarkdown } from '../bubble/markdown';
 import { ToolOutputContent } from '../bubble/tool-output';
 import { useUIStateContext } from '../state/ui-state-context';
+import type { BubbleContent } from '../ui-state';
 
 type ContractSource = {
   path: string;
@@ -154,15 +156,27 @@ export const ContractModels: Component = () => {
       path: source.path,
       content: source.content,
     };
-    const summary = `Contract source loaded for \`${contractKey}\`.`;
+    const summaryText = `Contract source loaded for \`${contractKey}\`.`;
+    const summaryHtml = renderMarkdown(summaryText);
+    const bubbleContent: BubbleContent = {
+      kind: 'inline-typewriter',
+      text: summaryText,
+      targetSelector: '[data-typewriter-target="summary"]',
+      finalHtml: summaryHtml,
+      render: () => ToolOutputContent({
+        summary: summaryText,
+        raw: payload,
+        summaryHtml: '',
+      }),
+    };
     const state = uiState();
-    state?.showBubble({
-      kind: 'static',
-      render: () => ToolOutputContent({ summary, raw: payload }),
-    });
+    state?.showBubble(bubbleContent);
     state?.setMood('speaking');
     state?.markActivity();
     state?.addLog(`Contract source opened: ${contractKey}`);
+    window.setTimeout(() => {
+      state?.setMood('idle');
+    }, 650);
   };
 
   const renderModelName = (modelName: string) => {

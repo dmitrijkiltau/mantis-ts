@@ -258,7 +258,7 @@
       }
 
       .http-json-viewer {
-        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto;
+        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto font-mono leading-snug;
       }
 
       .http-json-controls {
@@ -587,24 +587,28 @@
       }
 
       .markdown-preview-content {
-        @apply p-4 text-sm text-terminal-primary;
+        @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+
+        & p {
+          @apply my-2 first:mt-0 last:mb-0;
+        }
 
         & :is(h1, h2, h3) {
-          @apply font-bold text-terminal-cyan mt-4 mb-2;
+          @apply font-bold text-terminal-cyan mt-3 mb-1;
         }
 
         & h1 {
-          @apply text-xl;
-        }
-        & h2 {
           @apply text-lg;
         }
-        & h3 {
+        & h2 {
           @apply text-base;
+        }
+        & h3 {
+          @apply text-sm;
         }
 
         & :is(ul, ol) {
-          @apply ml-6 my-2;
+          @apply ml-5 my-2;
         }
         & li {
           @apply my-1;
@@ -620,6 +624,46 @@
         & pre {
           @apply my-2;
         }
+      }
+    }
+
+    .file-output-block .markdown-preview-content {
+      @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+
+      & p {
+        @apply my-2 first:mt-0 last:mb-0;
+      }
+
+      & :is(h1, h2, h3) {
+        @apply font-bold text-terminal-cyan mt-3 mb-1;
+      }
+
+      & h1 {
+        @apply text-lg;
+      }
+      & h2 {
+        @apply text-base;
+      }
+      & h3 {
+        @apply text-sm;
+      }
+
+      & :is(ul, ol) {
+        @apply ml-5 my-2;
+      }
+      & li {
+        @apply my-1;
+      }
+      & a {
+        @apply text-terminal-cyan underline;
+      }
+
+      & code {
+        @apply px-1 py-0.5 rounded border text-xs bg-primary-10 border-primary-30 text-terminal-cyan;
+      }
+
+      & pre {
+        @apply my-2;
       }
     }
 
@@ -651,20 +695,24 @@
       }
 
       .code-block-json-viewer {
-        @apply text-[11px] p-3 max-h-96 overflow-y-auto;
+        @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
       }
     }
 
+    .file-output-block .code-block-json-viewer {
+      @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
+    }
+
     .json-viewer-root {
-      @apply flex flex-col gap-2;
+      @apply flex flex-col gap-1;
     }
 
     .json-node {
-      @apply text-terminal-primary;
+      @apply text-terminal-primary font-mono text-[11px] leading-snug;
 
       & summary {
-        @apply list-none flex items-center gap-2 cursor-pointer text-[11px];
-        @apply font-semibold tracking-widest text-terminal-cyan;
+        @apply list-none flex items-center gap-1 cursor-pointer text-[11px];
+        @apply font-semibold tracking-normal text-terminal-cyan leading-snug;
       }
 
       &.json-node-array > summary,
@@ -673,11 +721,16 @@
       }
 
       .json-node-children {
-        @apply pl-4 border-l border-primary-30 mt-2 ml-1 flex flex-col gap-1;
+        @apply pl-3 border-l border-primary-30 mt-1 ml-1 flex flex-col gap-1;
       }
 
       .json-node-key {
         @apply font-mono text-terminal-primary text-[11px];
+      }
+
+      .json-node-type,
+      .json-node-count {
+        @apply text-primary-60 text-[10px] font-mono;
       }
 
       .json-value {
@@ -701,6 +754,10 @@
       .json-node-empty {
         @apply text-[10px] font-mono text-primary-70;
       }
+    }
+
+    .json-node-primitive {
+      @apply flex flex-wrap items-center gap-1;
     }
 
     .file-tree {
