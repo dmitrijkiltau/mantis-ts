@@ -1,5 +1,5 @@
 import { type ContractValidator } from '../types';
-import { extractFirstJsonObject, stripMarkdownFences } from './parsing.js';
+import { parseJsonObjectStrict, stripMarkdownFences } from './parsing.js';
 
 /**
  * Contract for verifying extracted tool arguments against the user intent.
@@ -82,19 +82,15 @@ export const validateToolArgumentVerification: ContractValidator<
   ToolArgumentVerificationValidationError
 > = (raw) => {
   const cleaned = stripMarkdownFences(raw);
-  if (!cleaned.includes('{')) {
+  if (!cleaned.trim().startsWith('{')) {
     return { ok: false, error: `INVALID_JSON:${raw}` };
   }
 
   let parsedCandidate: unknown;
   try {
-    parsedCandidate = extractFirstJsonObject(cleaned);
+    parsedCandidate = parseJsonObjectStrict(cleaned);
   } catch {
     return { ok: false, error: `INVALID_JSON:${raw}` };
-  }
-
-  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
-    return { ok: false, error: `INVALID_SHAPE:${JSON.stringify(parsedCandidate)}` };
   }
 
   const parsed = parsedCandidate as {

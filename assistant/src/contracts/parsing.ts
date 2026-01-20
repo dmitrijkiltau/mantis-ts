@@ -9,6 +9,19 @@ export const stripMarkdownFences = (input: string): string => {
 };
 
 /**
+ * Parses a JSON object when the entire input is JSON.
+ * Throws if the input is not strictly a JSON object.
+ */
+export const parseJsonObjectStrict = (input: string): unknown => {
+  const cleaned = stripMarkdownFences(input);
+  const parsed = JSON.parse(cleaned) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Invalid JSON object');
+  }
+  return parsed;
+};
+
+/**
  * Extracts the first valid JSON object from a string, ignoring Markdown fences.
  * Throws if no valid object can be parsed.
  */

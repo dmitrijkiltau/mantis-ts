@@ -115,6 +115,8 @@ Formatting failures are graceful: the original response is returned unchanged an
 
 - **Tool intent guards**: Tool intents use the `tool.` prefix and require a minimum confidence (currently 0.6). The pipeline enforces an explicit trigger-guard (via `TOOL_TRIGGERS`) when confidence is moderate; if confidence is very high, it proceeds without triggers to avoid blocking non-English or terse requests.
 
+- **Strict JSON validation for tool contracts**: Tool argument extraction and verification require JSON-only responses (after stripping Markdown fences). Any extra text or non-object payloads are rejected to reduce retries caused by chatty outputs.
+
 - **Schema-aware argument extraction and skip heuristics**: If a tool's schema is empty the pipeline executes the tool with `{}`. Otherwise the pipeline extracts arguments using the `TOOL_ARGUMENT_EXTRACTION` contract, validates them, and may skip tool execution if the arguments are mostly null. Specifically, non-nullable (required) fields are counted and if the fraction of required fields that are null exceeds a threshold (0.5) the pipeline falls back to a strict answer; if all arguments are null it will also skip execution. This avoids running tools with insufficient intent.
 
 - **Parallel language detection & tool execution**: When executing tools, the pipeline runs language detection in parallel with tool execution (Promise.all) to reduce latency; the detected language (or fallback) is then used for response formatting and summarization.
