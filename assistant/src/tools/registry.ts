@@ -26,6 +26,19 @@ export const GENERAL_ANSWER_INTENT = 'answer.general';
 export const CONVERSATION_INTENT = 'answer.conversation';
 
 /**
+ * Trigger keywords that must appear in the user input to allow tool execution.
+ */
+export const TOOL_TRIGGERS: Record<ToolName, string[]> = {
+  clipboard: ['clipboard', 'copy', 'paste'],
+  filesystem: ['file', 'files', 'folder', 'directory', 'path', 'read', 'list', 'open'],
+  search: ['search', 'find', 'locate', 'lookup'],
+  http: ['http', 'https', 'url', 'fetch', 'get', 'request', 'download'],
+  process: ['process', 'processes', 'ps', 'pid', 'task', 'service'],
+  shell: ['shell', 'command', 'terminal', 'cmd', 'run'],
+  pcinfo: ['system', 'cpu', 'ram', 'memory', 'disk', 'storage', 'uptime', 'host', 'pc', 'machine'],
+};
+
+/**
  * Returns the tool definition for runtime dispatch.
  */
 export const getToolDefinition = (name: ToolName): ToolDefinitionBase => TOOLS[name];

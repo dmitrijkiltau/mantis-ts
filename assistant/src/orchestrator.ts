@@ -126,8 +126,12 @@ export class Orchestrator {
   }
 
   private formatToolSchema(schema: ToolSchema): string {
-    // Create a cache key from schema keys for lightweight lookup
-    const schemaKeyStr = Object.keys(schema).sort().join('|');
+    // Create a cache key from schema keys + types for lightweight lookup
+    const schemaKeyStr = Object.entries(schema)
+      .map(([key, type]) => ({ key, type }))
+      .sort((left, right) => left.key.localeCompare(right.key))
+      .map((entry) => `${entry.key}:${entry.type}`)
+      .join('|');
     const cached = toolSchemaCache.get(schemaKeyStr);
     if (cached !== undefined) {
       return cached;

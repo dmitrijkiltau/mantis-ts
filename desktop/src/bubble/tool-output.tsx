@@ -54,6 +54,10 @@ const renderToolJsonAccordion = (raw: unknown): JSX.Element => {
     return <FileOutputAccordionView payload={raw} />;
   }
 
+  if (isDirectoryPayload(raw)) {
+    return <DirectoryPayloadView payload={raw} />;
+  }
+
   if (isPcInfoPayload(raw)) {
     const platform = raw.system?.platform ? raw.system.platform.toUpperCase() : 'SYSTEM';
     const hostname = raw.system?.hostname ?? platform;
