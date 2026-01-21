@@ -27,10 +27,10 @@ Tone is fixed: the orchestrator injects the predefined MANTIS personality instru
 `assistant/src/tools/registry.ts` exports the registry of available tools organized by category:
 
 - **Local**: `clipboard`, `filesystem`, `search`
-- **Web**: `fetch`, `http`
+- **Web**: `http`
 - **System**: `process`, `shell`, `pcinfo`
 
-Each tool definition includes a name, description, schema for arguments, and an execute function. The pipeline derives tool intents from this registry (e.g., `tool.fetch`, `tool.pcinfo`) and extracts arguments according to each tool's schema.
+Each tool definition includes a name, description, schema for arguments, and an execute function. The pipeline derives tool intents from this registry (e.g., `tool.http`, `tool.pcinfo`) and extracts arguments according to each tool's schema.
 
 ## Contracts
 
