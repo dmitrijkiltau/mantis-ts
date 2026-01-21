@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Orchestrator } from './orchestrator.js';
-import type { Runner } from './runner.js';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Pipeline } from './pipeline.js';
+import { createMockOrchestrator, createMockRunner } from './test-helpers/pipeline-mocks.js';
 
 /**
  * Unit tests for Pipeline class, focusing on:
@@ -12,38 +11,12 @@ import { Pipeline } from './pipeline.js';
 
 describe('Pipeline', () => {
   let pipeline: Pipeline;
-  let mockOrchestrator: Orchestrator;
-  let mockRunner: Runner;
+  let mockOrchestrator: ReturnType<typeof createMockOrchestrator>;
+  let mockRunner: ReturnType<typeof createMockRunner>;
 
   beforeEach(() => {
-    // Create minimal mocks for orchestrator and runner
-    mockOrchestrator = {
-      buildIntentClassificationPrompt: vi.fn(),
-      buildLanguageDetectionPrompt: vi.fn(),
-      buildToolArgumentPrompt: vi.fn(),
-      buildToolArgumentVerificationPrompt: vi.fn(),
-      buildStrictAnswerPrompt: vi.fn(),
-      buildResponseFormattingPrompt: vi.fn(),
-      buildScoringPrompt: vi.fn().mockReturnValue({
-        contractName: 'SCORING_EVALUATION',
-        model: 'test-model',
-        systemPrompt: 'test system',
-      }),
-      buildErrorChannelPrompt: vi.fn(),
-      validateIntentClassification: vi.fn(),
-      validateLanguageDetection: vi.fn(),
-      validateToolArguments: vi.fn(),
-      validateToolArgumentVerification: vi.fn(),
-      validateStrictAnswer: vi.fn(),
-      validateResponseFormatting: vi.fn(),
-      validateScoring: vi.fn(),
-      validateErrorChannel: vi.fn(),
-    } as any;
-
-    mockRunner = {
-      executeContract: vi.fn(),
-    } as any;
-
+    mockOrchestrator = createMockOrchestrator();
+    mockRunner = createMockRunner();
     pipeline = new Pipeline(mockOrchestrator, mockRunner);
   });
 
@@ -92,7 +65,7 @@ describe('Pipeline', () => {
     it('should parse direct fetch: "get <url>" command', () => {
       const result = (pipeline as any).parseDirectToolRequest('get https://example.com');
       expect(result).not.toBeNull();
-    expect(result?.tool).toBe('http');
+      expect(result?.tool).toBe('http');
       expect(result?.args.method).toBe('GET');
       expect(result?.args.url).toBe('https://example.com');
       expect(result?.reason).toBe('direct_get_http');
