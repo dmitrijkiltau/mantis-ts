@@ -1,8 +1,7 @@
 import type { Component } from 'solid-js';
 import type { BubbleFilePayload } from '../bubble-types';
 import {
-  encodeJsonForAttribute,
-  encodePathForAttribute,
+  encodeForAttribute,
   getFilenameFromPath,
   inferLanguageFromPath,
   truncatePathForDisplay,
@@ -11,7 +10,7 @@ import { renderCodeBlock, renderFilePanels } from '../markdown';
 
 export const FilePayloadView: Component<{ payload: BubbleFilePayload }> = (props) => {
   const language = inferLanguageFromPath(props.payload.path);
-  const encodedPath = encodePathForAttribute(props.payload.path);
+  const encodedPath = encodeForAttribute(props.payload.path);
 
   return (
     <div class="file-preview">
@@ -41,8 +40,8 @@ export const FileOutputAccordionView: Component<{ payload: BubbleFilePayload }> 
   const language = inferLanguageFromPath(props.payload.path);
   const filename = getFilenameFromPath(props.payload.path);
   const truncatedPath = truncatePathForDisplay(props.payload.path);
-  const rawAttr = encodeJsonForAttribute(props.payload.content);
-  const encodedPath = encodePathForAttribute(props.payload.path);
+  const rawAttr = encodeForAttribute(props.payload.content);
+  const encodedPath = encodeForAttribute(props.payload.path);
   const panels = renderFilePanels(props.payload.content, language, props.payload.path);
   const viewOptions = panels.viewOptions;
   const viewButton = viewOptions.length > 1 ? (

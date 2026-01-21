@@ -126,12 +126,10 @@ export const formatUptime = (seconds: number | null): string => {
   return parts.join(' ');
 };
 
-export const encodeJsonForAttribute = (value: string): string => encodeURIComponent(value);
-
 /**
- * Encodes file paths for safe placement in HTML attributes.
+ * Encodes content for safe placement in HTML attributes.
  */
-export const encodePathForAttribute = (value: string): string => encodeURIComponent(value);
+export const encodeForAttribute = (value: string): string => encodeURIComponent(value);
 
 export const safeJsonStringify = (value: unknown): string | null => {
   try {

@@ -14,7 +14,7 @@ import {
   isProcessListPayload,
   isSearchPayload,
 } from './payloads/guards';
-import { encodeJsonForAttribute, formatUptime, safeJsonStringify, truncatePathForDisplay } from './shared';
+import { encodeForAttribute, formatUptime, safeJsonStringify, truncatePathForDisplay } from './shared';
 
 const renderToolOutputPreview = (raw: unknown): JSX.Element => {
   if (isFilePayload(raw)) {
@@ -110,7 +110,7 @@ const renderToolJsonAccordion = (raw: unknown): JSX.Element => {
   if (isHttpResponsePayload(raw)) {
     const statusLabel = `${raw.status}${raw.statusText ? ` ${raw.statusText.trim()}` : ''}`.trim();
     const urlDisplay = truncatePathForDisplay(raw.finalUrl || raw.url);
-    const rawAttr = encodeJsonForAttribute(raw.content);
+    const rawAttr = encodeForAttribute(raw.content);
 
     return (
       <details
@@ -144,7 +144,7 @@ const renderToolJsonAccordion = (raw: unknown): JSX.Element => {
   const serialized = safeJsonStringify(raw);
   const preview = renderToolOutputPreview(raw);
   const rawCopy = typeof raw === 'string' ? raw : serialized ?? String(raw);
-  const rawAttr = encodeJsonForAttribute(rawCopy);
+  const rawAttr = encodeForAttribute(rawCopy);
 
   return (
     <details class="tool-output-accordion" data-view-root="true" data-view="preview" data-raw-copy={rawAttr}>
@@ -183,4 +183,3 @@ export const ToolOutputContent: Component<{ summary: string; raw: unknown; summa
     </div>
   );
 };
-
