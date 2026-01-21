@@ -13,139 +13,32 @@ import type { FieldType } from './contracts/definition.js';
 import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
-import type { HttpResponseResult } from './tools/web/http-core.js';
-
-const TOOL_INTENT_PREFIX = 'tool.';
-const MIN_TOOL_CONFIDENCE = 0.6;
-const TOOL_ARGUMENT_VERIFICATION_RETRIES = 1;
-const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
-const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
-const MIN_TOOL_TRIGGER_CONFIDENCE = 0.85;
-const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-const LOW_SCORE_THRESHOLD = 3;
+import {
+  LOW_SCORE_THRESHOLD,
+  MIN_CLARIFY_INTENT_CONFIDENCE,
+  MIN_CLARIFY_VERIFICATION_CONFIDENCE,
+  MIN_TOOL_CONFIDENCE,
+  MIN_TOOL_TRIGGER_CONFIDENCE,
+  REQUIRED_NULL_RATIO_THRESHOLD,
+  TOOL_ARGUMENT_VERIFICATION_RETRIES,
+  TOOL_INTENT_PREFIX,
+} from './pipeline/config.js';
+import {
+  deriveDetectedLanguage,
+  type DetectedLanguage,
+  LANGUAGE_FALLBACK,
+} from './pipeline/language.js';
+import {
+  isHttpResponseResult,
+  isPcInfoSummary,
+  type PcInfoSummary,
+} from './pipeline/type-guards.js';
 
 type PipelineRunOptions = {
   intentModelOverride?: string;
   allowLowScoreRetry?: boolean;
 };
 
-type PcInfoSummary = {
-  system?: {
-    platform: string;
-    hostname: string | null;
-    uptime: number | null;
-  };
-  cpu?: {
-    cores: number | null;
-    threads: number | null;
-    model: string | null;
-    usage: number | null;
-  };
-  memory?: {
-    totalBytes: number | null;
-    usedBytes: number | null;
-    freeBytes: number | null;
-    usagePercent: number | null;
-  };
-  disks?: Array<{
-    path: string;
-    totalBytes: number | null;
-    usedBytes: number | null;
-    freeBytes: number | null;
-    usagePercent: number | null;
-  }>;
-};
-
-export type DetectedLanguage = { language: string; name: string };
-
-const LANGUAGE_FALLBACK: DetectedLanguage = {
-  language: 'unknown',
-  name: 'Unknown',
-};
-
-const languageDisplayNameFormatter = (() => {
-  try {
-    return new Intl.DisplayNames(['en'], { type: 'language' });
-  } catch {
-    return null;
-  }
-})();
-
-function formatLanguageDisplayName(code: string): string {
-  if (!code) {
-    return LANGUAGE_FALLBACK.name;
-  }
-
-  if (code === LANGUAGE_FALLBACK.language) {
-    return LANGUAGE_FALLBACK.name;
-  }
-
-  const displayName = languageDisplayNameFormatter?.of(code);
-  if (displayName && displayName.toLowerCase() !== code) {
-    return displayName;
-  }
-
-  return `${code.charAt(0).toUpperCase()}${code.slice(1)}`;
-}
-
-const isHttpResponseResult = (value: unknown): value is HttpResponseResult => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.url === 'string'
-    && typeof record.finalUrl === 'string'
-    && typeof record.method === 'string'
-    && typeof record.status === 'number'
-    && typeof record.statusText === 'string'
-    && typeof record.headers === 'object'
-    && (typeof record.contentType === 'string' || record.contentType === null)
-    && typeof record.content === 'string'
-    && typeof record.bytesRead === 'number'
-    && typeof record.totalBytes === 'number'
-    && typeof record.truncated === 'boolean'
-    && typeof record.redirected === 'boolean'
-  );
-};
-
-const isPcInfoSummary = (value: unknown): value is PcInfoSummary => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.system === 'object'
-    || typeof record.cpu === 'object'
-    || typeof record.memory === 'object'
-    || Array.isArray(record.disks)
-  );
-};
-
-/**
- * Normalize an ISO code into a DetectedLanguage, deriving a friendly name via Intl when available.
- */
-function deriveDetectedLanguage(code?: string): DetectedLanguage {
-  if (!code) {
-    return LANGUAGE_FALLBACK;
-  }
-
-  const normalized = code.trim().toLowerCase();
-  if (!normalized) {
-    return LANGUAGE_FALLBACK;
-  }
-
-  if (normalized === LANGUAGE_FALLBACK.language) {
-    return LANGUAGE_FALLBACK;
-  }
-
-  return {
-    language: normalized,
-    name: formatLanguageDisplayName(normalized),
-  };
-}
 
 /**
  * Helper to measure execution duration in milliseconds.
