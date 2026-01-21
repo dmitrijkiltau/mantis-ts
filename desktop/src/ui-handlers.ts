@@ -7,6 +7,7 @@ import type { ContextStore } from './context-store';
 import { renderBubbleContent } from './bubble/render-bubble';
 import { renderMarkdown } from './bubble/markdown';
 import { ToolOutputContent } from './bubble/tool-output';
+import { safeJsonStringify } from './bubble/shared';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
 import {
@@ -14,18 +15,6 @@ import {
   getEvaluationAlertMessage,
 } from './evaluation-utils';
 import type { ImageAttachmentStore } from './state/image-attachment-context';
-
-const formatPayload = (value: unknown): string => {
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-};
 
 const hasToolSummary = (
   result: PipelineResult,
@@ -45,7 +34,7 @@ const truncateText = (value: string, limit: number): string => {
 type BubbleRenderFn = () => JSX.Element;
 
 const renderHistoryContent = (value: unknown): BubbleRenderFn => {
-  const payload = typeof value === 'string' ? value : formatPayload(value);
+  const payload = typeof value === 'string' ? value : safeJsonStringify(value) ?? String(value);
   return () => renderBubbleContent(payload);
 };
 
@@ -88,7 +77,9 @@ const buildToolBubbleContent = (result: PipelineResult & { kind: 'tool' }): Bubb
     };
   }
 
-  const payload = typeof result.result === 'string' ? result.result : formatPayload(result.result);
+  const payload = typeof result.result === 'string'
+    ? result.result
+    : safeJsonStringify(result.result) ?? String(result.result);
   return buildBubbleContent(payload);
 };
 
