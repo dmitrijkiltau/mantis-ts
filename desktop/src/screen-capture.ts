@@ -1,6 +1,6 @@
 import type { ImageAttachment } from '../../assistant/src/pipeline';
 import { invoke } from './tauri-invoke';
-import { buildImageAttachmentFromDataUrl } from './image-attachments';
+import { buildDataUrl, buildImageAttachmentFromDataUrl } from './image-attachments';
 
 type DisplayCapture = {
   id: number;
@@ -25,11 +25,6 @@ const CAPTURE_COMMAND = 'capture_displays';
 const clampValue = (value: number, min: number, max: number): number => {
   return Math.min(max, Math.max(min, value));
 };
-
-/**
- * Builds a data URL string from base64 image data.
- */
-const buildDataUrl = (payload: string): string => `data:image/png;base64,${payload}`;
 
 /**
  * Requests screenshots for all connected displays.
