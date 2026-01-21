@@ -425,6 +425,7 @@ export class Pipeline {
           toneInstructions,
           personalityDescription,
           contextSnapshot,
+          this.buildToolTriggerSuggestion(toolName),
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_trigger_missing',
@@ -1270,6 +1271,13 @@ export class Pipeline {
     return false;
   }
 
+  /**
+   * Provides a short suggestion when tool triggers are missing.
+   */
+  private buildToolTriggerSuggestion(toolName: ToolName): string {
+    return `Tip: I can use the ${toolName} tool if you want—ask me to use it.`;
+  }
+
   private meetsToolConfidence(confidence: number): boolean {
     return confidence >= MIN_TOOL_CONFIDENCE;
   }
@@ -1649,6 +1657,7 @@ export class Pipeline {
     toneInstructions: string | undefined,
     personalityDescription: string,
     contextSnapshot?: ContextSnapshot,
+    toolSuggestion?: string,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
@@ -1673,6 +1682,7 @@ export class Pipeline {
       toneInstructions,
       language,
       contextSnapshot,
+      toolSuggestion,
     );
   }
 
@@ -1748,6 +1758,7 @@ export class Pipeline {
     toneInstructions?: string,
     language?: DetectedLanguage,
     contextSnapshot?: ContextSnapshot,
+    toolSuggestion?: string,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
     const stageStartMs = Date.now();
@@ -1778,9 +1789,12 @@ export class Pipeline {
     }
 
     Logger.debug('pipeline', 'Strict answer generated successfully');
+    const responseText = toolSuggestion
+      ? `${result.value}\n\n${toolSuggestion}`
+      : result.value;
     const scoring = await this.runScoringEvaluation(
       'strict_answer',
-      result.value,
+      responseText,
       userInput,
       this.formatReferenceContext(contextSnapshot),
       contextSnapshot,
@@ -1788,7 +1802,7 @@ export class Pipeline {
     return {
       ok: true,
       kind: 'strict_answer',
-      value: result.value,
+      value: responseText,
       evaluation: scoring.evaluation,
       evaluationAlert: scoring.alert,
       intent,
