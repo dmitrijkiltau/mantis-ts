@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Pipeline } from './pipeline.js';
 import { createMockOrchestrator, createMockRunner } from './test-helpers/pipeline-mocks.js';
 
