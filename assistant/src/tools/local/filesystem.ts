@@ -10,7 +10,7 @@ type FilesystemAction = 'read' | 'list' | 'stat';
 
 type FilesystemToolArgs = {
   action: FilesystemAction;
-  path: string;
+  path: string | null;
   limit?: number | null;
   maxBytes?: number | null;
 };
@@ -78,7 +78,7 @@ const FILESYSTEM_ACTIONS = new Set<FilesystemAction>(['read', 'list', 'stat']);
 
 const filesystemArgsSchema = z.object({
   action: z.enum(['read', 'list', 'stat']),
-  path: z.string().min(1),
+  path: z.string().min(1).nullable(),
   limit: z.number().int().positive().nullable().optional(),
   maxBytes: z.number().int().positive().nullable().optional(),
 });
@@ -320,6 +320,7 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
   name: 'filesystem',
   description: `Read file contents, list directory entries, or stat a path for existence.
 Do NOT use this to search for files (use the search tool instead).
+If no path is provided, use ENVIRONMENT.cwd from CONTEXT as the default. Resolve relative paths against ENVIRONMENT.cwd.
 
 Examples:
 - "What is in D:/Projects?" -> action: "list", path: "D:/Projects"
@@ -327,14 +328,14 @@ Examples:
 - "Is there a README.md in D:/Projects?" -> action: "stat", path: "D:/Projects/README.md"`,
   schema: {
     action: 'string',
-    path: 'string',
+    path: 'string|null',
     limit: 'number|null',
     maxBytes: 'number|null',
   },
   argsSchema: filesystemArgsSchema,
   async execute(args) {
     const fs = await loadTauriFS();
-    const targetPath = validatePath(args.path);
+    const targetPath = validatePath(args.path ?? '');
     const action = normalizeAction<FilesystemAction>(args.action, FILESYSTEM_ACTIONS);
 
     const statResult = await statPath(targetPath, fs);

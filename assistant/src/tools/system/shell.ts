@@ -11,6 +11,7 @@ type ShellToolArgs = {
   program: string;
   args?: string[] | null;
   timeoutMs?: number | null;
+  cwd?: string | null;
 };
 
 type ShellRunResult = {
@@ -22,7 +23,11 @@ type ShellRunResult = {
 };
 
 type TauriCommand = {
-  create: (program: string, args: string[]) => TauriCommandChild;
+  create: (
+    program: string,
+    args?: string[] | string,
+    options?: { cwd?: string },
+  ) => TauriCommandChild;
 };
 
 type TauriCommandChild = {
@@ -54,10 +59,26 @@ const RUN_ALIAS_MAP = new Map(
 );
 
 // Allowlisted safe binaries per platform
-const WINDOWS_ALLOWLIST = new Set(['powershell', 'ps']);
-const POSIX_ALLOWLIST = new Set(['sh', 'bash', 'ps', 'cat', 'ls', 'pwd', 'echo', 'grep', 'find', 'which', 'env']);
+const WINDOWS_ALLOWLIST = new Set(['powershell', 'ps', 'git', 'docker', 'npm']);
+const POSIX_ALLOWLIST = new Set([
+  'sh',
+  'bash',
+  'ps',
+  'cat',
+  'ls',
+  'pwd',
+  'echo',
+  'grep',
+  'find',
+  'which',
+  'env',
+  'git',
+  'docker',
+  'npm',
+  'systemctl',
+]);
 
-// Destructive tokens to block
+// Destructive tokens to block (exact matches only)
 const DESTRUCTIVE_TOKENS = new Set([
   'rm',
   'del',
@@ -78,13 +99,22 @@ const DESTRUCTIVE_TOKENS = new Set([
   'parted',
   'shutdown',
   'reboot',
-  'init',
-  'systemctl',
-  'service',
   'chown',
   'chmod',
   'chgrp',
   'chroot',
+  'delete',
+  'remove',
+  'erase',
+  'destroy',
+  'wipe',
+  'stop',
+  'restart',
+  'uninstall',
+  'purge',
+  'prune',
+  'clean',
+  'rmi',
 ]);
 
 // Patterns for destructive operations
@@ -98,17 +128,16 @@ const DESTRUCTIVE_PATTERNS = [
   /`/, // Command substitution
   /\$\(/, // Command substitution
   /:\(\)\s*\{/, // Fork bomb pattern
-  /delete/i,
-  /remove/i,
-  /erase/i,
-  /destroy/i,
-  /wipe/i,
-  /-force/i,
-  /-recurse/i,
-  /-rf/i,
-  /-fr/i,
-  /--force/i,
-  /--recursive/i,
+  /^-force$/i,
+  /^-recurse$/i,
+  /^-rf$/i,
+  /^-fr$/i,
+  /^--force(?:=|$)/i,
+  /^--recursive(?:=|$)/i,
+  /^--delete(?:=|$)/i,
+  /^--remove(?:=|$)/i,
+  /^--purge(?:=|$)/i,
+  /^--prune(?:=|$)/i,
 ];
 
 const shellArgsSchema = z.object({
@@ -116,6 +145,7 @@ const shellArgsSchema = z.object({
   program: z.string().min(1),
   args: z.array(z.string()).nullable().optional(),
   timeoutMs: z.number().int().positive().nullable().optional(),
+  cwd: z.string().nullable().optional(),
 });
 
 /* -------------------------------------------------------------------------
@@ -192,13 +222,11 @@ const validateNoDestructiveTokens = (program: string, args: string[]): void => {
     const token = tokenValue.toLowerCase();
 
     // Check against destructive token set
-    for (const destructive of DESTRUCTIVE_TOKENS) {
-      if (token.includes(destructive)) {
-        throw new Error(
-          `Destructive operation detected: "${destructive}" in "${allTokens[index]}". ` +
-            'Only read-only/inspection commands are allowed.',
-        );
-      }
+    if (DESTRUCTIVE_TOKENS.has(token)) {
+      throw new Error(
+        `Destructive operation detected: "${tokenValue}". ` +
+          'Only non-destructive commands are allowed.',
+      );
     }
 
     // Check against destructive patterns
@@ -227,6 +255,17 @@ const normalizeArgs = (args: string[] | null | undefined): string[] => {
   return args.map((arg) => (typeof arg === 'string' ? arg : String(arg)));
 };
 
+/**
+ * Normalize working directory input.
+ */
+const normalizeCwd = (cwd: string | null | undefined): string | null => {
+  if (typeof cwd !== 'string') {
+    return null;
+  }
+  const trimmed = cwd.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 /* -------------------------------------------------------------------------
  * EXECUTION
  * ------------------------------------------------------------------------- */
@@ -238,30 +277,32 @@ const buildCommand = async (
   program: string,
   args: string[],
   platform: string,
+  cwd: string | null,
 ): Promise<TauriCommandChild> => {
   const { Command } = await loadShellModule();
+  const options = cwd ? { cwd } : undefined;
 
   if (platform === 'win32') {
     // Windows: use powershell with safe execution policy
     const programLower = program.toLowerCase();
     if (programLower === 'powershell' || programLower === 'ps') {
       // Direct powershell execution
-      return Command.create('powershell', ['-NoProfile', '-NonInteractive', ...args]);
+      return Command.create('powershell', ['-NoProfile', '-NonInteractive', ...args], options);
     }
     // Wrap other commands in powershell
     const escapedArgs = args.map((arg) => `'${arg.replace(/'/g, "''")}'`);
     const scriptBlock = [program, ...escapedArgs].join(' ');
-    return Command.create('powershell', ['-NoProfile', '-NonInteractive', '-Command', scriptBlock]);
+    return Command.create('powershell', ['-NoProfile', '-NonInteractive', '-Command', scriptBlock], options);
   }
 
   // POSIX: use sh for sh/bash, or direct execution for other commands
   const programLower = program.toLowerCase();
   if (programLower === 'sh' || programLower === 'bash') {
-    return Command.create(program, args);
+    return Command.create(program, args, options);
   }
 
   // Direct execution for other allowlisted commands
-  return Command.create(program, args);
+  return Command.create(program, args, options);
 };
 
 /**
@@ -303,6 +344,7 @@ const runShellCommand = async (
   program: string,
   args: string[],
   timeoutMs: number,
+  cwd: string | null,
 ): Promise<ShellRunResult> => {
   const platform = getPlatform();
 
@@ -315,7 +357,7 @@ const runShellCommand = async (
   validateNoDestructiveTokens(program, args);
 
   // Build and execute command
-  const command = await buildCommand(program, args, platform);
+  const command = await buildCommand(program, args, platform, cwd);
   const result = await executeWithTimeout(command, timeoutMs);
 
   // Normalize exit code
@@ -335,18 +377,20 @@ const runShellCommand = async (
  * ------------------------------------------------------------------------- */
 
 /**
- * Safe shell command executor. Only allows read-only/inspection commands
+ * Safe shell command executor. Only allows non-destructive commands
  * from an allowlist. Blocks destructive operations, output redirection,
  * command chaining, and malicious patterns.
  */
 export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   name: 'shell',
-  description: 'FALLBACK for complex system commands NOT covered above (e.g., git, docker, npm, systemctl). Do NOT use for simple file listing or process listing.',
+  description: `Fallback for system commands not covered by other tools: e.g., git/docker/npm/systemctl on POSIX; powershell/ps/git/docker/npm on Windows.
+Use for non-destructive commands only.`,
   schema: {
     action: 'string',
     program: 'string',
     args: 'string[]|null',
     timeoutMs: 'number|null',
+    cwd: 'string|null',
   },
   argsSchema: shellArgsSchema,
   async execute(args) {
@@ -356,8 +400,9 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
       allowedHint: 'Only "run" is allowed.',
     });
     const normalizedArgs = normalizeArgs(args.args);
+    const cwd = normalizeCwd(args.cwd);
     const timeoutMs = clampTimeout(args.timeoutMs);
 
-    return runShellCommand(args.program, normalizedArgs, timeoutMs);
+    return runShellCommand(args.program, normalizedArgs, timeoutMs, cwd);
   },
 };

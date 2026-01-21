@@ -99,6 +99,28 @@
     @apply text-[11px] font-mono text-terminal-primary;
   }
 
+  .terminal-working-dir {
+    @apply flex items-center gap-3 px-4 py-2 text-xs;
+    @apply border-t border-primary-30 bg-primary-10;
+    @apply text-terminal-primary;
+  }
+
+  .terminal-working-label {
+    @apply text-[10px] font-bold tracking-widest text-terminal-cyan;
+  }
+
+  .terminal-working-value {
+    @apply min-w-0 flex-1 text-[11px] font-mono text-terminal-primary truncate;
+  }
+
+  .terminal-working-dir[data-has-dir="false"] .terminal-working-value {
+    @apply text-primary-40;
+  }
+
+  .terminal-working-actions {
+    @apply flex items-center gap-2;
+  }
+
   .terminal-actions {
     @apply flex items-center justify-between gap-3 px-4 py-3;
     @apply border-t border-primary-30 bg-primary-5;

@@ -7,6 +7,7 @@ import { useDesktopServices } from '../state/desktop-context';
 import { useImageAttachmentStore } from '../state/image-attachment-context';
 import { useUIRefs, useUIStateContext } from '../state/ui-state-context';
 import { createQuestionHandler } from '../ui-handlers';
+import { open } from '@tauri-apps/plugin-dialog';
 
 /**
  * Extracts the first image file from a FileList.
@@ -53,6 +54,7 @@ export const InputTerminal: Component = () => {
   const { uiState, nodes } = useUIStateContext();
   const attachmentStore = useImageAttachmentStore();
   const [isDropping, setIsDropping] = createSignal(false);
+  const [workingDirectory, setWorkingDirectory] = createSignal<string | null>(null);
   let dragDepth = 0;
 
   const attachment = () => attachmentStore.attachment();
@@ -60,6 +62,11 @@ export const InputTerminal: Component = () => {
     const current = attachment();
     return current ? `${current.name} (${current.source.toUpperCase()})` : 'None';
   };
+
+  /**
+   * Formats the working directory label for display.
+   */
+  const workingDirectoryLabel = () => workingDirectory() ?? 'Not set';
 
   const logUiMessage = (message: string): void => {
     uiState()?.addLog(message);
@@ -117,6 +124,47 @@ export const InputTerminal: Component = () => {
     } catch (error) {
       logUiMessage(`Screenshot capture failed: ${String(error)}`);
     }
+  };
+
+  /**
+   * Opens a directory picker and stores the selected working directory.
+   */
+  const handleWorkingDirectorySelect = async (): Promise<void> => {
+    try {
+      const selection = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select working directory',
+      });
+      if (!selection) {
+        return;
+      }
+      const resolved = Array.isArray(selection) ? selection[0] : selection;
+      if (!resolved) {
+        return;
+      }
+      const trimmed = (typeof resolved === 'string' ? resolved : String(resolved)).trim();
+      if (!trimmed) {
+        return;
+      }
+      setWorkingDirectory(trimmed);
+      services.contextStore.setWorkingDirectory(trimmed);
+      logUiMessage(`Working directory set: ${trimmed}`);
+    } catch (error) {
+      logUiMessage(`Working directory selection failed: ${String(error)}`);
+    }
+  };
+
+  /**
+   * Clears the working directory selection.
+   */
+  const handleWorkingDirectoryClear = (): void => {
+    if (!workingDirectory()) {
+      return;
+    }
+    setWorkingDirectory(null);
+    services.contextStore.setWorkingDirectory(null);
+    logUiMessage('Working directory cleared.');
   };
 
   const handleSubmit = (event: Event): void => {
@@ -194,6 +242,29 @@ export const InputTerminal: Component = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         ></textarea>
+        <div class="terminal-working-dir" data-has-dir={workingDirectory() ? 'true' : 'false'}>
+          <span class="terminal-working-label">WORKDIR</span>
+          <span class="terminal-working-value" title={workingDirectoryLabel()}>
+            {workingDirectoryLabel()}
+          </span>
+          <div class="terminal-working-actions">
+            <button
+              type="button"
+              class="button terminal-action-button"
+              onClick={handleWorkingDirectorySelect}
+            >
+              <span class="button-bracket">[</span> SET <span class="button-bracket">]</span>
+            </button>
+            <button
+              type="button"
+              class="button terminal-action-button"
+              onClick={handleWorkingDirectoryClear}
+              disabled={!workingDirectory()}
+            >
+              <span class="button-bracket">[</span> CLEAR <span class="button-bracket">]</span>
+            </button>
+          </div>
+        </div>
         <div
           id="terminal-attachment"
           class="terminal-attachment"

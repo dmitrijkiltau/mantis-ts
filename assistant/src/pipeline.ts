@@ -385,6 +385,7 @@ export class Pipeline {
       if (activeToolName === 'pcinfo') {
         toolArgs = this.normalizePcInfoArgs(userInput, toolArgs);
       }
+      toolArgs = this.applyWorkingDirectoryDefaults(activeToolName, toolArgs, contextSnapshot);
     }
 
     const schemaValidation = this.validateToolArgsSchema(tool, toolArgs);
@@ -475,6 +476,7 @@ export class Pipeline {
       }
 
       toolArgs = retryResult.value as Record<string, unknown>;
+      toolArgs = this.applyWorkingDirectoryDefaults(activeToolName, toolArgs, contextSnapshot);
       const retrySchemaValidation = this.validateToolArgsSchema(tool, toolArgs);
       if (!retrySchemaValidation.ok) {
         verificationResult = retrySchemaValidation.result;
@@ -608,7 +610,53 @@ export class Pipeline {
       });
     }
 
-    if (this.shouldSkipToolExecution(tool.schema, toolArgs)) {
+    const requiredMissing = this.getMissingRequiredOverrides(activeToolName, toolArgs);
+    if (requiredMissing.length > 0) {
+      const missingVerification: ToolArgumentVerificationResult = {
+        decision: 'clarify',
+        confidence: 1,
+        reason: 'required_fields_missing',
+        missingFields: requiredMissing,
+      };
+      if (this.shouldClarifyToolArguments(intent.confidence, missingVerification)) {
+        const result = await this.runToolClarification(
+          userInput,
+          activeToolName,
+          requiredMissing,
+          intent,
+          attemptsSoFar,
+          toneInstructions,
+          contextSnapshot,
+        );
+        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+          reason: 'tool_clarify',
+          tool: activeToolName,
+          intent: intent.intent,
+          intentConfidence: intent.confidence,
+        });
+      }
+
+      Logger.debug(
+        'pipeline',
+        `Required args missing for ${activeToolName} but confidence too low, falling back to strict answer`,
+      );
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        attemptsSoFar,
+        toneInstructions,
+        personalityDescription,
+        contextSnapshot,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'argument_verification_clarify_denied',
+        tool: activeToolName,
+        intent: intent.intent,
+        intentConfidence: intent.confidence,
+      });
+    }
+
+    if (this.shouldSkipToolExecution(activeToolName, tool.schema, toolArgs)) {
       Logger.debug(
         'pipeline',
         `Tool arguments are mostly null for ${activeToolName}, using strict answer instead`,
@@ -629,14 +677,27 @@ export class Pipeline {
       });
     }
 
+    const effectiveArgs = this.applyShellWorkingDirectory(
+      activeToolName,
+      toolArgs,
+      contextSnapshot,
+    );
+
+    if (effectiveArgs !== toolArgs) {
+      Logger.debug('pipeline', 'Shell working directory applied', {
+        tool: activeToolName,
+        args: effectiveArgs,
+      });
+    }
+
     Logger.debug('pipeline', `Executing tool: ${activeToolName}`, {
-      args: toolArgs,
+      args: effectiveArgs,
     });
 
     const toolResult = await this.executeAndFormatTool(
       activeToolName,
       tool,
-      toolArgs,
+      effectiveArgs,
       userInput,
       toneInstructions,
       intent,
@@ -1436,11 +1497,14 @@ export class Pipeline {
   }
 
   private shouldSkipToolExecution(
+    toolName: ToolName,
     schema: Record<string, FieldType>,
     args: Record<string, unknown>,
   ): boolean {
     let requiredFields = 0;
     let nullRequired = 0;
+    let missingRequiredOverride = false;
+    const requiredOverrides = this.getRequiredFieldOverrides(toolName);
     const entries = Object.entries(schema);
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index];
@@ -1448,20 +1512,29 @@ export class Pipeline {
         continue;
       }
       const [key, type] = entry;
-      const allowsNull = type.endsWith('|null');
+      const forceRequired = requiredOverrides.has(key);
+      const allowsNull = !forceRequired && type.endsWith('|null');
       if (allowsNull) {
         continue;
       }
 
       requiredFields += 1;
       const value = args[key];
-      if (value === null || value === undefined) {
+      const isMissing = value === null || value === undefined || (typeof value === 'string' && !value.trim());
+      if (isMissing) {
         nullRequired += 1;
+        if (forceRequired) {
+          missingRequiredOverride = true;
+        }
       }
     }
 
     if (requiredFields === 0) {
       return false;
+    }
+
+    if (missingRequiredOverride) {
+      return true;
     }
 
     if (this.areAllArgumentsNull(args)) {
@@ -1470,6 +1543,41 @@ export class Pipeline {
 
     const nullRatio = nullRequired / requiredFields;
     return nullRatio > REQUIRED_NULL_RATIO_THRESHOLD;
+  }
+
+  /**
+   * Returns required-field overrides for tools that default fields from context.
+   */
+  private getRequiredFieldOverrides(toolName: ToolName): Set<string> {
+    if (toolName === 'filesystem') {
+      return new Set(['path']);
+    }
+    if (toolName === 'search') {
+      return new Set(['baseDir']);
+    }
+    return new Set();
+  }
+
+  /**
+   * Finds missing required fields for tools that default from context.
+   */
+  private getMissingRequiredOverrides(
+    toolName: ToolName,
+    args: Record<string, unknown>,
+  ): string[] {
+    const required = this.getRequiredFieldOverrides(toolName);
+    if (required.size === 0) {
+      return [];
+    }
+
+    const missing: string[] = [];
+    for (const field of required) {
+      const value = args[field];
+      if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) {
+        missing.push(field);
+      }
+    }
+    return missing;
   }
 
   private areAllArgumentsNull(args: Record<string, unknown>): boolean {
@@ -1763,6 +1871,214 @@ export class Pipeline {
     }
 
     return args;
+  }
+
+  /**
+   * Returns the configured working directory from context, if any.
+   */
+  private getContextCwd(contextSnapshot?: ContextSnapshot): string | null {
+    const cwd = contextSnapshot?.environment?.cwd;
+    if (typeof cwd !== 'string') {
+      return null;
+    }
+    const trimmed = cwd.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  /**
+   * Applies working-directory defaults for filesystem/search tools.
+   */
+  private applyWorkingDirectoryDefaults(
+    toolName: ToolName,
+    args: Record<string, unknown>,
+    contextSnapshot?: ContextSnapshot,
+  ): Record<string, unknown> {
+    const cwd = this.getContextCwd(contextSnapshot);
+    if (!cwd) {
+      return args;
+    }
+
+    if (toolName === 'filesystem') {
+      return this.applyFilesystemWorkingDirectory(args, cwd);
+    }
+
+    if (toolName === 'search') {
+      return this.applySearchWorkingDirectory(args, cwd);
+    }
+
+    return args;
+  }
+
+  /**
+   * Resolves filesystem paths against the working directory when needed.
+   */
+  private applyFilesystemWorkingDirectory(
+    args: Record<string, unknown>,
+    cwd: string,
+  ): Record<string, unknown> {
+    const rawPath = this.toTrimmedString(args.path);
+    if (!rawPath) {
+      return { ...args, path: cwd };
+    }
+
+    if (!this.isAbsolutePath(rawPath)) {
+      return { ...args, path: this.joinPaths(cwd, rawPath) };
+    }
+
+    return args;
+  }
+
+  /**
+   * Resolves search baseDir/startPath against the working directory when needed.
+   */
+  private applySearchWorkingDirectory(
+    args: Record<string, unknown>,
+    cwd: string,
+  ): Record<string, unknown> {
+    const baseDirRaw = this.toTrimmedString(args.baseDir);
+    const startPathRaw = this.toTrimmedString(args.startPath);
+    let nextBaseDir = baseDirRaw;
+    let nextStartPath: string | null = startPathRaw || null;
+
+    if (!nextBaseDir) {
+      nextBaseDir = cwd;
+    } else if (!this.isAbsolutePath(nextBaseDir)) {
+      nextBaseDir = this.joinPaths(cwd, nextBaseDir);
+    }
+
+    if (nextStartPath) {
+      if (this.isAbsolutePath(nextStartPath)) {
+        if (this.pathStartsWith(nextStartPath, nextBaseDir)) {
+          const relative = this.relativePath(nextStartPath, nextBaseDir);
+          nextStartPath = relative.length > 0 ? relative : null;
+        } else {
+          nextBaseDir = nextStartPath;
+          nextStartPath = null;
+        }
+      } else {
+        nextStartPath = this.stripLeadingSeparators(nextStartPath);
+      }
+    }
+
+    return {
+      ...args,
+      baseDir: nextBaseDir,
+      startPath: nextStartPath,
+    };
+  }
+
+  /**
+   * Normalize value to a trimmed string.
+   */
+  private toTrimmedString(value: unknown): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    return value.trim();
+  }
+
+  /**
+   * Returns true if the path is absolute for Windows or POSIX.
+   */
+  private isAbsolutePath(value: string): boolean {
+    if (!value) {
+      return false;
+    }
+    if (value.startsWith('/') || value.startsWith('\\')) {
+      return true;
+    }
+    return /^[A-Za-z]:[\\/]/.test(value);
+  }
+
+  /**
+   * Normalizes a path for joining and comparison.
+   */
+  private normalizePathValue(value: string): string {
+    const trimmed = value.trim();
+    const normalized = trimmed.replace(/[\\]+/g, '/');
+    return normalized.replace(/\/+$/, '');
+  }
+
+  /**
+   * Joins base and relative paths using normalized separators.
+   */
+  private joinPaths(basePath: string, relativePath: string): string {
+    const base = this.normalizePathValue(basePath);
+    const relative = this.normalizePathValue(relativePath).replace(/^\/+/, '');
+    if (!base) {
+      return relative;
+    }
+    if (!relative) {
+      return base;
+    }
+    return `${base}/${relative}`;
+  }
+
+  /**
+   * Strips leading path separators from a path segment.
+   */
+  private stripLeadingSeparators(value: string): string {
+    return value.replace(/^[\\/]+/, '');
+  }
+
+  /**
+   * Normalizes a path for case-insensitive comparisons.
+   */
+  private normalizePathForCompare(value: string): string {
+    const normalized = this.normalizePathValue(value);
+    if (/^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//')) {
+      return normalized.toLowerCase();
+    }
+    return normalized;
+  }
+
+  /**
+   * Returns true if the path is within the base directory.
+   */
+  private pathStartsWith(pathValue: string, basePath: string): boolean {
+    const normalizedPath = this.normalizePathForCompare(pathValue);
+    const normalizedBase = this.normalizePathForCompare(basePath);
+    if (!normalizedBase) {
+      return false;
+    }
+    return normalizedPath === normalizedBase || normalizedPath.startsWith(`${normalizedBase}/`);
+  }
+
+  /**
+   * Computes a relative path from base to target.
+   */
+  private relativePath(pathValue: string, basePath: string): string {
+    const normalizedPath = this.normalizePathValue(pathValue);
+    const normalizedBase = this.normalizePathValue(basePath);
+    if (!this.pathStartsWith(normalizedPath, normalizedBase)) {
+      return normalizedPath;
+    }
+    return normalizedPath.slice(normalizedBase.length).replace(/^\/+/, '');
+  }
+
+  /**
+   * Apply the UI-selected working directory to shell tool runs.
+   */
+  private applyShellWorkingDirectory(
+    toolName: ToolName,
+    args: Record<string, unknown>,
+    contextSnapshot?: ContextSnapshot,
+  ): Record<string, unknown> {
+    if (toolName !== 'shell') {
+      return args;
+    }
+
+    const cwd = this.getContextCwd(contextSnapshot);
+    if (!cwd) {
+      return args;
+    }
+
+    const currentCwd = args.cwd;
+    if (typeof currentCwd === 'string' && currentCwd.trim()) {
+      return args;
+    }
+
+    return { ...args, cwd };
   }
 
   /**

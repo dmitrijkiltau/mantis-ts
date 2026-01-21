@@ -230,9 +230,17 @@ export class Orchestrator {
     const searchGuidance = toolName === 'search'
       ? 'Tool-specific guidance: queries are filenames or patterns, not full paths. Do not convert explicit paths into query globs. Use provided paths as baseDir/startPath when present.'
       : null;
+    const cwdGuidance = toolName === 'filesystem'
+      ? 'Tool-specific guidance: if no path is provided, use ENVIRONMENT.cwd from CONTEXT. Resolve relative paths against ENVIRONMENT.cwd.'
+      : toolName === 'search'
+        ? 'Tool-specific guidance: baseDir defaults to ENVIRONMENT.cwd when missing. Resolve relative baseDir against ENVIRONMENT.cwd. startPath must be relative to baseDir; if an absolute path is provided, set baseDir to it and startPath to null.'
+        : null;
     const parts = [normalizedInput];
     if (searchGuidance) {
       parts.push(searchGuidance);
+    }
+    if (cwdGuidance) {
+      parts.push(cwdGuidance);
     }
     if (normalizedNotes) {
       parts.push(`Verifier notes:\n${normalizedNotes}`);

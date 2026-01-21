@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 type SearchToolArgs = {
   query: string;
-  baseDir: string;
+  baseDir: string | null;
   startPath?: string | null;
   maxResults?: number | null;
   maxDepth?: number | null;
@@ -61,7 +61,7 @@ const DEFAULT_IGNORES = new Set<string>([
 
 const searchArgsSchema = z.object({
   query: z.string().min(1),
-  baseDir: z.string().min(1),
+  baseDir: z.string().min(1).nullable(),
   startPath: z.string().nullable().optional(),
   maxResults: z.number().int().positive().nullable().optional(),
   maxDepth: z.number().int().nonnegative().nullable().optional(),
@@ -171,7 +171,7 @@ const searchFileSystem = async (
     throw Object.assign(new Error('EMPTY_QUERY'), { code: 'EMPTY_QUERY' });
   }
 
-  const root = await resolveSafeRoot(args.baseDir, args.startPath, modules);
+  const root = await resolveSafeRoot(args.baseDir!, args.startPath, modules);
 
   const maxResults = clampPositiveInteger(
     args.maxResults,
@@ -277,13 +277,14 @@ export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   description: `DISCOVERY. Use to find files/dirs by name or pattern when the path is unknown.
 Do NOT use when the user provides a specific path; use filesystem list/read instead.
 Skips common build/VC dirs (e.g., .git, node_modules).
+If baseDir is missing, default to ENVIRONMENT.cwd from CONTEXT. startPath is relative to baseDir.
 
 Examples:
 - "Find package.json under this repo" -> query: "package.json", baseDir: "."
 - "Locate config in C:/App" -> query: "config", baseDir: "C:/App"`,
   schema: {
     query: 'string',
-    baseDir: 'string',
+    baseDir: 'string|null',
     startPath: 'string|null',
     maxResults: 'number|null',
     maxDepth: 'number|null',

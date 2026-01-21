@@ -116,4 +116,23 @@ export class ContextStore {
       lastToolArgs: null,
     };
   }
+
+  /**
+   * Updates the working directory for prompt context.
+   */
+  setWorkingDirectory(path: string | null): void {
+    const trimmed = typeof path === 'string' ? path.trim() : '';
+    if (!trimmed) {
+      if (this.snapshot.environment) {
+        const { cwd, ...rest } = this.snapshot.environment;
+        this.snapshot.environment = Object.keys(rest).length > 0 ? rest : undefined;
+      }
+      return;
+    }
+
+    this.snapshot.environment = {
+      ...this.snapshot.environment,
+      cwd: trimmed,
+    };
+  }
 }
