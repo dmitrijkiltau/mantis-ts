@@ -2,6 +2,8 @@
  * HTTP CORE HELPERS
  * ------------------------------------------------------------------------- */
 
+export { clampPositiveInteger } from '../internal/helpers.js';
+
 export type HttpResponseResult = {
   url: string;
   finalUrl: string;
@@ -33,17 +35,6 @@ export const MAX_TIMEOUT_MS = 60_000;
 
 const SUPPORTED_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const BODYLESS_METHODS = new Set(['GET', 'HEAD']);
-
-export const clampPositiveInteger = (
-  value: number | null | undefined,
-  fallback: number,
-  max: number,
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
-  return Math.min(Math.floor(value), max);
-};
 
 export const ensureHttpUrl = (raw: string): string => {
   const candidate = raw.trim();
