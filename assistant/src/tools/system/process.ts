@@ -1,5 +1,10 @@
 import type { ToolDefinition } from '../definition.js';
-import { clampPositiveInteger, getPlatform, escapePowerShellString } from '../internal/helpers.js';
+import {
+  clampPositiveInteger,
+  getPlatform,
+  escapePowerShellString,
+  normalizeAction,
+} from '../internal/helpers.js';
 import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
@@ -47,7 +52,12 @@ type ShellModule = {
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
+const PROCESS_ACTIONS = new Set(['list']);
+
 const LIST_ALIASES = new Set(['list', 'ps', 'processes', 'show']);
+const LIST_ALIAS_MAP = new Map(
+  [...LIST_ALIASES].map((alias) => [alias, 'list' as const]),
+);
 
 const processArgsSchema = z.object({
   action: z.string().min(1),
@@ -64,9 +74,6 @@ let shellModule: ShellModule | null = null;
 /* -------------------------------------------------------------------------
  * HELPERS
  * ------------------------------------------------------------------------- */
-
-
-
 const loadShellModule = async (): Promise<ShellModule> => {
   if (shellModule) {
     return shellModule;
@@ -81,14 +88,6 @@ const loadShellModule = async (): Promise<ShellModule> => {
   }
 };
 
-const normalizeAction = (action: string): 'list' => {
-  const normalized = action.trim().toLowerCase();
-  if (LIST_ALIASES.has(normalized)) {
-    return 'list';
-  }
-  throw new Error(`Unsupported process action "${action}". Only "list" is allowed (read-only).`);
-};
-
 const normalizeQuery = (query: string | null | undefined): string | null => {
   if (typeof query !== 'string') {
     return null;
@@ -100,9 +99,6 @@ const normalizeQuery = (query: string | null | undefined): string | null => {
 /* -------------------------------------------------------------------------
  * WINDOWS IMPLEMENTATION
  * ------------------------------------------------------------------------- */
-
-
-
 const buildPowerShellListScript = (query: string | null, limit: number): string => {
   const filterClause = query
     ? `| Where-Object { $_.ProcessName -like "*${escapePowerShellString(query)}*" }`
@@ -357,9 +353,6 @@ const runPosixProcessList = async (query: string | null, limit: number): Promise
 /* -------------------------------------------------------------------------
  * TOOL IMPLEMENTATION
  * ------------------------------------------------------------------------- */
-
-
-
 const listProcesses = async (query: string | null, limit: number): Promise<ProcessListResult> => {
   await loadShellModule();
   const platform = getPlatform();
@@ -394,7 +387,11 @@ export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = 
   },
   argsSchema: processArgsSchema,
   async execute(args) {
-    normalizeAction(args.action);
+    normalizeAction(args.action, PROCESS_ACTIONS, {
+      subject: 'process',
+      aliases: LIST_ALIAS_MAP,
+      allowedHint: 'Only "list" is allowed (read-only).',
+    });
     const query = normalizeQuery(args.query ?? null);
     const limit = clampPositiveInteger(args.limit, DEFAULT_LIMIT, MAX_LIMIT);
     return listProcesses(query, limit);

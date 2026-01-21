@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../definition.js';
-import { getPlatform } from '../internal/helpers.js';
+import { getPlatform, normalizeAction } from '../internal/helpers.js';
 import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
@@ -46,7 +46,12 @@ type ShellModule = {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 120_000;
 
+const SHELL_ACTIONS = new Set(['run']);
+
 const RUN_ALIASES = new Set(['run', 'execute', 'exec', 'shell']);
+const RUN_ALIAS_MAP = new Map(
+  [...RUN_ALIASES].map((alias) => [alias, 'run' as const]),
+);
 
 // Allowlisted safe binaries per platform
 const WINDOWS_ALLOWLIST = new Set(['powershell', 'ps']);
@@ -141,17 +146,6 @@ const loadShellModule = async (): Promise<ShellModule> => {
 };
 
 
-
-/**
- * Normalize and validate action.
- */
-const normalizeAction = (action: string): 'run' => {
-  const normalized = action.trim().toLowerCase();
-  if (RUN_ALIASES.has(normalized)) {
-    return 'run';
-  }
-  throw new Error(`Unsupported shell action "${action}". Only "run" is allowed.`);
-};
 
 /**
  * Clamp timeout to safe bounds.
@@ -356,7 +350,11 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   },
   argsSchema: shellArgsSchema,
   async execute(args) {
-    normalizeAction(args.action);
+    normalizeAction(args.action, SHELL_ACTIONS, {
+      subject: 'shell',
+      aliases: RUN_ALIAS_MAP,
+      allowedHint: 'Only "run" is allowed.',
+    });
     const normalizedArgs = normalizeArgs(args.args);
     const timeoutMs = clampTimeout(args.timeoutMs);
 
