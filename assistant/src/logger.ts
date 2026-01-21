@@ -18,7 +18,7 @@ interface LogEntry {
 
 const logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const logs: LogEntry[] = [];
-const maxLogs = 1000;
+let maxLogs = 1000;
 let minLogLevelIndex = 0; // 0=debug, 1=info, 2=warn, 3=error
 let consoleMinLogLevelIndex = logLevels.indexOf('info');
 
@@ -119,7 +119,10 @@ export function configureLogger(options: {
   consoleLevel?: LogLevel;
 } = {}): void {
   if (options.maxHistorySize !== undefined && options.maxHistorySize > 0) {
-    logs.length = 0; // Clear on reconfiguration
+    maxLogs = options.maxHistorySize;
+    while (logs.length > maxLogs) {
+      logs.shift();
+    }
   }
   if (options.minLevel !== undefined) {
     setMinLogLevel(options.minLevel);
