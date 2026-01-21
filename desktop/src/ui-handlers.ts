@@ -321,6 +321,7 @@ export const createQuestionHandler = (
       const attachments = consumedAttachment ? [consumedAttachment] : undefined;
       const contextSnapshot = contextStore?.getSnapshot();
       const result = await pipeline.run(question, attachments, contextSnapshot);
+      uiState.recordPipelineResult(result);
 
       const record = buildHistoryEntry(displayQuestion, result);
       contextStore?.updateAfterRun(displayQuestion, result);
@@ -361,7 +362,7 @@ export const createQuestionHandler = (
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
       uiState.addLog(`FATAL ERROR: ${String(error)}`);
 
-      const errCard = buildHistoryEntry(displayQuestion, {
+      const failureResult: PipelineResult = {
         ok: false,
         kind: 'error',
         stage: 'tool_execution',
@@ -370,7 +371,9 @@ export const createQuestionHandler = (
           code: 'unhandled_exception',
           message: String(error),
         },
-      });
+      };
+      uiState.recordPipelineResult(failureResult);
+      const errCard = buildHistoryEntry(displayQuestion, failureResult);
       historyElement.prepend(errCard);
 
       uiState.showBubble(buildBubbleContent(`Critical Error: ${String(error)}`));

@@ -18,7 +18,7 @@ export const TelemetryPanel: Component = () => {
             Evaluation Trends
           </div>
           <div class="telemetry-subtitle">
-            Real-time scoring telemetry for clarity, correctness, usefulness.
+            Real-time scoring, routing, and execution telemetry.
           </div>
         </div>
         <div class="telemetry-grid">
@@ -33,6 +33,18 @@ export const TelemetryPanel: Component = () => {
           <div class="telemetry-metric">
             <span class="telemetry-metric-label">Scoring failures</span>
             <span class="telemetry-metric-value" id="telemetry-failure-count" ref={refs.telemetryFailures}>0</span>
+          </div>
+          <div class="telemetry-metric">
+            <span class="telemetry-metric-label">Tool calls</span>
+            <span class="telemetry-metric-value" id="telemetry-tool-call-count" ref={refs.telemetryToolCalls}>0</span>
+          </div>
+          <div class="telemetry-metric">
+            <span class="telemetry-metric-label">Avg attempts/request</span>
+            <span class="telemetry-metric-value" id="telemetry-average-attempts" ref={refs.telemetryAverageAttempts}>0.0</span>
+          </div>
+          <div class="telemetry-metric">
+            <span class="telemetry-metric-label">Schema mismatches</span>
+            <span class="telemetry-metric-value" id="telemetry-schema-mismatch-count" ref={refs.telemetrySchemaMismatch}>0</span>
           </div>
         </div>
         <div class="telemetry-averages">

@@ -2,13 +2,16 @@ import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import type { AvatarMood } from './avatar';
-import type { EvaluationAlert } from '../../assistant/src/pipeline';
+import type { EvaluationAlert, PipelineResult } from '../../assistant/src/pipeline';
 import { formatEvaluationSummary, getEvaluationAlertMessage } from './evaluation-utils';
 
 export type TelemetryNodes = {
   totalEvaluations: HTMLElement | null;
   lowScoreCount: HTMLElement | null;
   failureCount: HTMLElement | null;
+  toolCallCount: HTMLElement | null;
+  averageAttempts: HTMLElement | null;
+  schemaMismatchCount: HTMLElement | null;
   averageContainer: HTMLElement | null;
   recentList: HTMLElement | null;
 };
@@ -55,6 +58,9 @@ export class UIState {
     totalEvaluations: null,
     lowScoreCount: null,
     failureCount: null,
+    toolCallCount: null,
+    averageAttempts: null,
+    schemaMismatchCount: null,
     averageContainer: null,
     recentList: null,
   };
@@ -62,6 +68,10 @@ export class UIState {
   private evaluationSums: Record<string, number> = {};
   private evaluationCounts: Record<string, number> = {};
   private evaluationHistory: EvaluationHistoryEntry[] = [];
+  private requestCount = 0;
+  private attemptTotal = 0;
+  private toolCallCount = 0;
+  private schemaMismatchCount = 0;
   private typewriterTimer: number | null = null;
   private typewriterToken = 0;
   private typingActive = false;
@@ -226,6 +236,24 @@ export class UIState {
     this.refreshTelemetry();
   }
 
+  recordPipelineResult(result: PipelineResult): void {
+    this.requestCount += 1;
+    this.attemptTotal += result.attempts;
+
+    if (result.ok && result.kind === 'tool') {
+      this.toolCallCount += 1;
+    }
+
+    if (!result.ok && result.error?.code === 'tool_error') {
+      const message = result.error.message ?? '';
+      if (message.startsWith('Invalid direct tool arguments')) {
+        this.schemaMismatchCount += 1;
+      }
+    }
+
+    this.refreshTelemetry();
+  }
+
   recordEvaluation(
     evaluation: Record<string, number> | undefined,
     alert: EvaluationAlert | undefined,
@@ -280,6 +308,9 @@ export class UIState {
       totalEvaluations,
       lowScoreCount,
       failureCount,
+      toolCallCount,
+      averageAttempts,
+      schemaMismatchCount,
       averageContainer,
       recentList,
     } = this.telemetryNodes;
@@ -292,6 +323,16 @@ export class UIState {
     }
     if (failureCount) {
       failureCount.textContent = String(this.evaluationTotals.failures);
+    }
+    if (toolCallCount) {
+      toolCallCount.textContent = String(this.toolCallCount);
+    }
+    if (averageAttempts) {
+      const average = this.requestCount > 0 ? this.attemptTotal / this.requestCount : 0;
+      averageAttempts.textContent = average.toFixed(1);
+    }
+    if (schemaMismatchCount) {
+      schemaMismatchCount.textContent = String(this.schemaMismatchCount);
     }
 
     if (averageContainer) {

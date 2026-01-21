@@ -31,6 +31,9 @@ type UIRefSetters = {
   telemetryTotal: (element: HTMLElement) => void;
   telemetryLowScore: (element: HTMLElement) => void;
   telemetryFailures: (element: HTMLElement) => void;
+  telemetryToolCalls: (element: HTMLElement) => void;
+  telemetryAverageAttempts: (element: HTMLElement) => void;
+  telemetrySchemaMismatch: (element: HTMLElement) => void;
   telemetryAverages: (element: HTMLElement) => void;
   telemetryRecent: (element: HTMLElement) => void;
 };
@@ -58,6 +61,9 @@ type UINodeAccessors = {
   telemetryTotal: Accessor<HTMLElement | null>;
   telemetryLowScore: Accessor<HTMLElement | null>;
   telemetryFailures: Accessor<HTMLElement | null>;
+  telemetryToolCalls: Accessor<HTMLElement | null>;
+  telemetryAverageAttempts: Accessor<HTMLElement | null>;
+  telemetrySchemaMismatch: Accessor<HTMLElement | null>;
   telemetryAverages: Accessor<HTMLElement | null>;
   telemetryRecent: Accessor<HTMLElement | null>;
 };
@@ -97,6 +103,9 @@ export const UIStateProvider: ParentComponent = (props) => {
   const [telemetryTotal, setTelemetryTotal] = createSignal<HTMLElement | null>(null);
   const [telemetryLowScore, setTelemetryLowScore] = createSignal<HTMLElement | null>(null);
   const [telemetryFailures, setTelemetryFailures] = createSignal<HTMLElement | null>(null);
+  const [telemetryToolCalls, setTelemetryToolCalls] = createSignal<HTMLElement | null>(null);
+  const [telemetryAverageAttempts, setTelemetryAverageAttempts] = createSignal<HTMLElement | null>(null);
+  const [telemetrySchemaMismatch, setTelemetrySchemaMismatch] = createSignal<HTMLElement | null>(null);
   const [telemetryAverages, setTelemetryAverages] = createSignal<HTMLElement | null>(null);
   const [telemetryRecent, setTelemetryRecent] = createSignal<HTMLElement | null>(null);
   const [uiState, setUiState] = createSignal<UIState | null>(null);
@@ -124,6 +133,9 @@ export const UIStateProvider: ParentComponent = (props) => {
     telemetryTotal: (element) => setTelemetryTotal(element),
     telemetryLowScore: (element) => setTelemetryLowScore(element),
     telemetryFailures: (element) => setTelemetryFailures(element),
+    telemetryToolCalls: (element) => setTelemetryToolCalls(element),
+    telemetryAverageAttempts: (element) => setTelemetryAverageAttempts(element),
+    telemetrySchemaMismatch: (element) => setTelemetrySchemaMismatch(element),
     telemetryAverages: (element) => setTelemetryAverages(element),
     telemetryRecent: (element) => setTelemetryRecent(element),
   };
@@ -151,6 +163,9 @@ export const UIStateProvider: ParentComponent = (props) => {
     telemetryTotal,
     telemetryLowScore,
     telemetryFailures,
+    telemetryToolCalls,
+    telemetryAverageAttempts,
+    telemetrySchemaMismatch,
     telemetryAverages,
     telemetryRecent,
   };

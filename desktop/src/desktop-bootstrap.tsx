@@ -66,6 +66,9 @@ const DesktopBootstrap: Component = () => {
       totalEvaluations: nodes.telemetryTotal(),
       lowScoreCount: nodes.telemetryLowScore(),
       failureCount: nodes.telemetryFailures(),
+      toolCallCount: nodes.telemetryToolCalls(),
+      averageAttempts: nodes.telemetryAverageAttempts(),
+      schemaMismatchCount: nodes.telemetrySchemaMismatch(),
       averageContainer: nodes.telemetryAverages(),
       recentList: nodes.telemetryRecent(),
     });

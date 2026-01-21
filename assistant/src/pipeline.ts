@@ -330,16 +330,11 @@ export class Pipeline {
       contextSnapshot,
       intentModelOverride,
     );
-    const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
       intentPrompt,
       (raw) => this.orchestrator.validateIntentClassification(raw),
     );
-    const intentDurationMs = measureDurationMs(intentStartMs);
-    Logger.debug('pipeline', 'Intent classification stage completed', {
-      durationMs: intentDurationMs,
-    });
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
@@ -1504,7 +1499,6 @@ export class Pipeline {
     verifierNotes?: string,
     contextSnapshot?: ContextSnapshot,
   ) {
-    const toolArgStartMs = Date.now();
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
       tool.description,
@@ -1518,10 +1512,6 @@ export class Pipeline {
       toolArgPrompt,
       (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
     );
-    const toolArgDurationMs = measureDurationMs(toolArgStartMs);
-    Logger.debug('pipeline', 'Tool argument extraction stage completed', {
-      durationMs: toolArgDurationMs,
-    });
     return toolArgResult;
   }
 
@@ -1536,7 +1526,6 @@ export class Pipeline {
     extractedArgs: Record<string, unknown>,
     contextSnapshot?: ContextSnapshot,
   ) {
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
       toolName,
       description,
@@ -1550,10 +1539,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateToolArgumentVerification(raw),
     );
-    const durationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Tool argument verification stage completed', {
-      durationMs,
-    });
     return result;
   }
 
@@ -1619,17 +1604,12 @@ export class Pipeline {
     language: DetectedLanguage;
     attempts: number;
   }> {
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
     const result = await this.runner.executeContract(
       'LANGUAGE_DETECTION',
       prompt,
       (raw) => this.orchestrator.validateLanguageDetection(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Language detection stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (result.ok) {
       return {
@@ -1699,7 +1679,6 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running conversational answer contract');
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildConversationalAnswerPrompt(
       userInput,
       toneInstructions,
@@ -1712,10 +1691,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateConversationalAnswer(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Conversational answer stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (!result.ok) {
       Logger.warn(
@@ -1761,7 +1736,6 @@ export class Pipeline {
     toolSuggestion?: string,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildStrictAnswerPrompt(
       userInput,
       toneInstructions,
@@ -1773,10 +1747,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateStrictAnswer(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Strict answer stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (!result.ok) {
       Logger.error('pipeline', 'Strict answer contract failed');
@@ -1840,10 +1810,6 @@ export class Pipeline {
         prompt,
         (raw) => this.orchestrator.validateResponseFormatting(raw),
       );
-      const stageDurationMs = measureDurationMs(stageStartMs);
-      Logger.debug('pipeline', 'Response formatting stage completed', {
-        durationMs: stageDurationMs,
-      });
 
       if (result.ok) {
         Logger.debug('pipeline', 'Response formatted successfully');
@@ -2102,7 +2068,6 @@ export class Pipeline {
       return { attempts: 0 };
     }
 
-    Logger.debug('pipeline', 'Running scoring contract', { stage: label });
     const stageStartMs = Date.now();
     try {
       const prompt = this.orchestrator.buildScoringPrompt(
@@ -2116,12 +2081,6 @@ export class Pipeline {
         prompt,
         (raw) => this.orchestrator.validateScoring(raw),
       );
-      const durationMs = measureDurationMs(stageStartMs);
-      Logger.debug('pipeline', 'Scoring stage completed', {
-        stage: label,
-        durationMs,
-        attempts: result.attempts,
-      });
 
       if (result.ok) {
         Logger.debug('pipeline', 'Scoring evaluation succeeded', { stage: label });
@@ -2171,7 +2130,6 @@ export class Pipeline {
   ): Promise<PipelineResult> {
     // Fetch language in parallel with tool execution since we'll need it for formatting
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-    const parallelStartMs = Date.now();
     const [languageResult, toolExecResult] = await Promise.all([
       this.runner.executeContract(
         'LANGUAGE_DETECTION',
@@ -2186,10 +2144,6 @@ export class Pipeline {
         }
       })(),
     ]);
-    const parallelDurationMs = measureDurationMs(parallelStartMs);
-    Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
-      durationMs: parallelDurationMs,
-    });
 
     const languageAttemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.ok
