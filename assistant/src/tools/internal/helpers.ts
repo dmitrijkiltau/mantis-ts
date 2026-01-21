@@ -83,19 +83,34 @@ export const escapePowerShellString = (value: string): string => {
  * Normalizes and validates action strings.
  * Converts to lowercase, removes separators, and checks against allowed set.
  */
+type NormalizeActionOptions<T extends string> = {
+  subject?: string;
+  aliases?: Map<string, T>;
+  allowedHint?: string;
+};
+
 export const normalizeAction = <T extends string>(
   action: string,
-  allowedActions: Set<string>,
+  allowedActions: Set<T>,
+  options: NormalizeActionOptions<T> = {},
 ): T => {
   const normalized = action.trim().toLowerCase().replace(/[_\-\s]/g, '');
-  
+
   for (const allowed of allowedActions) {
     if (normalized === allowed || normalized.includes(allowed)) {
-      return allowed as T;
+      return allowed;
     }
   }
-  
-  throw new Error(
-    `Invalid action "${action}". Allowed: ${[...allowedActions].join(', ')}`
-  );
+
+  if (options.aliases) {
+    const aliasMatch = options.aliases.get(normalized);
+    if (aliasMatch) {
+      return aliasMatch;
+    }
+  }
+
+  const subjectLabel = options.subject ? `${options.subject} action` : 'action';
+  const allowedMessage =
+    options.allowedHint ?? `Allowed: ${[...allowedActions].join(', ')}`;
+  throw new Error(`Unsupported ${subjectLabel} "${action}". ${allowedMessage}`);
 };
