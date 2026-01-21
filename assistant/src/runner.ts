@@ -119,8 +119,6 @@ export class Runner {
     });
 
     for (let attempt = 0; attempt < attemptsLimit; attempt += 1) {
-      Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit}`);
-
       const attemptPrompt = this.applyRetryInstruction(prompt, contractName, attempt);
       const llmStartMs = Date.now();
       const raw = await this.llm.sendPrompt({
@@ -131,8 +129,8 @@ export class Runner {
         images: attemptPrompt.images,
       });
       const llmDurationMs = measureDurationMs(llmStartMs);
-
-      Logger.debug('runner', `Received response from ${attemptPrompt.model}`, {
+      Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit} response received`, {
+        model: attemptPrompt.model,
         length: raw.length,
         durationMs: llmDurationMs,
       });

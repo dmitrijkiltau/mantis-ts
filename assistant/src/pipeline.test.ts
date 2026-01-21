@@ -509,7 +509,7 @@ describe('Pipeline', () => {
     });
 
     it('marks low scores when a criterion is under threshold', async () => {
-      const evaluationPayload = { clarity: 3, correctness: 6, usefulness: 5 };
+      const evaluationPayload = { clarity: 2, correctness: 6, usefulness: 5 };
       mockRunner.executeContract = vi.fn().mockResolvedValue({
         ok: true,
         value: evaluationPayload,

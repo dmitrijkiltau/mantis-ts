@@ -1,6 +1,6 @@
 import { type ContractValidator } from '../types';
 import { type FieldType } from './definition.js';
-import { extractFirstJsonObject, stripMarkdownFences } from './parsing.js';
+import { parseJsonObjectStrict, stripMarkdownFences } from './parsing.js';
 
 /**
  * Contract for tool argument extraction.
@@ -54,18 +54,14 @@ export const validateToolArguments = (
   schema: Record<string, FieldType>,
 ): ContractValidator<Record<string, unknown>, ToolArgumentExtractionValidationError> => (raw) => {
   const cleaned = stripMarkdownFences(raw);
-  if (!cleaned.includes('{')) {
+  if (!cleaned.trim().startsWith('{')) {
     return { ok: false, error: `NON_JSON_PREFIX:${raw}` };
   }
 
   let parsedCandidate: unknown;
   try {
-    parsedCandidate = extractFirstJsonObject(raw);
+    parsedCandidate = parseJsonObjectStrict(cleaned);
   } catch {
-    return { ok: false, error: `INVALID_JSON:${raw}` };
-  }
-
-  if (!parsedCandidate || typeof parsedCandidate !== 'object' || Array.isArray(parsedCandidate)) {
     return { ok: false, error: `INVALID_JSON:${raw}` };
   }
 

@@ -22,7 +22,7 @@ const MIN_CLARIFY_INTENT_CONFIDENCE = 0.9;
 const MIN_CLARIFY_VERIFICATION_CONFIDENCE = 0.9;
 const MIN_TOOL_TRIGGER_CONFIDENCE = 0.85;
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-const LOW_SCORE_THRESHOLD = 4;
+const LOW_SCORE_THRESHOLD = 3;
 
 type PipelineRunOptions = {
   intentModelOverride?: string;
@@ -330,16 +330,11 @@ export class Pipeline {
       contextSnapshot,
       intentModelOverride,
     );
-    const intentStartMs = Date.now();
     const intentResult = await this.runner.executeContract(
       'INTENT_CLASSIFICATION',
       intentPrompt,
       (raw) => this.orchestrator.validateIntentClassification(raw),
     );
-    const intentDurationMs = measureDurationMs(intentStartMs);
-    Logger.debug('pipeline', 'Intent classification stage completed', {
-      durationMs: intentDurationMs,
-    });
 
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
@@ -425,6 +420,7 @@ export class Pipeline {
           toneInstructions,
           personalityDescription,
           contextSnapshot,
+          this.buildToolTriggerSuggestion(toolName),
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_trigger_missing',
@@ -1270,6 +1266,13 @@ export class Pipeline {
     return false;
   }
 
+  /**
+   * Provides a short suggestion when tool triggers are missing.
+   */
+  private buildToolTriggerSuggestion(toolName: ToolName): string {
+    return `Tip: I can use the ${toolName} tool if you want—ask me to use it.`;
+  }
+
   private meetsToolConfidence(confidence: number): boolean {
     return confidence >= MIN_TOOL_CONFIDENCE;
   }
@@ -1356,14 +1359,91 @@ export class Pipeline {
     toolName: ToolName,
     missingFields?: string[],
   ): string {
+    const hint = this.getClarificationHint(toolName, missingFields);
     if (missingFields && missingFields.length > 0) {
       if (missingFields.length === 1 && missingFields[0] === 'path') {
-        return 'Which path should I use?';
+        return hint ?? 'Which path should I use?';
+      }
+      if (hint) {
+        return hint;
       }
       return `I can use the ${toolName} tool, but I need ${missingFields.join(', ')}.`;
     }
 
-    return `I can use the ${toolName} tool for that, but I need a bit more detail.`;
+    return hint ?? `I can use the ${toolName} tool for that, but I need a bit more detail.`;
+  }
+
+  /**
+   * Provides tool-specific clarification hints when arguments are missing.
+   */
+  private getClarificationHint(
+    toolName: ToolName,
+    missingFields?: string[],
+  ): string | null {
+    const fields = missingFields ?? [];
+    const hasField = (fieldName: string): boolean => fields.includes(fieldName);
+
+    if (toolName === 'filesystem') {
+      if (hasField('path')) {
+        return 'Which file or folder path should I use?';
+      }
+      if (hasField('action')) {
+        return 'Should I list a folder or read a file? Share the path you want.';
+      }
+    }
+
+    if (toolName === 'search') {
+      if (hasField('query')) {
+        return 'What filename or pattern should I search for?';
+      }
+      if (hasField('baseDir')) {
+        return 'Which folder should I search in?';
+      }
+    }
+
+    if (toolName === 'http') {
+      if (hasField('url')) {
+        return 'Which URL should I fetch?';
+      }
+      if (hasField('method')) {
+        return 'Which HTTP method should I use (GET, POST, etc.)?';
+      }
+    }
+
+    if (toolName === 'clipboard') {
+      if (hasField('action')) {
+        return 'Do you want to copy to the clipboard or paste from it?';
+      }
+      if (hasField('content')) {
+        return 'What content should I copy to the clipboard?';
+      }
+    }
+
+    if (toolName === 'process') {
+      if (hasField('action')) {
+        return 'Should I list running processes?';
+      }
+      if (hasField('query')) {
+        return 'Which process name should I filter by?';
+      }
+    }
+
+    if (toolName === 'shell') {
+      if (hasField('program')) {
+        return 'Which command should I run?';
+      }
+      if (hasField('args')) {
+        return 'What arguments should I pass to the command?';
+      }
+    }
+
+    if (toolName === 'pcinfo') {
+      if (hasField('metrics')) {
+        return 'Which system info do you need (cpu, memory, disk, or system)?';
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -1419,7 +1499,6 @@ export class Pipeline {
     verifierNotes?: string,
     contextSnapshot?: ContextSnapshot,
   ) {
-    const toolArgStartMs = Date.now();
     const toolArgPrompt = this.orchestrator.buildToolArgumentPrompt(
       tool.name,
       tool.description,
@@ -1433,10 +1512,6 @@ export class Pipeline {
       toolArgPrompt,
       (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
     );
-    const toolArgDurationMs = measureDurationMs(toolArgStartMs);
-    Logger.debug('pipeline', 'Tool argument extraction stage completed', {
-      durationMs: toolArgDurationMs,
-    });
     return toolArgResult;
   }
 
@@ -1451,7 +1526,6 @@ export class Pipeline {
     extractedArgs: Record<string, unknown>,
     contextSnapshot?: ContextSnapshot,
   ) {
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
       toolName,
       description,
@@ -1465,10 +1539,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateToolArgumentVerification(raw),
     );
-    const durationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Tool argument verification stage completed', {
-      durationMs,
-    });
     return result;
   }
 
@@ -1534,17 +1604,12 @@ export class Pipeline {
     language: DetectedLanguage;
     attempts: number;
   }> {
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
     const result = await this.runner.executeContract(
       'LANGUAGE_DETECTION',
       prompt,
       (raw) => this.orchestrator.validateLanguageDetection(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Language detection stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (result.ok) {
       return {
@@ -1572,6 +1637,7 @@ export class Pipeline {
     toneInstructions: string | undefined,
     personalityDescription: string,
     contextSnapshot?: ContextSnapshot,
+    toolSuggestion?: string,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
@@ -1596,6 +1662,7 @@ export class Pipeline {
       toneInstructions,
       language,
       contextSnapshot,
+      toolSuggestion,
     );
   }
 
@@ -1612,7 +1679,6 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running conversational answer contract');
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildConversationalAnswerPrompt(
       userInput,
       toneInstructions,
@@ -1625,10 +1691,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateConversationalAnswer(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Conversational answer stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (!result.ok) {
       Logger.warn(
@@ -1671,9 +1733,9 @@ export class Pipeline {
     toneInstructions?: string,
     language?: DetectedLanguage,
     contextSnapshot?: ContextSnapshot,
+    toolSuggestion?: string,
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running strict answer contract');
-    const stageStartMs = Date.now();
     const prompt = this.orchestrator.buildStrictAnswerPrompt(
       userInput,
       toneInstructions,
@@ -1685,10 +1747,6 @@ export class Pipeline {
       prompt,
       (raw) => this.orchestrator.validateStrictAnswer(raw),
     );
-    const stageDurationMs = measureDurationMs(stageStartMs);
-    Logger.debug('pipeline', 'Strict answer stage completed', {
-      durationMs: stageDurationMs,
-    });
 
     if (!result.ok) {
       Logger.error('pipeline', 'Strict answer contract failed');
@@ -1701,9 +1759,12 @@ export class Pipeline {
     }
 
     Logger.debug('pipeline', 'Strict answer generated successfully');
+    const responseText = toolSuggestion
+      ? `${result.value}\n\n${toolSuggestion}`
+      : result.value;
     const scoring = await this.runScoringEvaluation(
       'strict_answer',
-      result.value,
+      responseText,
       userInput,
       this.formatReferenceContext(contextSnapshot),
       contextSnapshot,
@@ -1711,7 +1772,7 @@ export class Pipeline {
     return {
       ok: true,
       kind: 'strict_answer',
-      value: result.value,
+      value: responseText,
       evaluation: scoring.evaluation,
       evaluationAlert: scoring.alert,
       intent,
@@ -1749,10 +1810,6 @@ export class Pipeline {
         prompt,
         (raw) => this.orchestrator.validateResponseFormatting(raw),
       );
-      const stageDurationMs = measureDurationMs(stageStartMs);
-      Logger.debug('pipeline', 'Response formatting stage completed', {
-        durationMs: stageDurationMs,
-      });
 
       if (result.ok) {
         Logger.debug('pipeline', 'Response formatted successfully');
@@ -2011,7 +2068,6 @@ export class Pipeline {
       return { attempts: 0 };
     }
 
-    Logger.debug('pipeline', 'Running scoring contract', { stage: label });
     const stageStartMs = Date.now();
     try {
       const prompt = this.orchestrator.buildScoringPrompt(
@@ -2025,12 +2081,6 @@ export class Pipeline {
         prompt,
         (raw) => this.orchestrator.validateScoring(raw),
       );
-      const durationMs = measureDurationMs(stageStartMs);
-      Logger.debug('pipeline', 'Scoring stage completed', {
-        stage: label,
-        durationMs,
-        attempts: result.attempts,
-      });
 
       if (result.ok) {
         Logger.debug('pipeline', 'Scoring evaluation succeeded', { stage: label });
@@ -2080,7 +2130,6 @@ export class Pipeline {
   ): Promise<PipelineResult> {
     // Fetch language in parallel with tool execution since we'll need it for formatting
     const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-    const parallelStartMs = Date.now();
     const [languageResult, toolExecResult] = await Promise.all([
       this.runner.executeContract(
         'LANGUAGE_DETECTION',
@@ -2095,10 +2144,6 @@ export class Pipeline {
         }
       })(),
     ]);
-    const parallelDurationMs = measureDurationMs(parallelStartMs);
-    Logger.debug('pipeline', 'Language detection + tool execution (parallel)', {
-      durationMs: parallelDurationMs,
-    });
 
     const languageAttemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.ok
