@@ -9,6 +9,13 @@ export type ParsedDataUrl = {
 };
 
 /**
+ * Builds a data URL string from base64 image data.
+ */
+export const buildDataUrl = (base64: string, mimeType = 'image/png'): string => {
+  return `data:${mimeType};base64,${base64}`;
+};
+
+/**
  * Generates a stable attachment identifier.
  */
 export const buildAttachmentId = (): string => {
