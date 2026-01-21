@@ -2,7 +2,7 @@ import { marked } from 'marked';
 import { parseFileTreeText, looksLikeFileTree, renderFileTree } from './file-tree';
 import { renderJsonViewer } from './json-viewer';
 import {
-  encodeJsonForAttribute,
+  encodeForAttribute,
   escapeHtml,
   isPackageJsonPath,
   normalizeLanguage,
@@ -170,7 +170,7 @@ export const renderCodeBlock = (
   const label = normalizedLanguage ? normalizedLanguage.toUpperCase() : 'TEXT';
   const highlighted = highlightCodeBlock(code, normalizedLanguage);
   const languageClass = normalizedLanguage ? `language-${normalizedLanguage}` : 'language-text';
-  const rawAttr = encodeJsonForAttribute(rawOverride ?? code);
+  const rawAttr = encodeForAttribute(rawOverride ?? code);
 
   // Check if this is markdown that should have preview
   const isMarkdown = normalizedLanguage === 'markdown';

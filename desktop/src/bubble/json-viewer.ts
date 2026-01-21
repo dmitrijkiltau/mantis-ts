@@ -1,4 +1,4 @@
-import { encodeJsonForAttribute, escapeHtml, isObjectRecord } from './shared';
+import { encodeForAttribute, escapeHtml, isObjectRecord } from './shared';
 
 type JsonViewerOptions = {
   linkDependencies?: boolean;
@@ -19,7 +19,7 @@ const renderJsonKey = (key: string, context: JsonRenderContext): string => {
     return `<span class="json-node-key">${escapeHtml(key)}</span>`;
   }
 
-  const encoded = encodeJsonForAttribute(key);
+  const encoded = encodeForAttribute(key);
   const label = escapeHtml(key);
   return `
     <button
@@ -123,7 +123,7 @@ export const renderHttpJsonPreview = (content: string): string => {
 
   const pretty = JSON.stringify(parsed, null, 2);
   const viewer = renderJsonViewer(parsed);
-  const rawAttr = encodeJsonForAttribute(content);
+  const rawAttr = encodeForAttribute(content);
   const toggleLabel = 'Structured JSON view';
 
   return `
