@@ -384,6 +384,7 @@ const runShellCommand = async (
 export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   name: 'shell',
   description: `Fallback for system commands not covered by other tools: e.g., git/docker/npm/systemctl on POSIX; powershell/ps/git/docker/npm on Windows.
+Do NOT use when filesystem, search, process, http, pcinfo, or clipboard can satisfy the request.
 Use for non-destructive commands only.`,
   schema: {
     action: 'string',

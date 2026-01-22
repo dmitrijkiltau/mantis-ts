@@ -217,7 +217,7 @@ const clipboardArgsSchema = z.object({
 
 export const CLIPBOARD_TOOL: ToolDefinition<ClipboardToolArgs, ClipboardToolResult> = {
   name: 'clipboard',
-  description: 'Reads from or writes to the OS clipboard.',
+  description: 'Reads from or writes to the OS clipboard only (no filesystem, process, or network access).',
   schema: {
     action: 'string',
     text: 'string|null',

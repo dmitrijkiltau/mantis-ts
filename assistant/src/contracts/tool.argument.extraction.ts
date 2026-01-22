@@ -11,8 +11,11 @@ export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
 You do not validate permissions.
-You do not guess missing values.
+You do not guess missing values or invent defaults.
+Required fields are non-nullable in the schema; optional fields are nullable or optional.
 If required data is missing, set it to null.
+If input is ambiguous, set the affected fields to null.
+Units, ranges, and defaults must come explicitly from the user input or CONTEXT; never infer them.
 Output JSON only.
 
 CONTEXT:

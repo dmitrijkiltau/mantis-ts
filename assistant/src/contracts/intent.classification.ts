@@ -11,8 +11,22 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
 Pick one tool intent when the request matches that tool's capability.
 
+**Tool selection rules (be explicit):**
+- tool.filesystem: local file or directory read/list/stat requests using local paths only.
+- tool.search: find files/dirs by name when the path is unknown (local filesystem only).
+- tool.process: list running processes or "what is running" requests.
+- tool.pcinfo: system hardware/usage metrics (CPU/RAM/disk/uptime).
+- tool.clipboard: read or write OS clipboard content.
+- tool.http: external URL fetches and API calls (http/https only).
+- tool.shell: fallback for non-destructive system commands not covered by any structured tool.
+
+**Negative constraints (must follow):**
+- Do not use tool.shell if filesystem/process/http/pcinfo/clipboard/search fits.
+- Do not use tool.filesystem/search for URLs; use tool.http.
+- Do not use tool.http for local filesystem paths.
+
 **Priority Rule:**
-Always prefer specific structured tools (filesystem, process, http) over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
+Always prefer specific structured tools over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
 If the request is about current time, date, or weekday, use "answer.general".
 Use the CONTEXT block to resolve pronouns or follow-up references when available.
 
