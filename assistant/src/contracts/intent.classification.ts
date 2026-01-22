@@ -34,6 +34,10 @@ SELECTION RULES:
 - If the request is about current time, date, or weekday, use "answer.general".
 - Use the CONTEXT block to resolve pronouns or follow-up references when available.
 
+NEGATIVE CONSTRAINTS:
+- Do not invoke "tool.shell" unless no other tool can fulfill the request.
+- Do not choose "answer.general" or any conversational fallback while a tool clearly matches the intent.
+
 CONTEXT:
 {{CONTEXT_BLOCK}}
 

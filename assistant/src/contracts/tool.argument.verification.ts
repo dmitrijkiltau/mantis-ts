@@ -20,6 +20,10 @@ Decisions:
 - clarify: tool is clearly intended but user input is missing or ambiguous for required fields.
 - abort: tool appears incorrect or unsafe for this request.
 
+Default behavior:
+- If the extracted arguments satisfy the schema, match the user input literally, and no required data is missing or contradicted, prefer "execute" over other decisions.
+- Let "retry" or "clarify" be the exception, not the default, to avoid unnecessary hesitation.
+
 Clarify vs retry:
 - Use clarify when missing/ambiguous info must come from the user and cannot be inferred.
 - Use retry when the user did provide the info but it was extracted incorrectly or incompletely.
