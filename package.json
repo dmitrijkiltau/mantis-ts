@@ -5,7 +5,8 @@
   "description": "Minimal Adaptive Neural Tool-Integrated System AI Assistant",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "print-contracts": "npx tsx assistant/scripts/print-compiled-contracts.ts"
   },
   "dependencies": {
     "@tauri-apps/plugin-fs": "^2.4.5",

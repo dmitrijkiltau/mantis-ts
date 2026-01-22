@@ -48,7 +48,7 @@ describe('compiled contract prompts', () => {
     ];
 
     for (let index = 0; index < prompts.length; index += 1) {
-      const prompt = prompts[index];
+      const prompt = prompts[index]!;
       assertCompiled(prompt.systemPrompt, `${prompt.contractName} system`);
       assertCompiled(prompt.userPrompt, `${prompt.contractName} user`);
     }
