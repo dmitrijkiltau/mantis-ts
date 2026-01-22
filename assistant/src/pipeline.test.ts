@@ -268,28 +268,28 @@ describe('Pipeline', () => {
     it('should skip when all arguments are null', () => {
       const schema = { query: 'string', limit: 'number|null' };
       const args = { query: null, limit: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(true);
     });
 
     it('should skip when all required arguments are null', () => {
       const schema = { path: 'string', action: 'string' };
       const args = { path: null, action: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(true);
     });
 
     it('should not skip when at least one required argument is present', () => {
       const schema = { path: 'string', action: 'string' };
       const args = { path: '/etc/hosts', action: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(false);
     });
 
     it('should allow optional arguments (string|null) to be null', () => {
       const schema = { path: 'string', maxBytes: 'number|null' };
       const args = { path: '/etc/hosts', maxBytes: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(false);
     });
 
@@ -302,7 +302,7 @@ describe('Pipeline', () => {
       };
       const args = { arg1: 'value', arg2: null, arg3: null, arg4: null };
       // 2 required args, 1 null = 50% threshold, should NOT skip (needs > 50%)
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(false);
     });
 
@@ -316,21 +316,21 @@ describe('Pipeline', () => {
       };
       // 4 required args, 3 null = 75% null
       const args = { arg1: 'value', arg2: null, arg3: null, arg4: null, arg5: null };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(true);
     });
 
     it('should return false for empty schema', () => {
       const schema = {};
       const args = {};
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(false);
     });
 
     it('should treat undefined same as null', () => {
       const schema = { path: 'string', limit: 'number|null' };
       const args = { path: undefined, limit: undefined };
-      const result = (pipeline as any).shouldSkipToolExecution(schema, args);
+      const result = (pipeline as any).shouldSkipToolExecution('http', schema, args);
       expect(result).toBe(true);
     });
   });
