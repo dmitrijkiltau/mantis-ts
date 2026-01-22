@@ -56,6 +56,15 @@ Valid -> proceed
 Invalid -> retry (if allowed) or abort
 ```
 
+## Contract Invocation Modes
+
+Contracts can declare an invocation mode:
+
+- **Chat mode (`MODE: "chat"`)**: Uses the chat API with separate system/user messages. This preserves role separation, supports multimodal attachments (where available), and applies JSON prefill (`"{"`) for JSON-constrained contracts to tighten output formatting.
+- **Raw mode (`MODE: "raw"`)**: Uses a single prompt string (system + user concatenated) via the generate-style API. This is intended for models that perform better without chat formatting. Raw mode skips JSON-prefill, so contract fidelity relies entirely on the contract prompt instructions plus validator enforcement.
+
+Regardless of mode, validators remain mandatory and are the ultimate gatekeeper for contract compliance. Raw mode can be less strict about output shape because it lacks role structure and prefill hints, so retries and validation are especially important.
+
 ## Orchestrator Decision Graph
 
 ```

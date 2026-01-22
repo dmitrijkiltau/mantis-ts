@@ -24,7 +24,11 @@ import {
   CONVERSATION_INTENT,
   TOOLS,
 } from './tools/registry.js';
-import type { ContractWithExtras, FieldType } from './contracts/definition.js';
+import type {
+  ContractMode,
+  ContractWithExtras,
+  FieldType,
+} from './contracts/definition.js';
 import type { ValidationResult } from './types.js';
 
 export type ContractName = keyof typeof CONTRACTS;
@@ -32,6 +36,7 @@ export type ContractName = keyof typeof CONTRACTS;
 export type ContractPrompt = {
   contractName: ContractName;
   model: string;
+  mode: ContractMode;
   systemPrompt: string;
   userPrompt?: string;
   retries?: Record<number, string>;
@@ -79,6 +84,7 @@ export class Orchestrator {
     return {
       contractName,
       model: this.resolveModel(contractName),
+      mode: contract.MODE ?? 'chat',
       systemPrompt,
       userPrompt,
       retries: contract.RETRIES,
