@@ -34,6 +34,25 @@ Implement explicit error handling. Use validators to enforce contract compliance
 
 Write unit tests for all critical components, especially for the Orchestrator and Validators. Ensure that edge cases are covered.
 
+Test scripts:
+```bash
+# Run type-checking
+npm run typecheck
+
+# Run tests
+npm run test
+```
+
+Use the included script to print the compiled contract prompts produced by the `Orchestrator`. This is useful for reviewing the exact `system` and `user` prompt text that will be sent to LLMs.
+
+```bash
+# Print all compiled prompts:
+npm run print-contracts
+
+# Print a single compiled contract by name (several name forms accepted, e.g. `INTENT_CLASSIFICATION`):
+npm run print-contracts -- --contract INTENT_CLASSIFICATION
+```
+
 ### Commands
 
 You are working on a win32 System, where `head` is an alias for `Get-Content -TotalCount`. Use `npm run` commands defined in `package.json` for testing, and type-checking the project.

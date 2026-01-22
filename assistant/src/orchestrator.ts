@@ -373,6 +373,60 @@ export class Orchestrator {
     }, contextSnapshot);
   }
 
+  /**
+   * Builds a single compiled contract prompt by name with sensible defaults.
+   * Optional `options` let callers supply sample inputs for prompts that require them.
+   */
+  public buildCompiledContract(
+    contractName: ContractName,
+    options?: {
+      userInput?: string;
+      response?: string;
+      language?: { language: string; name: string };
+      imageCount?: number;
+      verifierNotes?: string;
+      extractedArgs?: Record<string, unknown>;
+      toolName?: string;
+      toolDescription?: string;
+      toolSchema?: ToolSchema;
+      contextSnapshot?: ContextSnapshot;
+    },
+  ): ContractPrompt {
+    const opts = options ?? {};
+    switch (contractName) {
+      case 'INTENT_CLASSIFICATION':
+        return this.buildIntentClassificationPrompt(opts.userInput ?? 'Show me README.md', opts.contextSnapshot);
+      case 'LANGUAGE_DETECTION':
+        return this.buildLanguageDetectionPrompt(opts.userInput ?? 'Bonjour');
+      case 'TOOL_ARGUMENT_EXTRACTION': {
+        const tool = (TOOLS as any)[opts.toolName ?? 'filesystem'];
+        const desc = opts.toolDescription ?? tool?.description ?? '';
+        const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
+        return this.buildToolArgumentPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', opts.verifierNotes, opts.contextSnapshot);
+      }
+      case 'TOOL_ARGUMENT_VERIFICATION': {
+        const tool = (TOOLS as any)[opts.toolName ?? 'filesystem'];
+        const desc = opts.toolDescription ?? tool?.description ?? '';
+        const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
+        const extracted = opts.extractedArgs ?? { action: 'read', path: './README.md', limit: null, maxBytes: null };
+        return this.buildToolArgumentVerificationPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', extracted, opts.contextSnapshot);
+      }
+      case 'TEXT_TRANSFORMATION':
+        return this.buildTextTransformationPrompt(opts.userInput ?? 'Fix this text', opts.contextSnapshot);
+      case 'SCORING_EVALUATION':
+        return this.buildScoringPrompt(opts.response ?? 'Sample output', opts.userInput ?? 'Sample goal', opts.response ?? 'Sample context', opts.contextSnapshot);
+      case 'STRICT_ANSWER':
+        return this.buildStrictAnswerPrompt(opts.userInput ?? 'What is MANTIS?', undefined, opts.language, opts.contextSnapshot);
+      case 'CONVERSATIONAL_ANSWER':
+        return this.buildConversationalAnswerPrompt(opts.userInput ?? 'Hi there', undefined, opts.language, undefined, opts.contextSnapshot);
+      case 'RESPONSE_FORMATTING':
+        return this.buildResponseFormattingPrompt(opts.response ?? 'Here is a response', opts.language ?? { language: 'en', name: 'English' }, undefined, undefined, opts.toolName, opts.contextSnapshot);
+      case 'IMAGE_RECOGNITION':
+        return this.buildImageRecognitionPrompt(opts.userInput ?? 'Describe the image', opts.imageCount ?? 1, undefined, opts.language, opts.contextSnapshot);
+      default:
+        return this.buildPrompt(contractName);
+    }
+  }
   public getRetryInstruction(
     contractName: ContractName,
     attempt: number,
