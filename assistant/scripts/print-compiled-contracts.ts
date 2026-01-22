@@ -49,8 +49,12 @@ for (let i = 0; i < argv.length; i += 1) {
 
 const printPrompt = (p: typeof prompts[number]) => {
   console.log('---', p.contractName, '---');
-  console.log('SYSTEM:\n', p.systemPrompt || '(none)');
-  console.log('USER:\n', p.userPrompt || '(none)');
+  if (p.mode === 'raw') {
+    console.log('RAW:\n', p.rawPrompt || '(none)');
+  } else {
+    console.log('SYSTEM:\n', p.systemPrompt || '(none)');
+    console.log('USER:\n', p.userPrompt || '(none)');
+  }
   console.log('\n');
 };
 

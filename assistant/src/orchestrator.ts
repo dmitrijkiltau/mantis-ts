@@ -37,8 +37,9 @@ export type ContractPrompt = {
   contractName: ContractName;
   model: string;
   mode: ContractMode;
-  systemPrompt: string;
+  systemPrompt?: string;
   userPrompt?: string;
+  rawPrompt?: string;
   retries?: Record<number, string>;
   expectsJson?: boolean;
   images?: string[];
@@ -70,21 +71,39 @@ export class Orchestrator {
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
-    const systemPrompt = renderTemplate(contract.SYSTEM_PROMPT, {
+    const mode = contract.MODE ?? 'chat';
+    const promptContext = {
       ...context,
       CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
-    });
+    };
+
+    if (mode === 'raw') {
+      const legacyPrompt = [contract.SYSTEM_PROMPT, contract.USER_PROMPT]
+        .filter(Boolean)
+        .join('\n\n');
+      const template = contract.PROMPT ?? legacyPrompt;
+      const rawPrompt = template ? renderTemplate(template, promptContext) : '';
+      return {
+        contractName,
+        model: this.resolveModel(contractName),
+        mode,
+        rawPrompt,
+        retries: contract.RETRIES,
+        expectsJson: contract.EXPECTS_JSON,
+      };
+    }
+
+    const systemPrompt = contract.SYSTEM_PROMPT
+      ? renderTemplate(contract.SYSTEM_PROMPT, promptContext)
+      : '';
     const userPrompt = contract.USER_PROMPT
-      ? renderTemplate(contract.USER_PROMPT, {
-        ...context,
-        CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
-      })
+      ? renderTemplate(contract.USER_PROMPT, promptContext)
       : undefined;
 
     return {
       contractName,
       model: this.resolveModel(contractName),
-      mode: contract.MODE ?? 'chat',
+      mode,
       systemPrompt,
       userPrompt,
       retries: contract.RETRIES,

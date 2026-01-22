@@ -31,8 +31,18 @@ export type ContractMode = 'chat' | 'raw';
  */
 export type ContractDefinition = {
   MODEL: string;
-  SYSTEM_PROMPT: string;
+  /**
+   * Chat-mode system prompt (ignored in raw mode when PROMPT is provided).
+   */
+  SYSTEM_PROMPT?: string;
+  /**
+   * Chat-mode user prompt (ignored in raw mode when PROMPT is provided).
+   */
   USER_PROMPT?: string;
+  /**
+   * Raw-mode prompt (single prompt string for MODE === 'raw').
+   */
+  PROMPT?: string;
   RETRIES?: Record<number, string>;
   EXPECTS_JSON?: boolean;
   MODE?: ContractMode;

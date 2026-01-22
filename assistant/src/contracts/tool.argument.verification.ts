@@ -8,7 +8,7 @@ export const CONTRACT_TOOL_ARGUMENT_VERIFICATION = {
   MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You verify extracted arguments for the tool "{{TOOL_NAME}}".
+  PROMPT: `You verify extracted arguments for the tool "{{TOOL_NAME}}".
 Check that the tool is appropriate and that the arguments align with the user input and schema.
 
 CONTEXT:
@@ -39,8 +39,9 @@ Expected schema (no formatting):
   "reason": "<brief explanation>",
   "missingFields": ["<field name>", ...],
   "suggestedArgs": { "<field>": "<value>", ... }
-}`,
-  USER_PROMPT: `User input:
+}
+
+User input:
 {{USER_INPUT}}
 
 Tool description:

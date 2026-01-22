@@ -121,6 +121,13 @@ const getContractMode = (contractKey: string): ContractMode => {
 };
 
 /**
+ * Resolves the prompt shape label for the configured contract mode.
+ */
+const getPromptShapeLabel = (mode: ContractMode): string => {
+  return mode === 'raw' ? 'PROMPT' : 'SYSTEM/USER';
+};
+
+/**
  * Renders the contract model list with source previews.
  */
 export const ContractModels: Component = () => {
@@ -225,6 +232,7 @@ export const ContractModels: Component = () => {
               <div class="contract-model-value">
                 {entry.contracts.map((contractKey, index) => {
                   const mode = getContractMode(contractKey);
+                  const promptShapeLabel = getPromptShapeLabel(mode);
                   return (
                     <span>
                       <a
@@ -234,8 +242,12 @@ export const ContractModels: Component = () => {
                       >
                         {contractKey}
                       </a>{' '}
-                      <span class="contract-model-mode" data-mode={mode}>
-                        {mode.toUpperCase()}
+                      <span
+                        class="contract-model-mode"
+                        data-mode={mode}
+                        title={`Prompt shape: ${promptShapeLabel}`}
+                      >
+                        {mode.toUpperCase()} ({promptShapeLabel})
                       </span>
                       {index < entry.contracts.length - 1 ? ', ' : ''}
                     </span>

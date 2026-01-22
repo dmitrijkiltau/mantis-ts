@@ -13,7 +13,7 @@ import { Logger } from './logger.js';
 export type ModelInvocation = {
   model: string;
   mode: ContractMode;
-  systemPrompt: string;
+  systemPrompt?: string;
   userPrompt?: string;
   rawPrompt?: string;
   expectsJson?: boolean;
@@ -224,6 +224,14 @@ export class Runner {
       return prompt;
     }
 
+    if (prompt.mode === 'raw') {
+      const rawPrompt = this.buildRawPrompt(prompt);
+      return {
+        ...prompt,
+        rawPrompt: rawPrompt ? `${retryInstruction}\n\n${rawPrompt}` : retryInstruction,
+      };
+    }
+
     if (prompt.userPrompt) {
       return {
         ...prompt,
@@ -240,6 +248,10 @@ export class Runner {
   private buildRawPrompt(prompt: ContractPrompt): string | undefined {
     if (prompt.mode !== 'raw') {
       return undefined;
+    }
+
+    if (prompt.rawPrompt) {
+      return prompt.rawPrompt;
     }
 
     const parts: string[] = [];

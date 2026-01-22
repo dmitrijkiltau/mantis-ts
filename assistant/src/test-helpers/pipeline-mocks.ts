@@ -16,7 +16,8 @@ export const createMockOrchestrator = (): Orchestrator => {
     buildScoringPrompt: vi.fn().mockReturnValue({
       contractName: 'SCORING_EVALUATION',
       model: 'test-model',
-      systemPrompt: 'test system',
+      mode: 'raw',
+      rawPrompt: 'test prompt',
     }),
     buildErrorChannelPrompt: vi.fn(),
     validateIntentClassification: vi.fn(),

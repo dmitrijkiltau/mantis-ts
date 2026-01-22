@@ -8,7 +8,7 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   MODEL: 'qwen2.5:1.5b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
+  PROMPT: `You classify the intent of the input based on the allowed list.
 Pick one tool intent when the request matches that tool's capability.
 
 **Negative constraints (must follow):**
@@ -31,8 +31,9 @@ Confidence range:
 0.0 (no confidence) to 1.0 (full confidence).
 
 Output JSON exactly (no formatting):
-{"intent":"<intent>","confidence":<number>}`,
-  USER_PROMPT: `Classify the intent of the following input.
+{"intent":"<intent>","confidence":<number>}
+
+Classify the intent of the following input.
 
 Input:
 {{USER_INPUT}}`,

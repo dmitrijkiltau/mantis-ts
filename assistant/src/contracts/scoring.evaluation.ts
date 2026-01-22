@@ -9,15 +9,16 @@ export const CONTRACT_SCORING_EVALUATION = {
   MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You evaluate content based on given criteria.
+  PROMPT: `You evaluate content based on given criteria.
 You return numeric scores only.
 No explanations.
 Answer with JSON only.
 Use USER_GOAL and REFERENCE_CONTEXT to judge correctness and usefulness.
 
 CONTEXT:
-{{CONTEXT_BLOCK}}`,
-  USER_PROMPT: `User goal:
+{{CONTEXT_BLOCK}}
+
+User goal:
 {{USER_GOAL}}
 
 Reference context:
