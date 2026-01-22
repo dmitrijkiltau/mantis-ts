@@ -6,9 +6,11 @@ import { z } from 'zod';
  * TYPES
  * ------------------------------------------------------------------------- */
 
+type DetailLevel = 'basic' | 'detailed';
+
 type PcInfoToolArgs = {
   metrics?: string[] | null;
-  detailLevel?: 'basic' | 'detailed' | null;
+  detailLevel?: DetailLevel | null;
 };
 
 type CpuInfo = {
@@ -119,7 +121,10 @@ const normalizeMetrics = (metrics: string[] | null | undefined): string[] => {
  * WINDOWS IMPLEMENTATION
  * ------------------------------------------------------------------------- */
 
-const buildWindowsInfoScript = (metrics: string[]): string => {
+/**
+ * Builds a PowerShell script to collect requested Windows metrics.
+ */
+const buildWindowsInfoScript = (metrics: string[], includeCpuUsage: boolean): string => {
   const needsCpu = metrics.includes('cpu');
   const needsMemory = metrics.includes('memory');
   const needsDisk = metrics.includes('disk');
@@ -144,14 +149,20 @@ $result | Add-Member -NotePropertyName system -NotePropertyValue $system
   if (needsCpu) {
     sections.push(`
 $cpuInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
-$cpuLoad = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
 $cpu = [PSCustomObject]@{
   cores = $cpuInfo.NumberOfCores
   threads = $cpuInfo.NumberOfLogicalProcessors
   model = $cpuInfo.Name
-  usage = [double]$cpuLoad
+  usage = $null
 }
 $result | Add-Member -NotePropertyName cpu -NotePropertyValue $cpu
+`);
+  }
+
+  if (needsCpu && includeCpuUsage) {
+    sections.push(`
+$cpuLoad = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
+$result.cpu.usage = [double]$cpuLoad
 `);
   }
 
@@ -190,9 +201,15 @@ $result | Add-Member -NotePropertyName disks -NotePropertyValue @($diskList)
   return sections.join('\n');
 };
 
-const runWindowsPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
+/**
+ * Runs the Windows PC info collection script.
+ */
+const runWindowsPcInfo = async (
+  metrics: string[],
+  includeCpuUsage: boolean,
+): Promise<PcInfoToolResult> => {
   const { Command } = await loadShellModule();
-  const script = buildWindowsInfoScript(metrics);
+  const script = buildWindowsInfoScript(metrics, includeCpuUsage);
   const command = Command.create('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
   const result = await command.execute();
 
@@ -263,7 +280,10 @@ const getPosixSystemInfo = async (Command: TauriCommand): Promise<SystemInfo> =>
   };
 };
 
-const getPosixCpuInfo = async (Command: TauriCommand): Promise<CpuInfo> => {
+/**
+ * Collects POSIX CPU metadata and optional usage percentage.
+ */
+const getPosixCpuInfo = async (Command: TauriCommand, includeUsage: boolean): Promise<CpuInfo> => {
   let cores: number | null = null;
   let threads: number | null = null;
   let model: string | null = null;
@@ -305,19 +325,21 @@ const getPosixCpuInfo = async (Command: TauriCommand): Promise<CpuInfo> => {
     // CPU info not critical
   }
 
-  try {
-    // Get CPU usage via top
-    const topCmd = Command.create('sh', ['-c', 'top -bn1 | grep "Cpu(s)"']);
-    const topResult = await topCmd.execute();
-    if (topResult.code === 0) {
-      const match = /(\d+\.\d+)\s*id/.exec(topResult.stdout);
-      if (match && match[1]) {
-        const idle = Number.parseFloat(match[1]);
-        usage = 100 - idle;
+  if (includeUsage) {
+    try {
+      // Get CPU usage via top
+      const topCmd = Command.create('sh', ['-c', 'top -bn1 | grep "Cpu(s)"']);
+      const topResult = await topCmd.execute();
+      if (topResult.code === 0) {
+        const match = /(\d+\.\d+)\s*id/.exec(topResult.stdout);
+        if (match && match[1]) {
+          const idle = Number.parseFloat(match[1]);
+          usage = 100 - idle;
+        }
       }
+    } catch {
+      // CPU usage not critical
     }
-  } catch {
-    // CPU usage not critical
   }
 
   return { cores, threads, model, usage };
@@ -377,7 +399,7 @@ const getPosixDiskInfo = async (Command: TauriCommand): Promise<DiskInfo[]> => {
     const dfResult = await dfCmd.execute();
     if (dfResult.code === 0) {
       const lines = dfResult.stdout.split('\n');
-      
+
       for (let index = 1; index < lines.length; index += 1) {
         const line = lines[index];
         if (!line) {
@@ -415,7 +437,13 @@ const getPosixDiskInfo = async (Command: TauriCommand): Promise<DiskInfo[]> => {
   return disks;
 };
 
-const runPosixPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
+/**
+ * Collects POSIX system metrics based on the requested scope.
+ */
+const runPosixPcInfo = async (
+  metrics: string[],
+  includeCpuUsage: boolean,
+): Promise<PcInfoToolResult> => {
   const { Command } = await loadShellModule();
   const result: PcInfoToolResult = {};
 
@@ -424,7 +452,7 @@ const runPosixPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
   }
 
   if (metrics.includes('cpu')) {
-    result.cpu = await getPosixCpuInfo(Command);
+    result.cpu = await getPosixCpuInfo(Command, includeCpuUsage);
   }
 
   if (metrics.includes('memory')) {
@@ -442,17 +470,23 @@ const runPosixPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
  * TOOL IMPLEMENTATION
  * ------------------------------------------------------------------------- */
 
-const getPcInfo = async (metrics: string[]): Promise<PcInfoToolResult> => {
+/**
+ * Executes platform-specific system inspection.
+ */
+const getPcInfo = async (
+  metrics: string[],
+  includeCpuUsage: boolean,
+): Promise<PcInfoToolResult> => {
   await loadShellModule();
   const platform = getPlatform();
 
   switch (platform) {
     case 'win32':
-      return runWindowsPcInfo(metrics);
+      return runWindowsPcInfo(metrics, includeCpuUsage);
 
     case 'linux':
     case 'darwin':
-      return runPosixPcInfo(metrics);
+      return runPosixPcInfo(metrics, includeCpuUsage);
 
     default:
       throw new Error(
@@ -475,7 +509,10 @@ export const PCINFO_TOOL: ToolDefinition<PcInfoToolArgs, PcInfoToolResult> = {
   },
   argsSchema: pcInfoArgsSchema,
   async execute(args) {
+    const detailLevel: DetailLevel = args.detailLevel ?? 'detailed';
     const metrics = normalizeMetrics(args.metrics ?? null);
-    return getPcInfo(metrics);
+    const filteredMetrics = detailLevel === 'basic' ? metrics.filter((metric) => metric !== 'disk') : metrics;
+    const includeCpuUsage = detailLevel === 'detailed';
+    return getPcInfo(filteredMetrics, includeCpuUsage);
   },
 };
