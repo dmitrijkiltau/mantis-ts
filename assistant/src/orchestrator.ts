@@ -192,10 +192,10 @@ export class Orchestrator {
     }
 
     lines.push(
-      `- ${GENERAL_ANSWER_INTENT}: Use only when NO tool applies. For general knowledge, coding help, or complex reasoning.`,
+      `- ${GENERAL_ANSWER_INTENT}: (use only when NO tool applies) general knowledge, coding help, and complex reasoning`,
     );
     lines.push(
-      `- ${CONVERSATION_INTENT}: Small talk, greetings, or thanks only.`,
+      `- ${CONVERSATION_INTENT}: small talk, greetings, and thanks only`,
     );
 
     const formatted = lines.join('\n');

@@ -5,7 +5,7 @@ import { extractFirstJsonObject } from './parsing.js';
  * Contract for intent classification.
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
-  MODEL: 'qwen2.5:1.5b',
+  MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
   PROMPT: `You are executing a single, isolated contract.
@@ -31,16 +31,8 @@ Select the single most appropriate intent based on the allowed intents and rules
 
 SELECTION RULES:
 - Prefer specific structured tools over generic tools.
-- Use "tool.shell" ONLY if no other tool can fulfill the request.
-- Do NOT use tool.shell if filesystem, process, http, pcinfo, clipboard, or search applies.
-- Do NOT use tool.filesystem or tool.search for URLs; use tool.http.
-- Do NOT use tool.http for local filesystem paths.
 - If the request is about current time, date, or weekday, use "answer.general".
 - Use the CONTEXT block to resolve pronouns or follow-up references when available.
-
-FALLBACK RULE:
-If no intent can be confidently determined, return:
-{"intent":"answer.general","confidence":0.0}
 
 CONTEXT:
 {{CONTEXT_BLOCK}}
@@ -59,7 +51,10 @@ INPUT:
 Return exactly one intent from the allowed list.
 Return valid JSON only.`,
     1: `If you are unsure, return:
-{"intent":"answer.general","confidence":0.0}`
+{
+  "intent": "answer.general",
+  "confidence": 0.1
+}`
   },
 };
 

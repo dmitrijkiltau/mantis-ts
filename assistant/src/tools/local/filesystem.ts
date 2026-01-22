@@ -318,15 +318,7 @@ const listDirectory = async (
 
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
-  description: `Read file contents, list directory entries, or stat a local filesystem path for existence.
-Use only for local paths (absolute or relative to ENVIRONMENT.cwd). Do NOT use for URLs or remote resources.
-Do NOT use this to search for files (use the search tool instead).
-If no path is provided, use ENVIRONMENT.cwd from CONTEXT as the default. Resolve relative paths against ENVIRONMENT.cwd.
-
-Examples:
-- "What is in D:/Projects?" -> action: "list", path: "D:/Projects"
-- "Read D:/Projects/README.md" -> action: "read", path: "D:/Projects/README.md"
-- "Is there a README.md in D:/Projects?" -> action: "stat", path: "D:/Projects/README.md"`,
+  description: `read file, list directory, and stat path information on the local filesystem.`,
   schema: {
     action: 'string',
     path: 'string|null',
