@@ -274,8 +274,9 @@ const searchFileSystem = async (
 
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
-  description: `DISCOVERY. Use to find files/dirs by name or pattern when the path is unknown.
+  description: `DISCOVERY. Use to find local files/dirs by name or pattern when the path is unknown.
 Do NOT use when the user provides a specific path; use filesystem list/read instead.
+Local filesystem only (no URLs or remote resources).
 Skips common build/VC dirs (e.g., .git, node_modules).
 If baseDir is missing, default to ENVIRONMENT.cwd from CONTEXT. startPath is relative to baseDir.
 

@@ -502,7 +502,7 @@ const getPcInfo = async (
  */
 export const PCINFO_TOOL: ToolDefinition<PcInfoToolArgs, PcInfoToolResult> = {
   name: 'pcinfo',
-  description: 'Gets system hardware stats (CPU, RAM, Disk usage).',
+  description: 'Gets system hardware stats (CPU, RAM, disk usage, uptime). Use only for system metrics, not process listings or filesystem reads.',
   schema: {
     metrics: 'string[]|null',
     detailLevel: 'string|null',

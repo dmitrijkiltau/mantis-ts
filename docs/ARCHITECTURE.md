@@ -78,6 +78,14 @@ Regardless of mode, validators remain mandatory and are the ultimate gatekeeper 
 | `RESPONSE_FORMATTING` | chat | Natural-language formatting grounded in tool output. |
 | `IMAGE_RECOGNITION` | chat | Multimodal attachment support needed for vision. |
 
+## Stricter Prompt Conventions
+
+Recent contract prompts enforce tighter routing and extraction behavior:
+
+- **Tool routing**: Prefer structured tools (filesystem/search/process/http/pcinfo/clipboard) and treat shell as a last resort, with explicit negative constraints to avoid shell when a structured tool fits.
+- **Argument extraction**: Required vs optional fields are derived from schema nullability, and units/ranges/defaults must be explicitly provided by the user or context (no inference).
+- **Argument verification**: Distinguish between missing user input (clarify) and extraction mistakes (retry), and only populate `missingFields`/`suggestedArgs` when the decision warrants it.
+
 ## Orchestrator Decision Graph
 
 ```

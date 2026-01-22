@@ -138,7 +138,7 @@ const buildQueryParamEntries = (
 
 export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
   name: 'http',
-  description: 'HTTP client for both simple GETs and API interactions (headers, queries, JSON body). Use for all web requests.',
+  description: 'HTTP client for external http/https URLs (GETs and API interactions with headers, queries, JSON body). Do not use for local filesystem paths.',
   schema: {
     url: 'string',
     method: 'string|null',

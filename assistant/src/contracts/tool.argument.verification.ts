@@ -15,10 +15,18 @@ CONTEXT:
 {{CONTEXT_BLOCK}}
 
 Decisions:
-- execute: arguments are correct and sufficient.
-- retry: arguments are likely wrong or incomplete but can be re-extracted.
-- clarify: the tool is clearly intended but required info is missing or ambiguous.
-- abort: the tool appears incorrect or unsafe for this request.
+- execute: arguments are correct, sufficient, and align with user input.
+- retry: arguments conflict with input or are incomplete due to extraction errors; re-extraction is likely to fix.
+- clarify: tool is clearly intended but user input is missing or ambiguous for required fields.
+- abort: tool appears incorrect or unsafe for this request.
+
+Clarify vs retry:
+- Use clarify when missing/ambiguous info must come from the user and cannot be inferred.
+- Use retry when the user did provide the info but it was extracted incorrectly or incompletely.
+
+missingFields and suggestedArgs:
+- Populate missingFields only when decision is clarify; include required fields that are missing/ambiguous.
+- Populate suggestedArgs only with values explicitly stated in user input or CONTEXT; omit if uncertain.
 
 Only use "clarify" if you are confident the tool is the correct choice.
 
