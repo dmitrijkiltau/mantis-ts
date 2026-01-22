@@ -16,17 +16,12 @@ CONTEXT:
 
 Decisions:
 - execute: arguments are correct, sufficient, and align with user input.
-- retry: arguments conflict with input or are incomplete due to extraction errors; re-extraction is likely to fix.
 - clarify: tool is clearly intended but user input is missing or ambiguous for required fields.
 - abort: tool appears incorrect or unsafe for this request.
 
 Default behavior:
-- If the extracted arguments satisfy the schema, match the user input literally, and no required data is missing or contradicted, prefer "execute" over other decisions.
-- Let "retry" or "clarify" be the exception, not the default, to avoid unnecessary hesitation.
-
-Clarify vs retry:
-- Use clarify when missing/ambiguous info must come from the user and cannot be inferred.
-- Use retry when the user did provide the info but it was extracted incorrectly or incompletely.
+- If the extracted arguments satisfy the schema, match the user input literally, and no required data is missing or contradicted, prefer "execute".
+- Let "clarify" and "abort" be the exception, not the default, to avoid unnecessary hesitation.
 
 missingFields and suggestedArgs:
 - Populate missingFields only when decision is clarify; include required fields that are missing/ambiguous.
@@ -38,7 +33,7 @@ Return JSON only.
 
 Expected schema (no formatting):
 {
-  "decision": "<execute|retry|clarify|abort>",
+  "decision": "<execute|clarify|abort>",
   "confidence": <number between 0.0 and 1.0>,
   "reason": "<brief explanation>",
   "missingFields": ["<field name>", ...],
@@ -62,7 +57,7 @@ Do not include extra keys.`,
   },
 };
 
-export type ToolArgumentVerificationDecision = 'execute' | 'retry' | 'clarify' | 'abort';
+export type ToolArgumentVerificationDecision = 'execute' | 'clarify' | 'abort';
 
 export type ToolArgumentVerificationResult = {
   decision: ToolArgumentVerificationDecision;
@@ -83,7 +78,6 @@ export type ToolArgumentVerificationValidationError =
 
 const allowedDecisions = new Set<ToolArgumentVerificationDecision>([
   'execute',
-  'retry',
   'clarify',
   'abort',
 ]);

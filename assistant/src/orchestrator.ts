@@ -12,12 +12,15 @@ import {
   type ToolArgumentVerificationResult,
   validateToolArgumentVerification,
 } from './contracts/tool.argument.verification.js';
-import { validateTextTransformation } from './contracts/text.transformation.js';
 import {
   type ScoringCriteria,
   validateScoring,
 } from './contracts/scoring.evaluation.js';
-import { validateStrictAnswer } from './contracts/strict.answer.js';
+import {
+  ANSWER_MODE_INSTRUCTIONS,
+  validateAnswer,
+  type AnswerMode,
+} from './contracts/answer.js';
 import { validateConversationalAnswer } from './contracts/conversational.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
@@ -302,17 +305,6 @@ export class Orchestrator {
     }, contextSnapshot);
   }
 
-  public buildTextTransformationPrompt(
-    text: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    const contract = this.contractRegistry.TEXT_TRANSFORMATION;
-    return this.buildPrompt('TEXT_TRANSFORMATION', {
-      RULES: contract.RULES,
-      TEXT: this.normalize(text),
-    }, contextSnapshot);
-  }
-
   private formatScoringSchema(criteria: ScoringCriteria): string {
     const schema: Record<string, string> = {};
     for (let index = 0; index < criteria.length; index += 1) {
@@ -382,16 +374,24 @@ export class Orchestrator {
     }, contextSnapshot);
   }
 
-  public buildStrictAnswerPrompt(
+  /**
+   * Builds a unified answer prompt with mode support.
+   * @param mode - 'strict' for concise factual answers, 'normal' for natural responses
+   */
+  public buildAnswerPrompt(
     question: string,
+    mode: AnswerMode = 'strict',
     toneInstructions?: string,
     language?: { language: string; name: string },
+    personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
-    return this.buildPrompt('STRICT_ANSWER', {
+    return this.buildPrompt('ANSWER', {
       QUESTION: this.normalize(question),
+      MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
+      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
     }, contextSnapshot);
   }
 
@@ -487,12 +487,10 @@ export class Orchestrator {
         const extracted = opts.extractedArgs ?? { action: 'read', path: './README.md', limit: null, maxBytes: null };
         return this.buildToolArgumentVerificationPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', extracted, opts.contextSnapshot);
       }
-      case 'TEXT_TRANSFORMATION':
-        return this.buildTextTransformationPrompt(opts.userInput ?? 'Fix this text', opts.contextSnapshot);
       case 'SCORING_EVALUATION':
         return this.buildScoringPrompt(opts.response ?? 'Sample output', opts.userInput ?? 'Sample goal', opts.response ?? 'Sample context', opts.contextSnapshot);
-      case 'STRICT_ANSWER':
-        return this.buildStrictAnswerPrompt(opts.userInput ?? 'What is MANTIS?', undefined, opts.language, opts.contextSnapshot);
+      case 'ANSWER':
+        return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
       case 'CONVERSATIONAL_ANSWER':
         return this.buildConversationalAnswerPrompt(opts.userInput ?? 'Hi there', undefined, opts.language, undefined, opts.contextSnapshot);
       case 'RESPONSE_FORMATTING':
@@ -532,10 +530,6 @@ export class Orchestrator {
     return validateToolArgumentVerification(raw);
   }
 
-  public validateTextTransformation(raw: string): ValidationResult<string> {
-    return validateTextTransformation(raw);
-  }
-
   public validateScoring(
     raw: string,
   ): ValidationResult<Record<string, number>> {
@@ -548,8 +542,8 @@ export class Orchestrator {
     return validateLanguageDetection(raw);
   }
 
-  public validateStrictAnswer(raw: string): ValidationResult<string> {
-    return validateStrictAnswer(raw);
+  public validateAnswer(raw: string): ValidationResult<string> {
+    return validateAnswer(raw);
   }
 
   public validateConversationalAnswer(raw: string): ValidationResult<string> {

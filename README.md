@@ -14,9 +14,9 @@ _Minimal Adaptive Neural Tool-Integrated System_ is a versatile AI assistant des
 
 `assistant/src/orchestrator.ts` contains an `Orchestrator` class that renders contract prompts and exposes the associated validators so the decision logic described in `ARCHITECTURE` can be exercised programmatically.
 
-The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, `buildStrictAnswerPrompt`, and `buildResponseFormattingPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
+The bridge between the orchestrator and the contracts lives in the `ContractPrompt` envelope, which bundles the prompt text, the target model, and the retry guidance for each contract. `ToolSchema` provides the shape for tool argument extraction schemas, and the orchestrator ships helpers like `buildIntentClassificationPrompt`, `buildToolArgumentPrompt`, `buildAnswerPrompt`, and `buildResponseFormattingPrompt` so callers do not need to re-implement the template logic. Each `validate*` helper feeds the raw model output through the contract validators before progressing.
 
-Tone is fixed: the orchestrator injects the predefined MANTIS personality instructions into strict answer and response formatting prompts so every response keeps the same concise, technically steady voice without an extra selection contract.
+Tone is fixed: the orchestrator injects the predefined MANTIS personality instructions into answer and response formatting prompts so every response keeps the same concise, technically steady voice without an extra selection contract.
 
 ## Runner
 
@@ -34,20 +34,50 @@ Each tool definition includes a name, description, schema for arguments, and an 
 
 ## Contracts
 
-`assistant/src/contracts/registry.ts` aggregates all validators that enforce strict input/output behavior:
+`assistant/src/contracts/registry.ts` aggregates all validators that enforce strict input/output behavior.
 
-- **Intent Classification**: Routes user input to appropriate tool or answer
-- **Language Detection**: Identifies user's language for preserved context
-- **Tool Argument Extraction**: Validates and extracts arguments for selected tool
-- **Text Transformation**: Optional text processing
-- **Scoring/Evaluation**: Evaluates and scores responses
-- **Strict Answer**: Generates answers without tool execution
-- **Conversational Answer**: Handles small talk and greetings without tool execution
+### Core Contracts (5)
+
+These contracts form the decision pipeline and are always active:
+
+- **Intent Classification**: Routes user input to appropriate tool or answer path
+- **Tool Argument Extraction**: Extracts structured arguments for tool execution
+- **Tool Argument Verification**: Makes final execution decision (execute/clarify/abort)
+- **Answer**: Unified knowledge answer contract with mode support (strict/normal)
+- **Conversational Answer**: Handles small talk and greetings (isolated, no fallback)
+
+### Modality Contracts (1)
+
+Triggered situationally based on input modality:
+
 - **Image Recognition**: Analyzes attached images to answer questions or describe content
-- **Response Formatting**: Optionally formats responses as concise sentences in user's language
+
+### Optional Contracts (3)
+
+Auxiliary functionality that never affects routing:
+
+- **Language Detection**: Detects user's language (telemetry only)
+- **Response Formatting**: Formats tool output only (best-effort, not used for text answers)
+- **Scoring/Evaluation**: Evaluates response quality (debug and QA only, never routing-relevant)
+
+### Design Principles
+
+- **One contract = one responsibility**: No overlap or ambiguity
+- **Decisions are final**: Verification returns execute/clarify/abort with no retry loop
+- **Answer outputs are final**: Not post-processed, formatted, or scored
+- **Scoring is off-path**: Quality metrics logged but never affect routing
 ## Pipeline
 
-`assistant/src/pipeline.ts` wires the decision pipeline together. It detects the user's language at the start, runs intent classification against tool-derived intents, extracts tool arguments when a `tool.*` intent is detected, executes the matching tool, and either returns a strict answer or a deterministic error payload when tool execution fails. Successful responses are optionally formatted as concise single sentences in the user's detected language via the response formatting contract before returning, with the predefined MANTIS tone applied to both strict answer and formatting prompts.
+`assistant/src/pipeline.ts` implements the decision pipeline. It routes user input through intent classification, extracts tool arguments when needed, verifies execution safety (with decisions being final—no retry cascades), executes tools, and formats/scores tool outputs. Answer contract output is final and not post-processed. Tool outputs are formatted and scored. The predefined MANTIS tone is applied to answer and formatting prompts.
+
+### Key Features
+
+- **Direct tool commands**: Recognizes single-line commands like `read <path>`, `ps`, `fetch <url>` and bypasses contracts for efficiency
+- **Tool intent guards**: Enforces confidence thresholds (0.6 minimum) and trigger guards to avoid false positives
+- **Skip heuristics**: Skips tool execution if >50% of required arguments are null
+- **Parallel execution**: Runs language detection in parallel with tool execution to reduce latency
+- **Final decisions**: Verification returns execute/clarify/abort with no retry loop; answer outputs are never formatted or scored
+- **Attempt tracking**: All contract invocations tracked and summed for telemetry
 
 ## Desktop App
 

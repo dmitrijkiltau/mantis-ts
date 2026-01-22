@@ -20,7 +20,6 @@ import {
   MIN_TOOL_CONFIDENCE,
   MIN_TOOL_TRIGGER_CONFIDENCE,
   REQUIRED_NULL_RATIO_THRESHOLD,
-  TOOL_ARGUMENT_VERIFICATION_RETRIES,
   TOOL_INTENT_PREFIX,
 } from './pipeline/config.js';
 import {
@@ -471,127 +470,11 @@ export class Pipeline {
       reason: verificationResult.reason,
     });
 
-    for (let retry = 0; retry < TOOL_ARGUMENT_VERIFICATION_RETRIES; retry += 1) {
-      if (verificationResult.decision !== 'retry') {
-        break;
-      }
-      if (schemaKeys.length === 0) {
-        break;
-      }
-
-      const verifierNotes = this.buildVerificationNotes(verificationResult);
-      Logger.debug('pipeline', 'Retrying tool argument extraction', {
-        tool: activeToolName,
-        attempt: retry + 1,
-        reason: verificationResult.reason,
-      });
-      const retryResult = await this.extractToolArguments(
-        tool,
-        userInput,
-        verifierNotes || extractionNotes,
-        contextSnapshot,
-      );
-      attemptsSoFar += retryResult.attempts;
-      if (!retryResult.ok) {
-        Logger.warn(
-          'pipeline',
-          `Tool argument retry failed for ${activeToolName}, falling back to strict answer`,
-        );
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'argument_extraction_failed',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      toolArgs = retryResult.value as Record<string, unknown>;
-      toolArgs = this.applyWorkingDirectoryDefaults(activeToolName, toolArgs, contextSnapshot);
-      const retrySchemaValidation = this.validateToolArgsSchema(tool, toolArgs);
-      if (!retrySchemaValidation.ok) {
-        verificationResult = retrySchemaValidation.result;
-        Logger.debug('pipeline', 'Tool argument verification decision', {
-          tool: activeToolName,
-          decision: verificationResult.decision,
-          confidence: verificationResult.confidence,
-          reason: verificationResult.reason,
-        });
-        continue;
-      }
-
-      toolArgs = retrySchemaValidation.value;
-      const retryVerification = await this.verifyToolArguments(
-        activeToolName,
-        tool.description,
-        tool.schema,
-        userInput,
-        toolArgs,
-        contextSnapshot,
-      );
-      attemptsSoFar += retryVerification.attempts;
-      if (!retryVerification.ok) {
-        Logger.warn(
-          'pipeline',
-          `Tool argument verification retry failed for ${activeToolName}, falling back to strict answer`,
-        );
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'argument_verification_failed',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      verificationResult = retryVerification.value;
-      Logger.debug('pipeline', 'Tool argument verification decision', {
-        tool: activeToolName,
-        decision: verificationResult.decision,
-        confidence: verificationResult.confidence,
-        reason: verificationResult.reason,
-      });
-    }
-
-    if (verificationResult.decision === 'retry') {
-      Logger.debug(
-        'pipeline',
-        `Tool argument verification retries exhausted for ${activeToolName}, falling back to strict answer`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_retry_exhausted',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
-
+    // Handle verification decisions: execute, clarify, or abort
     if (verificationResult.decision === 'abort') {
       Logger.debug(
         'pipeline',
-        `Tool argument verification aborted for ${activeToolName}, falling back to strict answer`,
+        `Tool argument verification aborted for ${activeToolName}, using answer instead`,
       );
       const result = await this.runNonToolAnswer(
         userInput,
@@ -1287,23 +1170,6 @@ export class Pipeline {
     );
   }
 
-  /**
-   * Builds retry notes for tool-argument extraction based on verification feedback.
-   */
-  private buildVerificationNotes(verification: ToolArgumentVerificationResult): string {
-    const notes: string[] = [];
-    if (verification.reason) {
-      notes.push(`Reason: ${verification.reason}`);
-    }
-    if (verification.missingFields && verification.missingFields.length > 0) {
-      notes.push(`Missing fields: ${verification.missingFields.join(', ')}`);
-    }
-    if (verification.suggestedArgs && Object.keys(verification.suggestedArgs).length > 0) {
-      notes.push(`Suggested args: ${JSON.stringify(verification.suggestedArgs)}`);
-    }
-    return notes.join('\n');
-  }
-
   private validateToolArgsSchema(
     tool: ReturnType<typeof getToolDefinition>,
     args: Record<string, unknown>,
@@ -1340,7 +1206,7 @@ export class Pipeline {
     return {
       ok: false,
       result: {
-        decision: 'retry',
+        decision: 'clarify',
         confidence: 1,
         reason,
         missingFields: missingFields.size > 0 ? Array.from(missingFields) : undefined,
@@ -1701,14 +1567,16 @@ export class Pipeline {
       );
     }
 
-    return this.runStrictAnswer(
+    return this.runAnswer(
       userInput,
       intent,
       attempts + attemptOffset,
       toneInstructions,
+      personalityDescription,
       language,
       contextSnapshot,
       toolSuggestion,
+      'strict',
     );
   }
 
@@ -1740,64 +1608,7 @@ export class Pipeline {
     );
 
     if (!result.ok) {
-      Logger.warn(
-        'pipeline',
-        'Conversational answer contract failed, falling back to strict answer',
-      );
-      return this.runStrictAnswer(
-        userInput,
-        intent,
-        attempts + result.attempts,
-        toneInstructions,
-        language,
-      );
-    }
-
-    Logger.debug('pipeline', 'Conversational answer generated successfully');
-    const scoring = await this.runScoringEvaluation(
-      'conversational_answer',
-      result.value,
-      userInput,
-      undefined,
-      contextSnapshot,
-    );
-    return {
-      ok: true,
-      kind: 'strict_answer',
-      value: result.value,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
-      intent,
-      language,
-      attempts: attempts + result.attempts + scoring.attempts,
-    };
-  }
-
-  private async runStrictAnswer(
-    userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
-    attempts: number,
-    toneInstructions?: string,
-    language?: DetectedLanguage,
-    contextSnapshot?: ContextSnapshot,
-    toolSuggestion?: string,
-  ): Promise<PipelineResult> {
-    Logger.debug('pipeline', 'Running strict answer contract');
-    const prompt = this.orchestrator.buildStrictAnswerPrompt(
-      userInput,
-      toneInstructions,
-      language,
-      contextSnapshot,
-    );
-    const result = await this.runner.executeContract(
-      'STRICT_ANSWER',
-      prompt,
-      (raw) => this.orchestrator.validateStrictAnswer(raw),
-      this.getRunnerOptions(),
-    );
-
-    if (!result.ok) {
-      Logger.error('pipeline', 'Strict answer contract failed');
+      Logger.error('pipeline', 'Conversational answer contract failed');
       return {
         ok: false,
         kind: 'error',
@@ -1806,36 +1617,69 @@ export class Pipeline {
       };
     }
 
-    Logger.debug('pipeline', 'Strict answer generated successfully');
+    Logger.debug('pipeline', 'Conversational answer generated successfully');
+    // Conversational answers are isolated - no scoring, no post-processing
+    return {
+      ok: true,
+      kind: 'strict_answer',
+      value: result.value,
+      intent,
+      language,
+      attempts: attempts + result.attempts,
+    };
+  }
+
+  private async runAnswer(
+    userInput: string,
+    intent: { intent: string; confidence: number } | undefined,
+    attempts: number,
+    toneInstructions?: string,
+    personalityDescription?: string,
+    language?: DetectedLanguage,
+    contextSnapshot?: ContextSnapshot,
+    toolSuggestion?: string,
+    mode: 'strict' | 'normal' = 'strict',
+  ): Promise<PipelineResult> {
+    Logger.debug('pipeline', `Running answer contract (mode: ${mode})`);
+    const prompt = this.orchestrator.buildAnswerPrompt(
+      userInput,
+      mode,
+      toneInstructions,
+      language,
+      personalityDescription,
+      contextSnapshot,
+    );
+    const result = await this.runner.executeContract(
+      'ANSWER',
+      prompt,
+      (raw) => this.orchestrator.validateAnswer(raw),
+      this.getRunnerOptions(),
+    );
+
+    if (!result.ok) {
+      Logger.error('pipeline', 'Answer contract failed');
+      return {
+        ok: false,
+        kind: 'error',
+        stage: 'strict_answer',
+        attempts: attempts + result.attempts,
+      };
+    }
+
+    Logger.debug('pipeline', 'Answer generated successfully');
     const responseText = toolSuggestion
       ? `${result.value}\n\n${toolSuggestion}`
       : result.value;
     const normalizedLanguage = language ?? LANGUAGE_FALLBACK;
-    const formattedResponse = await this.formatResponse(
-      responseText,
-      normalizedLanguage,
-      toneInstructions,
-      `User question: ${userInput}`,
-      'strict_answer',
-      responseText,
-      contextSnapshot,
-    );
-    const scoring = await this.runScoringEvaluation(
-      'strict_answer',
-      formattedResponse,
-      userInput,
-      undefined,
-      contextSnapshot,
-    );
+    // ANSWER contract output is final - no formatting or scoring
+    // (RESPONSE_FORMATTING is only for tool outputs per contract set v1.0)
     return {
       ok: true,
       kind: 'strict_answer',
-      value: formattedResponse,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
+      value: responseText,
       intent,
       language: normalizedLanguage,
-      attempts: attempts + result.attempts + scoring.attempts,
+      attempts: attempts + result.attempts,
     };
   }
 

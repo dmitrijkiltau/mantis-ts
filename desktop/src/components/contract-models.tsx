@@ -4,9 +4,8 @@ import { CONTRACTS } from '../../../assistant/src/contracts/registry';
 import contractIntentClassificationSource from '../../../assistant/src/contracts/intent.classification.ts?raw';
 import contractLanguageDetectionSource from '../../../assistant/src/contracts/language.detection.ts?raw';
 import contractToolArgumentExtractionSource from '../../../assistant/src/contracts/tool.argument.extraction.ts?raw';
-import contractTextTransformationSource from '../../../assistant/src/contracts/text.transformation.ts?raw';
 import contractScoringEvaluationSource from '../../../assistant/src/contracts/scoring.evaluation.ts?raw';
-import contractStrictAnswerSource from '../../../assistant/src/contracts/strict.answer.ts?raw';
+import contractAnswerSource from '../../../assistant/src/contracts/answer.ts?raw';
 import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
@@ -173,11 +172,11 @@ const CONTRACT_MODULES = new Map<ContractKey, ContractModuleConfig>([
     },
   ],
   [
-    'STRICT_ANSWER',
+    'ANSWER',
     {
-      title: 'STRICT RESPONSE',
+      title: 'ANSWER MODULE',
       group: 'INTERACTION',
-      role: 'COMPLIANCE OUTPUT',
+      role: 'KNOWLEDGE OUTPUT',
       state: 'ACTIVE',
       priority: 5,
     },
@@ -200,16 +199,6 @@ const CONTRACT_MODULES = new Map<ContractKey, ContractModuleConfig>([
       role: 'OUTPUT SHAPING',
       state: 'STANDBY',
       priority: 3,
-    },
-  ],
-  [
-    'TEXT_TRANSFORMATION',
-    {
-      title: 'TEXT TRANSFORM',
-      group: 'INTERACTION',
-      role: 'POST PROCESSING',
-      state: 'IDLE',
-      priority: 2,
     },
   ],
   [
@@ -322,13 +311,6 @@ const CONTRACT_SOURCE_MAP = new Map<ContractKey, ContractSource>([
     },
   ],
   [
-    'TEXT_TRANSFORMATION',
-    {
-      path: 'assistant/src/contracts/text.transformation.ts',
-      content: contractTextTransformationSource,
-    },
-  ],
-  [
     'SCORING_EVALUATION',
     {
       path: 'assistant/src/contracts/scoring.evaluation.ts',
@@ -336,10 +318,10 @@ const CONTRACT_SOURCE_MAP = new Map<ContractKey, ContractSource>([
     },
   ],
   [
-    'STRICT_ANSWER',
+    'ANSWER',
     {
-      path: 'assistant/src/contracts/strict.answer.ts',
-      content: contractStrictAnswerSource,
+      path: 'assistant/src/contracts/answer.ts',
+      content: contractAnswerSource,
     },
   ],
   [

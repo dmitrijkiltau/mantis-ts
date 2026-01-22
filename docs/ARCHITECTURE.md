@@ -1,180 +1,509 @@
 # MANTIS Architecture
 
-_Minimal Adaptive Neural Tool-Integrated System_ features a Fallout-inspired retro-futuristic interface with terminal green aesthetics, scanline effects, and a Vault-Tec-style avatar.
+_Minimal Adaptive Neural Tool-Integrated System_ is a contract-based AI assistant that routes user input to specialized tools or knowledge sources. The system uses small language models for routing decisions and larger models for content generation.
 
-The Orchestrator is either a deterministic engine (e.g. BitNet) or a small language model
-(e.g. Qwen 2.5 1.5B), used exclusively for routing and decision-making, not for content generation.
+## Design Philosophy
 
-Contracts define strict input/output behavior for models and are enforced by validators,
-not trusted to the model itself.
+MANTIS enforces strict decision boundaries through a contract system where each contract has one exclusive responsibility. The architecture eliminates retry cascades and makes routing deterministic:
 
-The `assistant/src/pipeline.ts` module implements the routing pipeline described below,
-deriving allowed intents from the tool registry (`tool.<name>` plus `answer.general`).
-If a tool schema is empty, the pipeline skips argument extraction and executes the tool
-with `{}`. A predefined MANTIS personality tone preset (interactive, professional, slightly
-cynical when warranted, creative, natural) is injected into strict answer and response
-formatting prompts without relying on any selection contract, keeping tone steady while
-avoiding extra model calls.
+- **Small models decide**: Routing, classification, and validation
+- **Large models execute**: Answer generation, image recognition, content formatting
+- **Validators enforce contracts**: Output structure is validated, not trusted to models
+- **Decisions are final**: No retry loops or cascading fallbacks
+- **Failures are explicit**: Each contract has a defined failure mode
 
-## Decision logic
+The Orchestrator renders contract prompts with predefined MANTIS personality (interactive, professional, technically precise), enforces JSON schemas for tool contracts, and injects local context (timestamp, weekday) where relevant.
 
-Orchestrator decides:
-- What is the goal?
-- Which schema?
-- Which tool?
-- What are the limits?
+## Contract Set
 
-LLM decides:
-- How to implement it linguistically correctly?
+The system uses 9 contracts organized into 3 categories:
+
+### Core Contracts (5)
+
+These contracts form the decision pipeline and are always active:
+
+1. **INTENT_CLASSIFICATION** 
+   - **Purpose**: Routes user input to tool or answer pipeline
+   - **Input**: User message + tool registry
+   - **Output**: Intent string (e.g., `tool.filesystem`, `answer.general`) with confidence (0-1)
+   - **Retry**: Up to 2 attempts
+   - **Failure**: Defaults to `answer.general` with confidence 0
+
+2. **TOOL_ARGUMENT_EXTRACTION** 
+   - **Purpose**: Extracts structured arguments for tool execution
+   - **Input**: User message + tool schema
+   - **Output**: JSON object matching tool schema
+   - **Retry**: Up to 2 attempts
+   - **Failure**: Returns empty object `{}`
+
+3. **TOOL_ARGUMENT_VERIFICATION** 
+   - **Purpose**: Makes final execution decision on tool safety and completeness
+   - **Input**: Tool name + extracted arguments + schema
+   - **Output**: Decision (`execute`, `clarify`, `abort`) with reasoning
+   - **Retry**: None (1 attempt only)
+   - **Failure**: Defaults to `clarify` with error explanation
+   - **Decision is final**: No retry loop exists; pipeline honors the decision immediately
+
+4. **ANSWER** 
+   - **Purpose**: Unified knowledge answer contract with mode support
+   - **Input**: User question + context + mode (`strict` or `normal`)
+   - **Output**: Natural language answer
+   - **Modes**:
+     - `strict`: Factual queries requiring precision (dates, calculations, technical definitions)
+     - `normal`: Open-ended questions allowing broader interpretation
+   - **Retry**: Up to 2 attempts
+   - **Failure**: Returns "I don't know" message
+   - **Output is final**: No formatting or scoring applied
+
+5. **CONVERSATIONAL_ANSWER** 
+   - **Purpose**: Handles greetings, small talk, and social interactions
+   - **Input**: User message
+   - **Output**: Friendly conversational response
+   - **Retry**: Up to 2 attempts
+   - **Failure**: Returns generic error response
+   - **Isolated path**: No fallback to other contracts; output is final with no scoring
+
+### Modality Contracts (1)
+
+These contracts are triggered situationally based on input modality:
+
+6. **IMAGE_RECOGNITION** 
+   - **Purpose**: Analyzes attached images to answer questions or describe content
+   - **Input**: Image(s) + optional user question
+   - **Output**: Description or answer based on visual content
+   - **Retry**: Up to 2 attempts to enforce conciseness
+   - **Failure**: Returns "I cannot see the image" message
+   - **Bypass**: Triggered immediately when images are attached, bypassing intent classification
+
+### Optional Contracts (3)
+
+These contracts provide auxiliary functionality and never affect routing decisions:
+
+7. **LANGUAGE_DETECTION** 
+   - **Purpose**: Detects user's language for telemetry and localization
+   - **Input**: User message
+   - **Output**: ISO 639-1 language code (e.g., `en`, `de`)
+   - **Retry**: Up to 2 attempts
+   - **Failure**: Defaults to `unknown`
+   - **Usage**: Telemetry only; runs in parallel with tool execution to reduce latency
+
+8. **RESPONSE_FORMATTING** 
+   - **Purpose**: Formats tool outputs into concise natural language
+   - **Input**: Tool output + detected language
+   - **Output**: 1-2 sentence natural language summary
+   - **Retry**: None (best-effort, 0 retries)
+   - **Failure**: Returns original tool output unchanged
+   - **Scope**: Applied only to tool outputs, never to ANSWER or CONVERSATIONAL_ANSWER
+   - **Best-effort**: Failures are graceful; pipeline never blocks
+
+9. **SCORING_EVALUATION** 
+   - **Purpose**: Evaluates response quality for debugging and QA
+   - **Input**: Response + label (e.g., `tool.filesystem`, `direct_tool.pcinfo`)
+   - **Output**: Numeric metrics (helpfulness, accuracy, conciseness)
+   - **Retry**: Up to 1 additional attempt
+   - **Failure**: Assigns default score (0) and flags `evaluation_failed`
+   - **Off-path**: Runs only for tool outputs; results logged but never affect routing
+
+## Decision Boundaries
+
+The pipeline enforces strict decision boundaries to maintain deterministic behavior:
+
+### 1. Verification Decisions are Final
+
+`TOOL_ARGUMENT_VERIFICATION` returns one of three decisions:
+- `execute` - Arguments are valid and safe, proceed with tool execution
+- `clarify` - Arguments are ambiguous or incomplete, request user clarification  
+- `abort` - Arguments are invalid or unsafe, terminate the tool path
+
+**No retry loop exists**. The pipeline honors this decision immediately and does not invoke verification again. This eliminates retry cascades and makes tool execution deterministic.
+
+### 2. Answer Outputs are Final
+
+`ANSWER` contract output is returned directly to the user with no post-processing:
+- No scoring evaluation
+- No response formatting
+- No additional contracts in the chain
+
+This ensures knowledge answers remain accurate and unmodified.
+
+### 3. Conversational Answers are Isolated
+
+`CONVERSATIONAL_ANSWER` operates on a dedicated path:
+- Triggered for greetings, small talk, and social interactions
+- No fallback to other contracts if classification is confident
+- Output is final with no scoring
+
+### 4. Formatting Applies to Tools Only
+
+`RESPONSE_FORMATTING` transforms tool outputs into natural language:
+- Applied only to tool execution results
+- Never applied to `ANSWER` or `CONVERSATIONAL_ANSWER` outputs
+- Failures are graceful: original output is preserved
+
+### 5. Scoring is Off-Path
+
+`SCORING_EVALUATION` provides quality metrics but never affects routing:
+- Runs only for tool outputs
+- Never runs for answer or conversational outputs  
+- Results are logged for debugging, not used for decision-making
 
 ## Communication Pipeline
 
 ```
-User Input
+User Input (with optional images)
    |
-Language Detection
+   ├─ [Images attached?] ──Yes──> IMAGE_RECOGNITION ──> Output
+   |                                   
+   No
    |
-Orchestrator (Routing & Decision)
+   v
+INTENT_CLASSIFICATION
    |
-LLM (Task Execution)
+   ├─ tool.* intent (confidence ≥ 0.6)
+   |  |
+   |  v
+   |  TOOL_ARGUMENT_EXTRACTION
+   |  |
+   |  v
+   |  TOOL_ARGUMENT_VERIFICATION
+   |  |
+   |  ├─ execute ──> Tool Execution ──> RESPONSE_FORMATTING ──> SCORING_EVALUATION ──> Output
+   |  ├─ clarify ──> Clarification Request ──> Output
+   |  └─ abort ──> Error Message ──> Output
    |
-Validator (mandatory)
+   ├─ conversational intent
+   |  |
+   |  v
+   |  CONVERSATIONAL_ANSWER ──> Output (no scoring)
    |
-(Optional: Formatter in User's Language)
-   |
-Output
+   └─ answer.general or low confidence
+      |
+      v
+      ANSWER (strict or normal mode) ──> Output (no formatting, no scoring)
+
+LANGUAGE_DETECTION runs in parallel with tool execution for telemetry
 ```
 
-## Contract Validator Pipeline
-
-```
-LLM -> Raw Output
-   |
-Validator
-   |
-Valid -> proceed
-Invalid -> retry (if allowed) or abort
-```
 
 ## Contract Invocation Modes
 
-Contracts can declare an invocation mode:
+Contracts can use either **chat mode** or **raw mode** for LLM interaction:
 
-- **Chat mode (`MODE: "chat"`)**: Uses the chat API with separate system/user messages. This preserves role separation, supports multimodal attachments (where available), and applies JSON prefill (`"{"`) for JSON-constrained contracts to tighten output formatting.
-- **Raw mode (`MODE: "raw"`)**: Uses a single prompt string (system + user concatenated) via the generate-style API. This is intended for models that perform better without chat formatting. Raw mode skips JSON-prefill, so contract fidelity relies entirely on the contract prompt instructions plus validator enforcement.
+- **Chat mode (`MODE: "chat"`)**: Uses chat API with separate system/user messages. Preserves role separation, supports multimodal attachments, and applies JSON prefill (`"{"`) for JSON-constrained contracts.
+- **Raw mode (`MODE: "raw"`)**: Uses single prompt string (system + user concatenated) via generate-style API. Better for models that perform well without chat formatting. Skips JSON-prefill.
 
-Regardless of mode, validators remain mandatory and are the ultimate gatekeeper for contract compliance. Raw mode can be less strict about output shape because it lacks role structure and prefill hints, so retries and validation are especially important.
+Validators remain mandatory regardless of mode and are the ultimate gatekeeper for contract compliance.
 
-| Contract | Mode | Rationale |
-| --- | --- | --- |
-| `INTENT_CLASSIFICATION` | raw | Strict JSON output with compact intent + confidence favors raw prompts. |
-| `LANGUAGE_DETECTION` | raw | Single-token ISO code output benefits from raw generation. |
-| `TOOL_ARGUMENT_EXTRACTION` | raw | Schema-shaped JSON requires strict, tool-focused prompting. |
-| `TOOL_ARGUMENT_VERIFICATION` | raw | JSON decision payload is best constrained via raw prompt. |
-| `SCORING_EVALUATION` | raw | Numeric JSON scores without chatter. |
-| `STRICT_ANSWER` | chat | Natural-language answer with tone/language control. |
-| `CONVERSATIONAL_ANSWER` | chat | Chatty small-talk responses suit chat roles. |
-| `TEXT_TRANSFORMATION` | chat | Natural-language rewrite with tone/context. |
-| `RESPONSE_FORMATTING` | chat | Natural-language formatting grounded in tool output. |
-| `IMAGE_RECOGNITION` | chat | Multimodal attachment support needed for vision. |
+| Contract                   | Mode | Rationale                                                              |
+|----------------------------|------|------------------------------------------------------------------------|
+| INTENT_CLASSIFICATION      | raw  | Strict JSON output with compact intent + confidence                    |
+| LANGUAGE_DETECTION         | raw  | Single-token ISO code output                                           |
+| TOOL_ARGUMENT_EXTRACTION   | raw  | Schema-shaped JSON requires strict, tool-focused prompting             |
+| TOOL_ARGUMENT_VERIFICATION | raw  | JSON decision payload (execute/clarify/abort)                          |
+| SCORING_EVALUATION         | raw  | Numeric JSON scores without chatter                                    |
+| ANSWER                     | chat | Natural-language answer with mode support and tone/language control    |
+| CONVERSATIONAL_ANSWER      | chat | Chatty small-talk responses suit chat roles                            |
+| RESPONSE_FORMATTING        | chat | Natural-language formatting grounded in tool output                    |
+| IMAGE_RECOGNITION          | chat | Multimodal attachment support needed for vision                        |
 
-## Stricter Prompt Conventions
+## Pipeline Implementation
 
-Recent contract prompts enforce tighter routing and extraction behavior:
+The `assistant/src/pipeline.ts` module implements the routing logic described above.
 
-- **Tool routing**: Prefer structured tools (filesystem/search/process/http/pcinfo/clipboard) and treat shell as a last resort, with explicit negative constraints to avoid shell when a structured tool fits.
-- **Argument extraction**: Required vs optional fields are derived from schema nullability, and units/ranges/defaults must be explicitly provided by the user or context (no inference).
-- **Argument verification**: Distinguish between missing user input (clarify) and extraction mistakes (retry), and only populate `missingFields`/`suggestedArgs` when the decision warrants it.
+### Intent Classification
 
-## Orchestrator Decision Graph
+The pipeline derives allowed intents from the tool registry (`assistant/src/tools/registry.ts`):
+- Tool intents: `tool.<name>` (e.g., `tool.filesystem`, `tool.http`)
+- Answer intent: `answer.general`
+- Conversational intent: `conversational.smalltalk`
 
-```
-Input
- -> (Has Attachments?)
-   -> Yes -> Image Recognition (describe/answer based on image)
-   -> No -> Language Detection
-      -> Detected Language -> preserved through pipeline
-      |
-    -> Same-Context Check (Direct Tool Command?)
-      -> Yes -> Execute Tool -> Format/Summarize
-      -> No -> Intent Classification
-          -> answer.conversation -> Conversational Answer (Small talk, greetings, no tool)
-          -> answer.general (or low confidence) -> Strict Answer (in user's language, MANTIS tone)
-          -> tool.* (with high confidence) -> Tool Args (schema from tool registry)
-              -> invalid -> Return deterministic `PipelineError` and optionally reroute/abort
-              -> valid -> Execute Tool -> Format/Summarize in user's language (MANTIS tone)
-```
+Tool intents require minimum confidence (0.6). When confidence is moderate, explicit trigger guards verify intent. Very high confidence (≥ 0.8) bypasses trigger guards to avoid blocking non-English or terse requests.
 
-## Retry Pipeline
+### Direct Tool Commands
 
-```
-Intent -> invalid JSON
-Retry 1 -> valid JSON, confidence missing
-Retry 2 -> {"intent":"answer.general","confidence":0.0}
--> accept fallback
--> Orchestrator evaluates outcome and selects next contract
-```
+The pipeline recognizes short single-line commands and bypasses contracts for efficiency:
+- `read <path>` or `list <path>` → filesystem tool
+- `ps` or `processes [filter]` → process tool  
+- `get <url>` or `fetch <url>` → http tool
 
-## Retry Matrix
+Direct commands skip intent classification, validate arguments against schemas, execute immediately, and return formatted results.
 
-| Contract-Type              | Max Retries | On Failure                                  | Strategy              |
-| -------------------------- | ----------- | ------------------------------------------- | --------------------- |
-| Language Detection         | 2           | Default to "unknown" language               | Best-Effort           |
-| Intent Classification      | 2           | Default Intent                              | Constraint Tightening |
-| Tool Argument Extraction   | 2           | Revalidate User or Cancel                   | Schema Reinforcement  |
-| Tool Argument Verification | 1           | retry, clarify, abort                       | Schema Reinforcement  |
-| Text Transformation        | 1           | Keep Original Text, Log Failure             | Hard Reminder         |
-| Scoring / Evaluation       | 1           | Default Score (0), Flag "evaluation_failed" | Numeric Lock          |
-| Strict Answer Mode         | 1           | Force "I don't know."                       | Fail Fast             |
-| Conversational Answer      | 1           | Return brief text or ignore                 | Best-Effort           |
-| Image Recognition          | 1           | Return "I cannot see the image."            | Fail Fast             |
-| Response Formatting        | 0           | Keep Original Text, Continue                | Best-Effort           |
+### Tool Execution Path
 
-## Image Recognition
+When a tool intent is detected (confidence ≥ 0.6):
 
-The `Image Recognition` stage is triggered immediately if the user attaches images. It bypasses the standard intent classification flow to focus solely on vision tasks. The `IMAGE_RECOGNITION` contract analyzes the image(s) using a vision-capable model (e.g., Qwen-VL) to answer the user's question or describe the content if no question is provided. It attempts one retry to enforce conciseness.
+1. **Schema Check**: If tool schema is empty, execute immediately with `{}`
+2. **Argument Extraction**: Use `TOOL_ARGUMENT_EXTRACTION` to parse structured arguments
+3. **Schema Validation**: Validate extracted arguments against tool schema
+4. **Skip Heuristics**: Skip execution if >50% of required fields are null
+5. **Verification**: Call `TOOL_ARGUMENT_VERIFICATION` for final safety check
+6. **Execution**: If decision is `execute`, run the tool
+7. **Formatting**: Apply `RESPONSE_FORMATTING` (best-effort, failures preserve original output)
+8. **Scoring**: Run `SCORING_EVALUATION` for quality metrics (off-path, never blocks)
 
-## Response Formatting
+**Language Detection** runs in parallel with tool execution (Promise.all) to reduce latency.
 
-The `RESPONSE_FORMATTING` contract is an optional post-processing step applied after successful completion of strict answer or tool execution. It formats responses as concise answers in the user's detected language (one sentence preferred, two max), suitable for datetime queries (e.g., "It is 3:45 PM on Saturday") or other contextual information. When tool outputs are structured JSON, the formatter produces a brief summary while the raw output remains available in the UI. The predefined MANTIS tone instructions are injected ahead of the formatting constraints but do not override them.
+### Answer Path
 
-Formatting failures are graceful: the original response is returned unchanged and the pipeline continues normally. This ensures the formatter never blocks the pipeline.
+When `answer.general` intent is detected or confidence is low:
 
-## Pipeline behavior and safeguards
+1. **Mode Selection**: 
+   - `strict`: Factual queries (dates, calculations, technical definitions)
+   - `normal`: Open-ended questions
+2. **Answer Generation**: Call `ANSWER` contract with selected mode
+3. **Direct Return**: Output is final (no formatting, no scoring)
 
-- **Direct tool commands (single-line bypasses)**: The pipeline recognizes short single-line commands (no newlines) and will directly parse and execute a few common direct tool commands without running contracts. Examples: `read <path>` or `list <path>` (filesystems), `ps` / `processes [filter]` (process listing), and `get|fetch <url>` (HTTP GET). Direct requests bypass contract prompts, validate arguments against tool schemas, execute the tool directly, and the output is either formatted (strings) or summarized (structured outputs) and then scored. Direct tool executions return an intent of `tool.<name>` with confidence 1 and use the language fallback (`unknown`) when language detection is not applicable.
+When trigger guards are missing and the system falls back to answer, it adds a short suggestion indicating the relevant tool can be used if the user asks explicitly.
 
-- **Tool intent guards**: Tool intents use the `tool.` prefix and require a minimum confidence (currently 0.6). The pipeline enforces an explicit trigger-guard (via `TOOL_TRIGGERS`) when confidence is moderate; if confidence is very high, it proceeds without triggers to avoid blocking non-English or terse requests. When triggers are missing and the pipeline falls back to a strict answer, it adds a short suggestion indicating the relevant tool can be used if the user asks explicitly.
+### Conversational Path
 
-- **Strict JSON validation for tool contracts**: Tool argument extraction and verification require JSON-only responses (after stripping Markdown fences). Any extra text or non-object payloads are rejected to reduce retries caused by chatty outputs.
+When `conversational.smalltalk` intent is detected:
 
-- **Schema-aware argument extraction and skip heuristics**: If a tool's schema is empty the pipeline executes the tool with `{}`. Otherwise the pipeline extracts arguments using the `TOOL_ARGUMENT_EXTRACTION` contract, validates them, and may skip tool execution if the arguments are mostly null. Specifically, non-nullable (required) fields are counted and if the fraction of required fields that are null exceeds a threshold (0.5) the pipeline falls back to a strict answer; if all arguments are null it will also skip execution. This avoids running tools with insufficient intent.
+1. **Isolated Execution**: Call `CONVERSATIONAL_ANSWER` contract
+2. **Direct Return**: Output is final (no scoring, no fallback)
 
-- **Parallel language detection & tool execution**: When executing tools, the pipeline runs language detection in parallel with tool execution (Promise.all) to reduce latency; the detected language (or fallback) is then used for response formatting and summarization.
+### Image Recognition Path
 
-- **Scoring & evaluation**: The `SCORING_EVALUATION` contract is run for strict answers, conversational answers, tool outputs (including direct tools). A label is attached (e.g. `tool.<name>`, `strict_answer`, `conversational_answer`, `direct_tool.<name>`). If any numeric metric in the evaluation is below the configured low score threshold (currently 3) the pipeline sets an `evaluationAlert` of `low_scores`. Failures to evaluate are flagged as `scoring_failed`.
+When images are attached:
 
-- **Attempts accounting & retries**: Attempts from each stage (intent, language detection, argument extraction, scoring, etc.) are tracked and summed into the overall `attempts` returned by pipeline results so callers can see how many contract invocations occurred.
+1. **Immediate Trigger**: Bypass intent classification
+2. **Vision Analysis**: Call `IMAGE_RECOGNITION` contract with image(s) and optional question
+3. **Direct Return**: Output is final
 
-- **Orchestrator prompt features and optimizations**: The `Orchestrator` injects optional tone instructions, includes a local timestamp block (current date/time/weekday) in certain prompts, caches a formatted tool reference string and formatted tool schema strings to avoid per-request allocations, and supports model overrides per difficulty level. It also exposes `getRetryInstruction` for staged retry guidance.
+## Orchestrator
 
-## Tool Categories
+The `assistant/src/orchestrator.ts` module renders contract prompts and exposes validators.
+
+### Prompt Rendering
+
+Key methods for generating contract prompts:
+
+- `buildIntentClassificationPrompt(tools, userInput)` - Routing prompt with tool registry
+- `buildToolArgumentPrompt(tool, userInput)` - Extraction prompt with tool schema
+- `buildToolVerificationPrompt(tool, args)` - Verification prompt with arguments
+- `buildAnswerPrompt(question, mode)` - Answer prompt with mode-specific instructions
+- `buildConversationalAnswerPrompt(input)` - Conversational response prompt
+- `buildResponseFormattingPrompt(toolOutput, language)` - Formatting prompt
+- `buildScoringPrompt(response, label)` - Evaluation prompt
+
+### Prompt Conventions
+
+Tool routing prompts enforce structured tool preference:
+- Prefer filesystem/search/process/http/pcinfo/clipboard over shell
+- Treat shell as last resort
+- Explicit negative constraints prevent shell usage when structured tools fit
+
+Argument extraction prompts clarify schema requirements:
+- Required vs optional fields derived from schema nullability
+- Units/ranges/defaults must be provided by user or context (no inference)
+
+Verification prompts distinguish error types:
+- Missing user input → `clarify`
+- Extraction mistakes → explain reasoning
+- Only populate `missingFields`/`suggestedArgs` when decision warrants it
+
+### Validators
+
+Each contract has an associated validator that parses and validates LLM output:
+
+- `validateIntentClassification(output)` - Parses intent and confidence
+- `validateLanguageDetection(output)` - Parses ISO 639-1 language code
+- `validateToolArguments(output, schema)` - Validates JSON structure against schema
+- `validateToolVerification(output)` - Parses verification decision
+- `validateAnswer(output)` - Validates answer structure
+- `validateConversationalAnswer(output)` - Validates conversational response
+- `validateImageRecognition(output)` - Validates image description
+- `validateResponseFormatting(output)` - Validates formatted response
+- `validateScoring(output)` - Validates numeric scores
+
+Validators are strictly deterministic—they never involve further LLM calls and operate solely via regex, JSON parsing, and property checks.
+
+### Features
+
+- **Tone Injection**: Predefined MANTIS personality (interactive, professional, technically precise) injected into answer and formatting prompts
+- **Context Injection**: Local timestamp (date, time, weekday) included in relevant prompts
+- **Caching**: Tool reference strings and schemas cached to avoid per-request allocations
+- **Model Overrides**: Supports different models per difficulty level (small for routing, large for execution)
+- **Retry Guidance**: Exposes `getRetryInstruction` for stage-specific retry hints
+
+## Runner
+
+The `assistant/src/runner.ts` module bridges the orchestrator and LLM client.
+
+### Execution Flow
+
+1. **Build Invocation**: Create `ModelInvocation` from `ContractPrompt`
+2. **LLM Call**: Send invocation to LLM client (via `LLMClient` interface)
+3. **Store Result**: Record raw output in `AttemptRecord`
+4. **Validate**: Pass output through contract validator
+5. **Retry Logic**: If validation fails and retries remain, render retry instructions and repeat
+
+The `ContractPrompt` envelope bundles prompt text, target model, and retry guidance for each contract. `Runner.executeContract` manages the retry budget implicitly, letting validators stay deterministic.
+
+### Key Features
+
+- **Retry Budget**: Each contract defines max retries; runner enforces limit
+- **Retry Instructions**: Uses `getRetryInstruction` to provide stage-specific guidance
+- **Attempt Tracking**: Records all attempts for debugging and telemetry
+- **Deterministic Validation**: Validators are pure functions (no LLM calls)
+
+## Tool Registry
+
+The `assistant/src/tools/registry.ts` exports available tools organized by category.
 
 ### Local Tools
 
-- **Clipboard**: Read from and write to the system clipboard
-- **Filesystem**: Read files and list directories with size and truncation limits
-- **Search**: Recursively search for files and directories by name pattern
+- **clipboard**: Read from and write to system clipboard
+- **filesystem**: Read files and list directories with size and truncation limits
+- **search**: Recursively search for files and directories by name pattern
 
 ### Web Tools
 
-- **Fetch**: Execute HTTP requests with custom headers, query parameters, and body (JSON-encoded args)
-- **HTTP**: Execute HTTP requests with headers and query parameters (object-based args)
+- **http**: Execute HTTP requests with custom headers, query parameters, and body
 
 ### System Tools
 
-- **Process**: Read-only process inspection with optional name filter and result limit
-- **Shell**: Execute safe shell commands (allowlisted binaries only)
-- **PC Info**: Retrieve system metrics (CPU, memory, disk, uptime)
+- **process**: Read-only process inspection with optional name filter and result limit
+- **shell**: Execute safe shell commands (allowlisted binaries only)
+- **pcinfo**: Retrieve system metrics (CPU, memory, disk, uptime)
 
-All tool schemas are derived from their `ToolDefinition` types and validated before execution. Empty schemas skip argument extraction and execute the tool with `{}`.
+Each tool definition includes:
+- **name**: Tool identifier (e.g., `filesystem`, `http`)
+- **description**: Human-readable purpose
+- **schema**: Zod schema defining required and optional arguments
+- **execute**: Async function that performs the tool operation
+
+Tool schemas are derived from `ToolDefinition` types and validated before execution. Empty schemas skip argument extraction and execute the tool with `{}`.
+
+## Safeguards and Optimizations
+
+### JSON Validation for Tool Contracts
+
+Tool argument extraction and verification require JSON-only responses:
+- Strip Markdown fences (` ```json ... ``` `)
+- Reject any extra text before or after JSON
+- Reject non-object payloads
+- Reduces retries caused by chatty outputs
+
+### Skip Heuristics
+
+The pipeline skips tool execution if arguments are insufficient:
+- Count required (non-nullable) fields in schema
+- Calculate null fraction: `nulls / required`
+- Skip if null fraction > 0.5
+- Skip if all arguments are null
+- Fall back to answer instead of executing with incomplete data
+
+### Parallel Execution
+
+Language detection runs in parallel with tool execution (Promise.all) to reduce latency. The detected language (or fallback `unknown`) is then used for response formatting.
+
+### Tool Intent Guards
+
+Tool intents use explicit trigger guards when confidence is moderate:
+- Required when confidence is 0.6 - 0.8
+- Bypassed when confidence is very high (≥ 0.8)
+- Avoids false positives for non-English or terse requests
+
+### Scoring Thresholds
+
+If any numeric metric in scoring evaluation is below 3, the pipeline sets `evaluationAlert: "low_scores"`. Failures to evaluate are flagged as `scoring_failed`.
+
+### Attempt Tracking
+
+All contract invocations are tracked and summed:
+- Intent classification attempts
+- Language detection attempts
+- Argument extraction attempts
+- Verification attempts (always 1, no retries)
+- Scoring attempts
+- Total attempts returned in pipeline result for telemetry
+
+## Desktop Application
+
+The `desktop/` folder contains a Tauri/Vite UI that demonstrates the MANTIS architecture.
+
+### Technology Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Rust + Tauri 2.0
+- **LLM Client**: Ollama HTTP API
+- **Styling**: Tailwind CSS v4 with custom theme
+
+### UI Design
+
+The interface features a **Fallout-inspired retro-futuristic theme**:
+- Terminal green (#00ff88) primary color
+- Scanline effects and CRT-style artifacts
+- Vault-Tec-style avatar with animated expressions
+- Monospace fonts and pixelated icons
+- Pip-Boy-inspired tablet interface
+
+Styling is centralized in [desktop/src/assets/css/theme.css](../desktop/src/assets/css/theme.css) using Tailwind CSS v4 with semantic class names, CSS nesting, and custom theme tokens. HTML uses minimal utility classes per the `@apply` directive pattern.
+
+### Features
+
+- **Speech Bubbles**: Renders assistant responses with markdown, code blocks, and tool outputs
+- **Tool Catalog**: Displays available tools with descriptions and schemas
+- **Contract Telemetry**: Shows contract invocations, attempts, and validation results
+- **Tablet Panels**: Tabbed interface for tools, contract logs, and settings
+- **Avatar Animations**: Idle chatter, eye blinks, and state transitions
+- **Image Attachments**: Drag-and-drop image upload for vision queries
+- **Screen Capture**: Capture screenshots for image recognition
+
+### Running the Desktop App
+
+1. Install Rust 1.72+ and Tauri CLI
+2. `cd desktop && npm install`
+3. `npm run tauri` (launches Vite dev server + Tauri dev mode)
+4. `npm run tauri:build` after `npm run build` for production bundles
+
+The UI expects Ollama to be listening on `http://127.0.0.1:11434` for LLM inference.
+
+## Testing
+
+### Unit Tests
+
+Test files:
+- [assistant/src/pipeline.test.ts](../assistant/src/pipeline.test.ts) - Pipeline routing and contract invocation
+- [assistant/src/contracts/compiled-contracts.test.ts](../assistant/src/contracts/compiled-contracts.test.ts) - Contract prompt rendering
+- [assistant/src/tools/schema-parity.test.ts](../assistant/src/tools/schema-parity.test.ts) - Tool schema validation
+
+Run tests:
+```bash
+npm run test
+```
+
+### Type Checking
+
+TypeScript strict mode is enabled for type safety:
+```bash
+npm run typecheck
+```
+
+### Contract Inspection
+
+Print compiled contract prompts for review:
+```bash
+# All contracts
+npm run print-contracts
+
+# Specific contract
+npm run print-contracts -- --contract INTENT_CLASSIFICATION
+```
+
+This outputs the exact `system` and `user` prompt text sent to LLMs, useful for debugging contract behavior.
+
+## Summary
+
+MANTIS is a deterministic, contract-based AI assistant that:
+
+- **Routes intelligently**: Small models classify intent, large models generate content
+- **Enforces boundaries**: Each contract has one responsibility; decisions are final
+- **Fails explicitly**: Every contract has a defined failure mode
+- **Eliminates cascades**: No retry loops in verification; decisions are honored immediately
+- **Optimizes execution**: Parallel operations, cached strings, skip heuristics
+- **Provides transparency**: All attempts tracked; contract telemetry available in UI
+
+The architecture prioritizes correctness over creativity, determinism over flexibility, and explicit failures over silent degradation.
+
