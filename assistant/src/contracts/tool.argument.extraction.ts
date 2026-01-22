@@ -7,6 +7,7 @@ import { parseJsonObjectStrict, stripMarkdownFences } from './parsing.js';
  */
 export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
   MODEL: 'granite3-dense:2b',
+  MODE: 'raw',
   EXPECTS_JSON: true,
   SYSTEM_PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
 You do not validate permissions.

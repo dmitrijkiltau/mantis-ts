@@ -5,6 +5,7 @@ import { type ContractValidator } from '../types.js';
  */
 export const CONTRACT_LANGUAGE_DETECTION = {
   MODEL: 'qwen2.5:0.5b',
+  MODE: 'raw',
   SYSTEM_PROMPT: `Detect the language of the user input and return its ISO 639-1 code only.
 If you cannot determine the language, respond with "unknown".
 Do not add extra text or formatting.

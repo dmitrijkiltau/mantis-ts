@@ -224,6 +224,19 @@
     }
   }
 
+  .contract-model-mode {
+    @apply inline-flex items-center px-1 py-0.5 rounded border text-[9px] font-bold tracking-widest uppercase;
+    background: var(--color-bg-black-soft);
+  }
+
+  .contract-model-mode[data-mode='raw'] {
+    @apply text-terminal-cyan border-terminal-cyan;
+  }
+
+  .contract-model-mode[data-mode='chat'] {
+    @apply text-terminal-primary border-primary-30;
+  }
+
   .contract-model-count {
     @apply text-primary-60;
   }

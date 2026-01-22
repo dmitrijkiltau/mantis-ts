@@ -8,6 +8,7 @@ const MAX_SENTENCES = 3;
  */
 export const CONTRACT_TEXT_TRANSFORMATION = {
   MODEL: 'ministral-3:3b',
+  MODE: 'chat',
   SYSTEM_PROMPT: `You transform text according to rules.
 You preserve meaning.
 You do not add information.

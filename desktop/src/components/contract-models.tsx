@@ -25,6 +25,8 @@ type ModelEntry = {
   contracts: string[];
 };
 
+type ContractMode = 'chat' | 'raw';
+
 const CONTRACT_SOURCE_MAP = new Map<string, ContractSource>([
   [
     'INTENT_CLASSIFICATION',
@@ -108,6 +110,14 @@ const getOllamaModelUrl = (modelName: string): string | null => {
  */
 const getContractSource = (contractKey: string): ContractSource | null => {
   return CONTRACT_SOURCE_MAP.get(contractKey) ?? null;
+};
+
+/**
+ * Resolves the configured contract mode.
+ */
+const getContractMode = (contractKey: string): ContractMode => {
+  const contract = CONTRACTS[contractKey as keyof typeof CONTRACTS];
+  return (contract?.MODE as ContractMode | undefined) ?? 'chat';
 };
 
 /**
@@ -213,18 +223,24 @@ export const ContractModels: Component = () => {
                 <span class="contract-model-count"> ({entry.contracts.length})</span>
               </div>
               <div class="contract-model-value">
-                {entry.contracts.map((contractKey, index) => (
-                  <span>
-                    <a
-                      class="contract-model-contract"
-                      href="#"
-                      onClick={(event) => handleContractClick(event, contractKey)}
-                    >
-                      {contractKey}
-                    </a>
-                    {index < entry.contracts.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
+                {entry.contracts.map((contractKey, index) => {
+                  const mode = getContractMode(contractKey);
+                  return (
+                    <span>
+                      <a
+                        class="contract-model-contract"
+                        href="#"
+                        onClick={(event) => handleContractClick(event, contractKey)}
+                      >
+                        {contractKey}
+                      </a>{' '}
+                      <span class="contract-model-mode" data-mode={mode}>
+                        {mode.toUpperCase()}
+                      </span>
+                      {index < entry.contracts.length - 1 ? ', ' : ''}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ))
