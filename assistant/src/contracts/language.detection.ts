@@ -6,17 +6,19 @@ import { type ContractValidator } from '../types.js';
 export const CONTRACT_LANGUAGE_DETECTION = {
   MODEL: 'qwen2.5:0.5b',
   MODE: 'raw',
-  PROMPT: `Detect the language of the user input and return its ISO 639-1 code only.
-If you cannot determine the language, respond with "unknown".
-Do not add extra text or formatting.
+  PROMPT: `You are executing a single, isolated contract.
 
-Example:
-Input: "Hello, how are you?"
-Output: en
+RULES:
+- Output MUST be a single lowercase string.
+- Output MUST be a valid ISO 639-1 language code.
+- Do NOT add explanations, examples, or formatting.
+- Do NOT include whitespace or additional characters.
+- If the language cannot be determined with confidence, return "unknown".
 
-Detect the language of the following input.
+TASK:
+Detect the primary language of the input text.
 
-Input:
+INPUT:
 {{USER_INPUT}}`,
   RETRIES: {
     0: 'Your previous output violated the contract. Return only the two-letter ISO 639-1 code (e.g., "en"). No extra text or formatting.',
