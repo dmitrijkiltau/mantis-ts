@@ -198,6 +198,19 @@ const logEvaluationOutcome = (result: PipelineResult, uiState: UIState): void =>
   }
 };
 
+type QuestionHandlerOptions = {
+  onStart?: () => void;
+  onFinish?: () => void;
+};
+
+export type QuestionHandler = {
+  handle: (event: Event) => Promise<void>;
+  cancel: () => void;
+};
+
+const isAbortError = (error: unknown): error is Error =>
+  error instanceof Error && error.name === 'AbortError';
+
 const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetailsElement => {
   const entry = document.createElement('details');
   entry.className = 'history-entry';
@@ -270,8 +283,18 @@ export const createQuestionHandler = (
   historyElement: HTMLElement,
   imageStore?: ImageAttachmentStore,
   contextStore?: ContextStore,
-) => {
-  return async (event: Event) => {
+  options?: QuestionHandlerOptions,
+): QuestionHandler => {
+  let activeController: AbortController | null = null;
+
+  const cancel = (): void => {
+    if (!activeController) {
+      return;
+    }
+    activeController.abort();
+  };
+
+  const handler = async (event: Event): Promise<void> => {
     event.preventDefault();
 
     const question = promptInput.value.trim();
@@ -280,23 +303,14 @@ export const createQuestionHandler = (
       return;
     }
 
-    const displayQuestion = question || '[IMAGE ATTACHED]';
-    uiState.incrementQueryCount();
-    uiState.updateStats();
-    uiState.markActivity();
-    uiState.setBusy(true);
+    const controller = new AbortController();
+    activeController = controller;
+    const signal = controller.signal;
+    let settleAction: string = 'COMPLETE';
+    let requestStarted = false;
 
-    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
-    submitButton?.setAttribute('disabled', 'true');
-    uiState.hideBubble();
-    uiState.setStatus('OPERATIONAL', 'PROCESSING', 'QUERY_RECEIVED');
-    uiState.setMood('listening');
-    uiState.addLog(`Query received: "${displayQuestion.substring(0, 50)}..."`);
-    Logger.info('ui', 'User submitted question', { questionLength: question.length });
-
-    const settle = () => {
-      submitButton?.removeAttribute('disabled');
-      uiState.setStatus('OPERATIONAL', 'AWAITING_INPUT', 'COMPLETE');
+    const settle = (): void => {
+      uiState.setStatus('OPERATIONAL', 'AWAITING_INPUT', settleAction);
       uiState.setBusy(false);
       uiState.markActivity();
       window.setTimeout(() => {
@@ -304,14 +318,29 @@ export const createQuestionHandler = (
       }, 650);
     };
 
+    const displayQuestion = question || '[IMAGE ATTACHED]';
     try {
+      requestStarted = true;
+      options?.onStart?.();
+      uiState.incrementQueryCount();
+      uiState.updateStats();
+      uiState.markActivity();
+      uiState.setBusy(true);
+      uiState.hideBubble();
+      uiState.setStatus('OPERATIONAL', 'PROCESSING', 'QUERY_RECEIVED');
+      uiState.setMood('listening');
+      uiState.addLog(`Query received: "${displayQuestion.substring(0, 50)}..."`);
+      Logger.info('ui', 'User submitted question', { questionLength: question.length });
+
       uiState.setMood('thinking');
       uiState.setStatus('OPERATIONAL', 'ANALYZING', 'CONTRACT_VALIDATION');
       uiState.addLog('Analyzing query with contracts...');
       const consumedAttachment = pendingAttachment ? imageStore?.consumeAttachment() : null;
       const attachments = consumedAttachment ? [consumedAttachment] : undefined;
       const contextSnapshot = contextStore?.getSnapshot();
-      const result = await pipeline.run(question, attachments, contextSnapshot);
+      const result = await pipeline.run(question, attachments, contextSnapshot, {
+        signal,
+      });
       uiState.recordPipelineResult(result);
 
       const record = buildHistoryEntry(displayQuestion, result);
@@ -348,6 +377,14 @@ export const createQuestionHandler = (
 
       historyElement.prepend(record);
     } catch (error) {
+      if (isAbortError(error)) {
+        settleAction = 'CANCELLED';
+        Logger.info('ui', 'Query canceled by user');
+        uiState.addLog('Query canceled by user.');
+        uiState.setMood('idle');
+        return;
+      }
+
       Logger.error('ui', 'Unhandled exception in pipeline', error);
       uiState.setMood('concerned');
       uiState.setStatus('ERROR', 'EXCEPTION', 'UNHANDLED');
@@ -369,12 +406,20 @@ export const createQuestionHandler = (
 
       uiState.showBubble(buildBubbleContent(`Critical Error: ${String(error)}`));
     } finally {
+      activeController = null;
       settle();
+      if (requestStarted) {
+        options?.onFinish?.();
+      }
       uiState.updateStats();
     }
   };
-};
 
+  return {
+    handle: handler,
+    cancel,
+  };
+};
 const JSON_TOGGLE_ACTION = 'toggle';
 const JSON_COPY_ACTION = 'copy';
 const COPY_FEEDBACK_DURATION = 1200;

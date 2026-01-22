@@ -1,5 +1,5 @@
 import type { Orchestrator } from './orchestrator.js';
-import type { Runner } from './runner.js';
+import type { Runner, RunnerOptions } from './runner.js';
 import type { ContextSnapshot } from './context.js';
 import {
   TOOLS,
@@ -37,6 +37,7 @@ import {
 type PipelineRunOptions = {
   intentModelOverride?: string;
   allowLowScoreRetry?: boolean;
+  signal?: AbortSignal;
 };
 
 
@@ -46,6 +47,18 @@ type PipelineRunOptions = {
 function measureDurationMs(startMs: number): number {
   return Math.round((Date.now() - startMs) * 100) / 100;
 }
+
+const createAbortError = (): Error => {
+  const error = new Error('Pipeline execution aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+const isAbortError = (error: unknown): error is Error =>
+  typeof error === 'object'
+  && error !== null
+  && error instanceof Error
+  && error.name === 'AbortError';
 
 export type PipelineStage =
   | 'intent'
@@ -144,6 +157,23 @@ export class Pipeline {
     private readonly runner: Runner,
   ) {}
 
+  private activeSignal: AbortSignal | null = null;
+
+  private getRunnerOptions(): RunnerOptions | undefined {
+    if (!this.activeSignal) {
+      return undefined;
+    }
+    return {
+      signal: this.activeSignal,
+    };
+  }
+
+  private ensureNotAborted(): void {
+    if (this.activeSignal?.aborted) {
+      throw createAbortError();
+    }
+  }
+
   /**
    * Routes a user input through intent classification, tool execution, or non-tool answer.
    */
@@ -153,34 +183,39 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
     options?: PipelineRunOptions,
   ): Promise<PipelineResult> {
-    const allowLowScoreRetry = options?.allowLowScoreRetry ?? true;
-    const intentModelOverride = options?.intentModelOverride;
-    const result = await this.runOnce(
-      userInput,
-      attachments,
-      contextSnapshot,
-      intentModelOverride,
-    );
-
-    if (
-      allowLowScoreRetry &&
-      result.ok &&
-      result.evaluationAlert === 'low_scores' &&
-      !intentModelOverride
-    ) {
-      const upgradedModel = 'llama3.2:3b';
-      Logger.warn('pipeline', 'Low scores detected, retrying with stronger intent model', {
-        model: upgradedModel,
-      });
-      return this.runOnce(
+    this.activeSignal = options?.signal ?? null;
+    try {
+      const allowLowScoreRetry = options?.allowLowScoreRetry ?? true;
+      const intentModelOverride = options?.intentModelOverride;
+      const result = await this.runOnce(
         userInput,
         attachments,
         contextSnapshot,
-        upgradedModel,
+        intentModelOverride,
       );
-    }
 
-    return result;
+      if (
+        allowLowScoreRetry &&
+        result.ok &&
+        result.evaluationAlert === 'low_scores' &&
+        !intentModelOverride
+      ) {
+        const upgradedModel = 'llama3.2:3b';
+        Logger.warn('pipeline', 'Low scores detected, retrying with stronger intent model', {
+          model: upgradedModel,
+        });
+        return this.runOnce(
+          userInput,
+          attachments,
+          contextSnapshot,
+          upgradedModel,
+        );
+      }
+
+      return result;
+    } finally {
+      this.activeSignal = null;
+    }
   }
 
   private async runOnce(
@@ -193,6 +228,8 @@ export class Pipeline {
     Logger.debug('pipeline', 'Starting pipeline execution', {
       inputLength: userInput.length,
     });
+
+    this.ensureNotAborted();
 
     const imageAttachments = this.normalizeImageAttachments(attachments);
     if (imageAttachments.length > 0) {
@@ -227,6 +264,7 @@ export class Pipeline {
       'INTENT_CLASSIFICATION',
       intentPrompt,
       (raw) => this.orchestrator.validateIntentClassification(raw),
+      this.getRunnerOptions(),
     );
 
     if (!intentResult.ok) {
@@ -802,6 +840,7 @@ export class Pipeline {
       'IMAGE_RECOGNITION',
       { ...prompt, images: imagePayload },
       (raw) => this.orchestrator.validateImageRecognition(raw),
+      this.getRunnerOptions(),
     );
 
     const durationMs = measureDurationMs(pipelineStartMs);
@@ -931,6 +970,9 @@ export class Pipeline {
         },
       };
     } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
       Logger.error('pipeline', `Direct tool execution failed for ${directMatch.tool}`, error);
       return {
         result: {
@@ -1465,6 +1507,7 @@ export class Pipeline {
       'TOOL_ARGUMENT_EXTRACTION',
       toolArgPrompt,
       (raw) => this.orchestrator.validateToolArguments(raw, tool.schema),
+      this.getRunnerOptions(),
     );
     return toolArgResult;
   }
@@ -1492,6 +1535,7 @@ export class Pipeline {
       'TOOL_ARGUMENT_VERIFICATION',
       prompt,
       (raw) => this.orchestrator.validateToolArgumentVerification(raw),
+      this.getRunnerOptions(),
     );
     return result;
   }
@@ -1610,6 +1654,7 @@ export class Pipeline {
       'LANGUAGE_DETECTION',
       prompt,
       (raw) => this.orchestrator.validateLanguageDetection(raw),
+      this.getRunnerOptions(),
     );
 
     if (result.ok) {
@@ -1691,6 +1736,7 @@ export class Pipeline {
       'CONVERSATIONAL_ANSWER',
       prompt,
       (raw) => this.orchestrator.validateConversationalAnswer(raw),
+      this.getRunnerOptions(),
     );
 
     if (!result.ok) {
@@ -1747,6 +1793,7 @@ export class Pipeline {
       'STRICT_ANSWER',
       prompt,
       (raw) => this.orchestrator.validateStrictAnswer(raw),
+      this.getRunnerOptions(),
     );
 
     if (!result.ok) {
@@ -1810,6 +1857,7 @@ export class Pipeline {
         'RESPONSE_FORMATTING',
         prompt,
         (raw) => this.orchestrator.validateResponseFormatting(raw),
+        this.getRunnerOptions(),
       );
 
       if (result.ok) {
@@ -1820,6 +1868,9 @@ export class Pipeline {
       Logger.warn('pipeline', 'Response formatting failed, returning fallback text');
       return fallback;
     } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
       const stageDurationMs = measureDurationMs(stageStartMs);
       Logger.warn('pipeline', 'Response formatting error, returning fallback text', {
         error,
@@ -2289,6 +2340,7 @@ export class Pipeline {
         'SCORING_EVALUATION',
         prompt,
         (raw) => this.orchestrator.validateScoring(raw),
+        this.getRunnerOptions(),
       );
 
       if (result.ok) {
@@ -2311,6 +2363,9 @@ export class Pipeline {
       });
       return { attempts: result.attempts, alert: 'scoring_failed' };
     } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
       const durationMs = measureDurationMs(stageStartMs);
       Logger.error('pipeline', 'Scoring evaluation error', {
         stage: label,
@@ -2344,6 +2399,7 @@ export class Pipeline {
         'LANGUAGE_DETECTION',
         languagePrompt,
         (raw) => this.orchestrator.validateLanguageDetection(raw),
+        this.getRunnerOptions(),
       ),
       (async () => {
         try {

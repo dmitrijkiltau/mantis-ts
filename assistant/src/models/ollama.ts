@@ -40,6 +40,7 @@ export class OllamaClient implements LLMClient {
         messages,
         stream: false,
       }),
+      signal: invocation.signal,
     });
 
     if (!response.ok) {

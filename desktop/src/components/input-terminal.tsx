@@ -6,7 +6,7 @@ import { captureScreenSelectionAttachment } from '../screen-capture';
 import { useDesktopServices } from '../state/desktop-context';
 import { useImageAttachmentStore } from '../state/image-attachment-context';
 import { useUIRefs, useUIStateContext } from '../state/ui-state-context';
-import { createQuestionHandler } from '../ui-handlers';
+import { createQuestionHandler, type QuestionHandler } from '../ui-handlers';
 import { open } from '@tauri-apps/plugin-dialog';
 
 /**
@@ -55,6 +55,8 @@ export const InputTerminal: Component = () => {
   const attachmentStore = useImageAttachmentStore();
   const [isDropping, setIsDropping] = createSignal(false);
   const [workingDirectory, setWorkingDirectory] = createSignal<string | null>(null);
+  let activeQuestionHandler: QuestionHandler | null = null;
+  const [isExecuting, setIsExecuting] = createSignal(false);
   let dragDepth = 0;
 
   const attachment = () => attachmentStore.attachment();
@@ -168,6 +170,11 @@ export const InputTerminal: Component = () => {
   };
 
   const handleSubmit = (event: Event): void => {
+    if (isExecuting()) {
+      event.preventDefault();
+      return;
+    }
+
     const state = uiState();
     const promptInput = nodes.promptInput();
     const form = nodes.promptForm();
@@ -185,8 +192,16 @@ export const InputTerminal: Component = () => {
       historyElement,
       attachmentStore,
       services.contextStore,
+      {
+        onStart: () => setIsExecuting(true),
+        onFinish: () => {
+          setIsExecuting(false);
+          activeQuestionHandler = null;
+        },
+      },
     );
-    handler(event);
+    activeQuestionHandler = handler;
+    void handler.handle(event);
   };
 
   const handleDragEnter = (event: DragEvent): void => {
@@ -222,6 +237,14 @@ export const InputTerminal: Component = () => {
       return;
     }
     await handleAttachment(file, 'drop');
+  };
+
+  const handlePrimaryClick = (event: MouseEvent): void => {
+    if (!isExecuting()) {
+      return;
+    }
+    event.preventDefault();
+    activeQuestionHandler?.cancel();
   };
 
   return (
@@ -316,8 +339,15 @@ export const InputTerminal: Component = () => {
               onChange={handleFileChange}
             />
           </div>
-          <button type="submit" class="button terminal-button">
-            <span class="button-bracket">[</span> EXECUTE <span class="button-bracket">]</span>
+          <button
+            type="submit"
+            class="button terminal-button"
+            classList={{ 'terminal-button--cancel': isExecuting() }}
+            onClick={handlePrimaryClick}
+          >
+            <span class="button-bracket">[</span>
+            {isExecuting() ? 'CANCEL' : 'EXECUTE'}
+            <span class="button-bracket">]</span>
           </button>
         </div>
       </form>

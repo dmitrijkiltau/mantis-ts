@@ -15,6 +15,7 @@ export type ModelInvocation = {
   userPrompt?: string;
   expectsJson?: boolean;
   images?: string[];
+  signal?: AbortSignal;
 };
 
 /**
@@ -23,6 +24,18 @@ export type ModelInvocation = {
 function measureDurationMs(startMs: number): number {
   return Math.round((Date.now() - startMs) * 100) / 100;
 }
+
+const createAbortError = (): Error => {
+  const error = new Error('Contract execution aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+};
 
 /**
  * Minimal interface that a model client needs to fulfill.
@@ -42,6 +55,7 @@ export type HistoryRetention = 'none' | 'minimal' | 'full';
 export type RunnerOptions = {
   maxAttempts?: number;
   historyRetention?: HistoryRetention;
+  signal?: AbortSignal;
 };
 
 /**
@@ -112,13 +126,17 @@ export class Runner {
     const history: AttemptRecord<T, E>[] = [];
     const attemptsLimit = this.deriveAttemptsLimit(prompt, options?.maxAttempts);
     const contractStartMs = Date.now();
+    const signal = options?.signal;
 
     Logger.info('runner', `Starting contract execution: ${contractName}`, {
       model: prompt.model,
       attemptsLimit,
     });
 
+    throwIfAborted(signal);
+
     for (let attempt = 0; attempt < attemptsLimit; attempt += 1) {
+      throwIfAborted(signal);
       const attemptPrompt = this.applyRetryInstruction(prompt, contractName, attempt);
       const llmStartMs = Date.now();
       const raw = await this.llm.sendPrompt({
@@ -127,6 +145,7 @@ export class Runner {
         userPrompt: attemptPrompt.userPrompt,
         expectsJson: attemptPrompt.expectsJson,
         images: attemptPrompt.images,
+        signal,
       });
       const llmDurationMs = measureDurationMs(llmStartMs);
       Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit} response received`, {
@@ -159,6 +178,7 @@ export class Runner {
       });
     }
 
+    throwIfAborted(signal);
     const totalDurationMs = measureDurationMs(contractStartMs);
     Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`, {
       totalDurationMs,
