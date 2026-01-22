@@ -13,7 +13,10 @@ import {
   validateToolArgumentVerification,
 } from './contracts/tool.argument.verification.js';
 import { validateTextTransformation } from './contracts/text.transformation.js';
-import { validateScoring } from './contracts/scoring.evaluation.js';
+import {
+  type ScoringCriteria,
+  validateScoring,
+} from './contracts/scoring.evaluation.js';
 import { validateStrictAnswer } from './contracts/strict.answer.js';
 import { validateConversationalAnswer } from './contracts/conversational.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
@@ -310,6 +313,57 @@ export class Orchestrator {
     }, contextSnapshot);
   }
 
+  private formatScoringSchema(criteria: ScoringCriteria): string {
+    const schema: Record<string, string> = {};
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      schema[criterion.name] = 'number';
+    }
+    return JSON.stringify(schema, null, 2);
+  }
+
+  private buildScoringTask(criteria: ScoringCriteria): string {
+    if (criteria.length === 0) {
+      return (
+        'Evaluate the provided text according to the given criteria. Use USER_GOAL and REFERENCE_CONTEXT '
+        + 'to assess relevance, correctness, and usefulness. Each criterion must be scored independently.'
+      );
+    }
+
+    const names: string[] = [];
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      names.push(criterion.name);
+    }
+    const joinedNames = names.join(', ');
+    return (
+      `Evaluate the provided text according to the following criteria: ${joinedNames}. `
+      + 'Use USER_GOAL and REFERENCE_CONTEXT to assess each criterion. Each criterion must be scored independently.'
+    );
+  }
+
+  private formatCriteriaDefinitions(criteria: ScoringCriteria): string {
+    if (criteria.length === 0) {
+      return '- Not specified.';
+    }
+
+    const definitions: string[] = [];
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      definitions.push(`- ${criterion.name}: ${criterion.definition}`);
+    }
+    return definitions.join('\n');
+  }
+
   public buildScoringPrompt(
     text: string,
     userGoal?: string,
@@ -317,8 +371,11 @@ export class Orchestrator {
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const contract = this.contractRegistry.SCORING_EVALUATION;
+    const criteria = (contract.CRITERIA ?? []) as ScoringCriteria;
     return this.buildPrompt('SCORING_EVALUATION', {
-      CRITERIA: contract.CRITERIA,
+      CRITERIA_SCHEMA: this.formatScoringSchema(criteria),
+      CRITERIA_TASK: this.buildScoringTask(criteria),
+      CRITERIA_DEFINITIONS: this.formatCriteriaDefinitions(criteria),
       TEXT: this.normalize(text),
       USER_GOAL: userGoal?.trim() || 'Not provided.',
       REFERENCE_CONTEXT: referenceContext?.trim() || 'Not provided.',

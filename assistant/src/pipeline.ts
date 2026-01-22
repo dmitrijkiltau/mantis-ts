@@ -1758,7 +1758,7 @@ export class Pipeline {
       'conversational_answer',
       result.value,
       userInput,
-      this.formatReferenceContext(contextSnapshot),
+      undefined,
       contextSnapshot,
     );
     return {
@@ -1814,7 +1814,7 @@ export class Pipeline {
       'strict_answer',
       responseText,
       userInput,
-      this.formatReferenceContext(contextSnapshot),
+      undefined,
       contextSnapshot,
     );
     return {

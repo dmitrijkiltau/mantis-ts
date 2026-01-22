@@ -1,6 +1,27 @@
-import { toUnorderedList } from "../helpers";
 import { type ContractValidator } from "../types";
 import { extractFirstJsonObject } from "./parsing.js";
+
+export type ScoringCriterion = {
+  name: string;
+  definition: string;
+};
+
+export type ScoringCriteria = ReadonlyArray<ScoringCriterion>;
+
+export const SCORING_CRITERIA: ScoringCriteria = [
+  {
+    name: 'clarity',
+    definition: 'How clear and understandable the text is.',
+  },
+  {
+    name: 'correctness',
+    definition: 'How factually and logically correct the text is relative to the reference context.',
+  },
+  {
+    name: 'usefulness',
+    definition: 'How well the text helps achieve the user goal.',
+  },
+];
 
 /**
  * Contract for scoring / evaluation.
@@ -9,32 +30,43 @@ export const CONTRACT_SCORING_EVALUATION = {
   MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  PROMPT: `You evaluate content based on given criteria.
-You return numeric scores only.
-No explanations.
-Answer with JSON only.
-Use USER_GOAL and REFERENCE_CONTEXT to judge correctness and usefulness.
+  PROMPT: `You are executing a single, isolated contract.
+
+RULES:
+- Output MUST be valid JSON.
+- Output MUST strictly match the provided schema.
+- Return numeric values ONLY.
+- Scores MUST be integers from 0 to 10.
+- Do NOT add explanations, comments, or additional keys.
+- Do NOT include markdown.
+- Do NOT infer criteria beyond those provided.
+
+SCHEMA:
+{{CRITERIA_SCHEMA}}
+
+TASK:
+{{CRITERIA_TASK}}
 
 CONTEXT:
 {{CONTEXT_BLOCK}}
 
-User goal:
+USER_GOAL:
 {{USER_GOAL}}
 
-Reference context:
+REFERENCE_CONTEXT:
 {{REFERENCE_CONTEXT}}
 
-Score the following text on these criteria (0-10):
-{{CRITERIA}}
+CRITERIA DEFINITIONS:
+{{CRITERIA_DEFINITIONS}}
 
-Text:
+TEXT:
 {{TEXT}}`,
   RETRIES: {
     0: `Return numbers only.
 Integers from 0 to 10.
 No text.`,
   },
-  CRITERIA: toUnorderedList(['clarity', 'correctness', 'usefulness']),
+  CRITERIA: SCORING_CRITERIA,
 };
 
 /**
