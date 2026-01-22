@@ -184,7 +184,6 @@ export class Pipeline {
   ): Promise<PipelineResult> {
     this.activeSignal = options?.signal ?? null;
     try {
-      const allowLowScoreRetry = options?.allowLowScoreRetry ?? true;
       const intentModelOverride = options?.intentModelOverride;
       const result = await this.runOnce(
         userInput,
@@ -192,24 +191,6 @@ export class Pipeline {
         contextSnapshot,
         intentModelOverride,
       );
-
-      if (
-        allowLowScoreRetry &&
-        result.ok &&
-        result.evaluationAlert === 'low_scores' &&
-        !intentModelOverride
-      ) {
-        const upgradedModel = 'llama3.2:3b';
-        Logger.warn('pipeline', 'Low scores detected, retrying with stronger intent model', {
-          model: upgradedModel,
-        });
-        return this.runOnce(
-          userInput,
-          attachments,
-          contextSnapshot,
-          upgradedModel,
-        );
-      }
 
       return result;
     } finally {
