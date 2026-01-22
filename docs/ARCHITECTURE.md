@@ -65,6 +65,19 @@ Contracts can declare an invocation mode:
 
 Regardless of mode, validators remain mandatory and are the ultimate gatekeeper for contract compliance. Raw mode can be less strict about output shape because it lacks role structure and prefill hints, so retries and validation are especially important.
 
+| Contract | Mode | Rationale |
+| --- | --- | --- |
+| `INTENT_CLASSIFICATION` | raw | Strict JSON output with compact intent + confidence favors raw prompts. |
+| `LANGUAGE_DETECTION` | raw | Single-token ISO code output benefits from raw generation. |
+| `TOOL_ARGUMENT_EXTRACTION` | raw | Schema-shaped JSON requires strict, tool-focused prompting. |
+| `TOOL_ARGUMENT_VERIFICATION` | raw | JSON decision payload is best constrained via raw prompt. |
+| `SCORING_EVALUATION` | raw | Numeric JSON scores without chatter. |
+| `STRICT_ANSWER` | chat | Natural-language answer with tone/language control. |
+| `CONVERSATIONAL_ANSWER` | chat | Chatty small-talk responses suit chat roles. |
+| `TEXT_TRANSFORMATION` | chat | Natural-language rewrite with tone/context. |
+| `RESPONSE_FORMATTING` | chat | Natural-language formatting grounded in tool output. |
+| `IMAGE_RECOGNITION` | chat | Multimodal attachment support needed for vision. |
+
 ## Orchestrator Decision Graph
 
 ```

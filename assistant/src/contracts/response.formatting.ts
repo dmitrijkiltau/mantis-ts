@@ -6,6 +6,7 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_RESPONSE_FORMATTING = {
   MODEL: 'ministral-3:3b',
+  MODE: 'chat',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You format responses concisely so they faithfully reflect the raw result provided.
 
 CONTEXT:

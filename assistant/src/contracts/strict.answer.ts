@@ -5,6 +5,7 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
+  MODE: 'chat',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
 
 CONTEXT:

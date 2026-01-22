@@ -5,6 +5,7 @@ import { type ContractValidator } from '../types';
  */
 export const CONTRACT_IMAGE_RECOGNITION = {
   MODEL: 'qwen3-vl:2b',
+  MODE: 'chat',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You analyze the attached image(s).
 There are {{IMAGE_COUNT}} image(s) attached.
 If the user asks a question, answer it using only what is visible.

@@ -5,6 +5,7 @@ import { type ContractValidator } from "../types";
  */
 export const CONTRACT_CONVERSATIONAL_ANSWER = {
   MODEL: 'ministral-3:3b',
+  MODE: 'chat',
   SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}You are responding to a short, conversational user message (greetings, thanks, small talk, check-ins).
 Personality profile: {{PERSONALITY_DESCRIPTION}}.
 
