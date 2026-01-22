@@ -87,17 +87,18 @@ Retry 2 -> {"intent":"answer.general","confidence":0.0}
 
 ## Retry Matrix
 
-| Contract-Type            | Max Retries | On Failure                                              | Strategy              |
-| ------------------------ | ----------- | ------------------------------------------------------- | --------------------- |
-| Language Detection       | 2           | Default to "unknown" language                           | Best-Effort           |
-| Intent Classification    | 2           | Default Intent                                          | Constraint Tightening |
-| Tool Argument Extraction | 2           | Revalidate User or Cancel                               | Schema Reinforcement  |
-| Text Transformation      | 1           | Keep Original Text, Log Failure                         | Hard Reminder         |
-| Scoring / Evaluation     | 1           | Default Score (0), Flag "evaluation_failed"             | Numeric Lock          |
-| Strict Answer Mode       | 1           | Force "I don't know."                                   | Fail Fast             |
-| Conversational Answer    | 1           | Return brief text or ignore                             | Best-Effort           |
-| Image Recognition        | 1           | Return "I cannot see the image."                        | Fail Fast             |
-| Response Formatting      | 0           | Keep Original Text, Continue                            | Best-Effort           |
+| Contract-Type              | Max Retries | On Failure                                  | Strategy              |
+| -------------------------- | ----------- | ------------------------------------------- | --------------------- |
+| Language Detection         | 2           | Default to "unknown" language               | Best-Effort           |
+| Intent Classification      | 2           | Default Intent                              | Constraint Tightening |
+| Tool Argument Extraction   | 2           | Revalidate User or Cancel                   | Schema Reinforcement  |
+| Tool Argument Verification | 1           | retry, clarify, abort                       | Schema Reinforcement  |
+| Text Transformation        | 1           | Keep Original Text, Log Failure             | Hard Reminder         |
+| Scoring / Evaluation       | 1           | Default Score (0), Flag "evaluation_failed" | Numeric Lock          |
+| Strict Answer Mode         | 1           | Force "I don't know."                       | Fail Fast             |
+| Conversational Answer      | 1           | Return brief text or ignore                 | Best-Effort           |
+| Image Recognition          | 1           | Return "I cannot see the image."            | Fail Fast             |
+| Response Formatting        | 0           | Keep Original Text, Continue                | Best-Effort           |
 
 ## Image Recognition
 
