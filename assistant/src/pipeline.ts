@@ -1810,9 +1810,19 @@ export class Pipeline {
     const responseText = toolSuggestion
       ? `${result.value}\n\n${toolSuggestion}`
       : result.value;
-    const scoring = await this.runScoringEvaluation(
+    const normalizedLanguage = language ?? LANGUAGE_FALLBACK;
+    const formattedResponse = await this.formatResponse(
+      responseText,
+      normalizedLanguage,
+      toneInstructions,
+      `User question: ${userInput}`,
       'strict_answer',
       responseText,
+      contextSnapshot,
+    );
+    const scoring = await this.runScoringEvaluation(
+      'strict_answer',
+      formattedResponse,
       userInput,
       undefined,
       contextSnapshot,
@@ -1820,11 +1830,11 @@ export class Pipeline {
     return {
       ok: true,
       kind: 'strict_answer',
-      value: responseText,
+      value: formattedResponse,
       evaluation: scoring.evaluation,
       evaluationAlert: scoring.alert,
       intent,
-      language: language ?? LANGUAGE_FALLBACK,
+      language: normalizedLanguage,
       attempts: attempts + result.attempts + scoring.attempts,
     };
   }
@@ -1838,7 +1848,7 @@ export class Pipeline {
     language: DetectedLanguage,
     toneInstructions: string | undefined,
     requestContext: string,
-    toolName: ToolName,
+    toolLabel?: string,
     fallbackText?: string,
     contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
@@ -1850,7 +1860,7 @@ export class Pipeline {
         language,
         toneInstructions,
         requestContext,
-        toolName,
+        toolLabel,
         contextSnapshot,
       );
       const result = await this.runner.executeContract(

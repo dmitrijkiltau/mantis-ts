@@ -1,4 +1,5 @@
 import { type ContractValidator } from "../types";
+import { ANSWER_CONTEXT_PROMPT, buildAnswerClosing } from "./answer.shared.js";
 
 /**
  * Contract for strict answer.
@@ -6,15 +7,13 @@ import { type ContractValidator } from "../types";
 export const CONTRACT_STRICT_ANSWER = {
   MODEL: 'ministral-3:3b',
   MODE: 'chat',
-  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}Provide a short answer to the question.
+  SYSTEM_PROMPT: `${ANSWER_CONTEXT_PROMPT}
 
-CONTEXT:
-{{CONTEXT_BLOCK}}
+Provide a short answer to the question.
 
 Do not invent physical context (weather, location, people) that is not provided.
 No preamble, no instructions, no bullet points, no formatting. Preferably one sentence.
-Always respond in {{LANGUAGE}}.
-Output only your answer.`,
+${buildAnswerClosing('answer')}`,
   USER_PROMPT: `Question:
 {{QUESTION}}`,
   RETRIES: {
