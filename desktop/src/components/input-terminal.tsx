@@ -265,29 +265,30 @@ export const InputTerminal: Component = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         ></textarea>
-        <div class="terminal-working-dir" data-has-dir={workingDirectory() ? 'true' : 'false'}>
-          <span class="terminal-working-label">WORKDIR</span>
-          <span class="terminal-working-value" title={workingDirectoryLabel()}>
-            {workingDirectoryLabel()}
-          </span>
-          <div class="terminal-working-actions">
-            <button
-              type="button"
-              class="button terminal-action-button"
-              onClick={handleWorkingDirectorySelect}
-            >
-              <span class="button-bracket">[</span> SET <span class="button-bracket">]</span>
-            </button>
-            <button
-              type="button"
-              class="button terminal-action-button"
-              onClick={handleWorkingDirectoryClear}
-              disabled={!workingDirectory()}
-            >
-              <span class="button-bracket">[</span> CLEAR <span class="button-bracket">]</span>
-            </button>
+        {workingDirectory() && (
+          <div class="terminal-working-dir">
+            <span class="terminal-working-label">WORKDIR</span>
+            <span class="terminal-working-value" title={workingDirectoryLabel()}>
+              {workingDirectoryLabel()}
+            </span>
+            <div class="terminal-working-actions">
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectorySelect}
+              >
+                <span class="button-bracket">[</span> CHANGE <span class="button-bracket">]</span>
+              </button>
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectoryClear}
+              >
+                <span class="button-bracket">[</span> CLEAR <span class="button-bracket">]</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         <div
           id="terminal-attachment"
           class="terminal-attachment"
@@ -338,6 +339,15 @@ export const InputTerminal: Component = () => {
               ref={refs.imageUploadInput}
               onChange={handleFileChange}
             />
+            {!workingDirectory() && (
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectorySelect}
+              >
+                <span class="button-bracket">[</span> WORKDIR <span class="button-bracket">]</span>
+              </button>
+            )}
           </div>
           <button
             type="submit"
