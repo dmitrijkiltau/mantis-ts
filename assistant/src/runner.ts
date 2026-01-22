@@ -3,6 +3,7 @@ import type {
   ContractPrompt,
   Orchestrator,
 } from './orchestrator.js';
+import type { ContractMode } from './contracts/definition.js';
 import type { ValidationResult } from './types.js';
 import { Logger } from './logger.js';
 
@@ -11,8 +12,10 @@ import { Logger } from './logger.js';
  */
 export type ModelInvocation = {
   model: string;
+  mode: ContractMode;
   systemPrompt: string;
   userPrompt?: string;
+  rawPrompt?: string;
   expectsJson?: boolean;
   images?: string[];
   signal?: AbortSignal;
@@ -141,8 +144,10 @@ export class Runner {
       const llmStartMs = Date.now();
       const raw = await this.llm.sendPrompt({
         model: attemptPrompt.model,
+        mode: attemptPrompt.mode,
         systemPrompt: attemptPrompt.systemPrompt,
         userPrompt: attemptPrompt.userPrompt,
+        rawPrompt: this.buildRawPrompt(attemptPrompt),
         expectsJson: attemptPrompt.expectsJson,
         images: attemptPrompt.images,
         signal,
@@ -230,5 +235,21 @@ export class Runner {
       ...prompt,
       systemPrompt: `${retryInstruction}\n\n${prompt.systemPrompt}`,
     };
+  }
+
+  private buildRawPrompt(prompt: ContractPrompt): string | undefined {
+    if (prompt.mode !== 'raw') {
+      return undefined;
+    }
+
+    const parts: string[] = [];
+    if (prompt.systemPrompt) {
+      parts.push(prompt.systemPrompt);
+    }
+    if (prompt.userPrompt) {
+      parts.push(prompt.userPrompt);
+    }
+
+    return parts.join('\n\n');
   }
 }

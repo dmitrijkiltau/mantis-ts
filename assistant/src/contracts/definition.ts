@@ -22,6 +22,11 @@ export type FieldType =
   | 'object[]|null';
 
 /**
+ * Contract invocation mode.
+ */
+export type ContractMode = 'chat' | 'raw';
+
+/**
  * Type defining the structure of a contract.
  */
 export type ContractDefinition = {
@@ -30,6 +35,7 @@ export type ContractDefinition = {
   USER_PROMPT?: string;
   RETRIES?: Record<number, string>;
   EXPECTS_JSON?: boolean;
+  MODE?: ContractMode;
 };
 
 /**
