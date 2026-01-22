@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
-import { createSignal, type Component } from 'solid-js';
+import { createSignal, Show, type Component } from 'solid-js';
 import type { ImageAttachment } from '../../../assistant/src/pipeline';
-import { buildImageAttachmentFromFile } from '../image-attachments';
+import { buildDataUrl, buildImageAttachmentFromFile } from '../image-attachments';
 import { captureScreenSelectionAttachment } from '../screen-capture';
 import { useDesktopServices } from '../state/desktop-context';
 import { useImageAttachmentStore } from '../state/image-attachment-context';
@@ -63,6 +63,11 @@ export const InputTerminal: Component = () => {
   const attachmentLabel = () => {
     const current = attachment();
     return current ? `${current.name} (${current.source.toUpperCase()})` : 'None';
+  };
+
+  const attachmentPreviewUrl = () => {
+    const current = attachment();
+    return current ? buildDataUrl(current.data, current.mimeType) : '';
   };
 
   /**
@@ -297,6 +302,18 @@ export const InputTerminal: Component = () => {
           classList={{ hidden: !attachment() }}
           data-source={attachment()?.source}
         >
+          <span class="terminal-attachment-preview" aria-hidden="true">
+            <Show when={attachmentPreviewUrl()} keyed>
+              {(url) => (
+                <img
+                  src={url}
+                  alt={`Preview of ${attachment()?.name ?? 'attachment'}`}
+                  class="terminal-attachment-image"
+                  loading="lazy"
+                />
+              )}
+            </Show>
+          </span>
           <span class="terminal-attachment-label">IMAGE</span>
           <span id="terminal-attachment-name" class="terminal-attachment-name" ref={refs.attachmentName}>
             {attachmentLabel()}
