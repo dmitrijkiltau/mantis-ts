@@ -15,25 +15,13 @@ export const TelemetryPanel: Component = () => {
       <div class="telemetry-panel">
         <div class="telemetry-header">
           <div class="telemetry-title">
-            Evaluation Trends
+            Telemetry
           </div>
           <div class="telemetry-subtitle">
-            Real-time scoring, routing, and execution telemetry.
+            Real-time routing and execution metrics.
           </div>
         </div>
         <div class="telemetry-grid">
-          <div class="telemetry-metric">
-            <span class="telemetry-metric-label">Total evaluations</span>
-            <span class="telemetry-metric-value" id="telemetry-total-evaluations" ref={refs.telemetryTotal}>0</span>
-          </div>
-          <div class="telemetry-metric">
-            <span class="telemetry-metric-label">Low-score warnings</span>
-            <span class="telemetry-metric-value" id="telemetry-low-score-count" ref={refs.telemetryLowScore}>0</span>
-          </div>
-          <div class="telemetry-metric">
-            <span class="telemetry-metric-label">Scoring failures</span>
-            <span class="telemetry-metric-value" id="telemetry-failure-count" ref={refs.telemetryFailures}>0</span>
-          </div>
           <div class="telemetry-metric">
             <span class="telemetry-metric-label">Tool calls</span>
             <span class="telemetry-metric-value" id="telemetry-tool-call-count" ref={refs.telemetryToolCalls}>0</span>
@@ -50,13 +38,13 @@ export const TelemetryPanel: Component = () => {
         <div class="telemetry-averages">
           <div class="telemetry-section-label">Averages</div>
           <div class="telemetry-averages-list" id="telemetry-averages" ref={refs.telemetryAverages}>
-            <div class="telemetry-averages-placeholder">Waiting for scores...</div>
+            <div class="telemetry-averages-placeholder">Telemetry averages are not available.</div>
           </div>
         </div>
         <div class="telemetry-recent">
           <div class="telemetry-section-label">Recent alerts</div>
           <div class="telemetry-recent-list" id="telemetry-recent" ref={refs.telemetryRecent}>
-            <div class="telemetry-recent-placeholder">No evaluation events yet.</div>
+            <div class="telemetry-recent-placeholder">No telemetry events yet.</div>
           </div>
         </div>
       </div>

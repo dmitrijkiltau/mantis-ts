@@ -42,7 +42,6 @@ These contracts form the decision pipeline and are always active:
 
 - **Intent Classification**: Routes user input to appropriate tool or answer path
 - **Tool Argument Extraction**: Extracts structured arguments for tool execution
-- **Tool Argument Verification**: Makes final execution decision (execute/clarify/abort)
 - **Answer**: Unified knowledge answer contract with mode support (strict/normal)
 - **Conversational Answer**: Handles small talk and greetings (isolated, no fallback)
 
@@ -58,12 +57,11 @@ Auxiliary functionality that never affects routing:
 
 - **Language Detection**: Detects user's language (telemetry only)
 - **Response Formatting**: Formats tool output only (best-effort, not used for text answers)
-- **Scoring/Evaluation**: Evaluates response quality (debug and QA only, never routing-relevant)
 
 ### Design Principles
 
 - **One contract = one responsibility**: No overlap or ambiguity
-- **Decisions are final**: Verification returns execute/clarify/abort with no retry loop
+- **Clarification on missing fields**: When required tool arguments are missing, the pipeline will ask a concise clarification question when confidence is high; otherwise it falls back to a non-tool answer
 - **Answer outputs are final**: Not post-processed, formatted, or scored
 - **Scoring is off-path**: Quality metrics logged but never affect routing
 ## Pipeline

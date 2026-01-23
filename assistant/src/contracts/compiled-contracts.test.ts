@@ -29,14 +29,6 @@ describe('compiled contract prompts', () => {
         filesystem.schema,
         'Read ./README.md',
       ),
-      orchestrator.buildToolArgumentVerificationPrompt(
-        'filesystem',
-        filesystem.description,
-        filesystem.schema,
-        'Read ./README.md',
-        { action: 'read', path: './README.md', limit: null, maxBytes: null },
-      ),
-      orchestrator.buildScoringPrompt('Sample output', 'Sample goal', 'Sample context'),
       orchestrator.buildAnswerPrompt('What is MANTIS?'),
       orchestrator.buildConversationalAnswerPrompt('Hi there'),
       orchestrator.buildResponseFormattingPrompt(

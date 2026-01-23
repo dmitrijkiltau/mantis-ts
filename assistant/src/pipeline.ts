@@ -10,13 +10,10 @@ import {
   type ToolName,
 } from './tools/registry.js';
 import type { FieldType } from './contracts/definition.js';
-import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
 import {
-  LOW_SCORE_THRESHOLD,
   MIN_CLARIFY_INTENT_CONFIDENCE,
-  MIN_CLARIFY_VERIFICATION_CONFIDENCE,
   MIN_TOOL_CONFIDENCE,
   MIN_TOOL_TRIGGER_CONFIDENCE,
   REQUIRED_NULL_RATIO_THRESHOLD,
@@ -71,15 +68,11 @@ export type PipelineError = {
   message: string;
 };
 
-export type EvaluationAlert = 'scoring_failed' | 'low_scores';
-
 export type PipelineResult =
   | {
       ok: true;
       kind: 'strict_answer';
       value: string;
-      evaluation?: Record<string, number>;
-      evaluationAlert?: EvaluationAlert;
       intent?: { intent: string; confidence: number };
       language: DetectedLanguage;
       attempts: number;
@@ -91,8 +84,6 @@ export type PipelineResult =
       args: Record<string, unknown>;
       result: unknown;
       summary?: string;
-      evaluation?: Record<string, number>;
-      evaluationAlert?: EvaluationAlert;
       intent: { intent: string; confidence: number };
       language: DetectedLanguage;
       attempts: number;
@@ -142,7 +133,6 @@ type PipelineSummaryExtras = {
   tool?: ToolName;
   intent?: string;
   intentConfidence?: number;
-  evaluationAlert?: EvaluationAlert;
   imageCount?: number;
   error?: PipelineError;
 };
@@ -407,114 +397,20 @@ export class Pipeline {
     }
 
     const schemaValidation = this.validateToolArgsSchema(tool, toolArgs);
-    let verificationResult: ToolArgumentVerificationResult;
+    let verificationResult = {
+      decision: 'execute' as const,
+    }
     if (!schemaValidation.ok) {
       verificationResult = schemaValidation.result;
-    } else {
-      toolArgs = schemaValidation.value;
-      const verification = await this.verifyToolArguments(
-        activeToolName,
-        tool.description,
-        tool.schema,
-        userInput,
-        toolArgs,
-        contextSnapshot,
-      );
-      attemptsSoFar += verification.attempts;
-      if (!verification.ok) {
-        Logger.warn(
-          'pipeline',
-          `Tool argument verification failed for ${activeToolName}, falling back to strict answer`,
-        );
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'argument_verification_failed',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      verificationResult = verification.value;
     }
     Logger.debug('pipeline', 'Tool argument verification decision', {
       tool: activeToolName,
       decision: verificationResult.decision,
-      confidence: verificationResult.confidence,
-      reason: verificationResult.reason,
     });
-
-    // Handle verification decisions: execute, clarify, or abort
-    if (verificationResult.decision === 'abort') {
-      Logger.debug(
-        'pipeline',
-        `Tool argument verification aborted for ${activeToolName}, using answer instead`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_abort',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
-
-    if (verificationResult.decision === 'clarify') {
-      if (this.shouldClarifyToolArguments(intent.confidence, verificationResult)) {
-        const result = await this.runToolClarification(
-          userInput,
-          activeToolName,
-          verificationResult.missingFields,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'tool_clarify',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      Logger.debug(
-        'pipeline',
-        `Clarify requested for ${activeToolName} but confidence too low, falling back to strict answer`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_clarify_denied',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
 
     const requiredMissing = this.getMissingRequiredOverrides(activeToolName, toolArgs);
     if (requiredMissing.length > 0) {
-      const missingVerification: ToolArgumentVerificationResult = {
+      const missingVerification = {
         decision: 'clarify',
         confidence: 1,
         reason: 'required_fields_missing',
@@ -641,9 +537,7 @@ export class Pipeline {
       summary.args = result.args;
     }
 
-    if (result.ok && result.evaluationAlert) {
-      summary.evaluationAlert = summary.evaluationAlert ?? result.evaluationAlert;
-    }
+
 
     if (result.kind === 'error' && result.error) {
       summary.error = summary.error ?? result.error;
@@ -800,20 +694,6 @@ export class Pipeline {
           contextSnapshot,
         );
       }
-      const evaluationText =
-        typeof formattedResult === 'string'
-          ? formattedResult
-          : summary ?? this.stringifyToolResult(toolResult);
-      const scoring = await this.runScoringEvaluation(
-        `direct_tool.${directMatch.tool}`,
-        evaluationText,
-        userInput,
-        this.formatReferenceContext(contextSnapshot, {
-          toolName: directMatch.tool,
-          toolArgs: directMatch.args,
-        }),
-        contextSnapshot,
-      );
       return {
         result: {
           ok: true,
@@ -822,11 +702,9 @@ export class Pipeline {
           args: directMatch.args,
           result: formattedResult,
           summary,
-          evaluation: scoring.evaluation,
-          evaluationAlert: scoring.alert,
           intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
           language: LANGUAGE_FALLBACK,
-          attempts: scoring.attempts,
+          attempts: 0,
         },
         metadata: {
           tool: directMatch.tool,
@@ -1142,19 +1020,18 @@ export class Pipeline {
    */
   private shouldClarifyToolArguments(
     intentConfidence: number,
-    verification: ToolArgumentVerificationResult,
+    verification: any,
   ): boolean {
     return (
       verification.decision === 'clarify' &&
-      intentConfidence >= MIN_CLARIFY_INTENT_CONFIDENCE &&
-      verification.confidence >= MIN_CLARIFY_VERIFICATION_CONFIDENCE
+      intentConfidence >= MIN_CLARIFY_INTENT_CONFIDENCE
     );
   }
 
   private validateToolArgsSchema(
     tool: ReturnType<typeof getToolDefinition>,
     args: Record<string, unknown>,
-  ): { ok: true; value: Record<string, unknown> } | { ok: false; result: ToolArgumentVerificationResult } {
+  ): { ok: true; value: Record<string, unknown> } | { ok: false; result: any } {
     if (!tool.argsSchema) {
       return { ok: true, value: args };
     }
@@ -1314,22 +1191,13 @@ export class Pipeline {
       question,
       contextSnapshot,
     );
-    const scoring = await this.runScoringEvaluation(
-      `tool.${toolName}.clarify`,
-      formatted,
-      userInput,
-      this.formatReferenceContext(contextSnapshot, { toolName }),
-      contextSnapshot,
-    );
     return {
       ok: true,
       kind: 'strict_answer',
       value: formatted,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
       intent,
       language,
-      attempts: attempts + attemptOffset + scoring.attempts,
+      attempts: attempts + attemptOffset,
     };
   }
 
@@ -1357,34 +1225,6 @@ export class Pipeline {
       this.getRunnerOptions(),
     );
     return toolArgResult;
-  }
-
-  /**
-   * Verifies tool arguments with a dedicated verification contract.
-   */
-  private async verifyToolArguments(
-    toolName: ToolName,
-    description: string,
-    schema: Record<string, FieldType>,
-    userInput: string,
-    extractedArgs: Record<string, unknown>,
-    contextSnapshot?: ContextSnapshot,
-  ) {
-    const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
-      toolName,
-      description,
-      schema,
-      userInput,
-      extractedArgs,
-      contextSnapshot,
-    );
-    const result = await this.runner.executeContract(
-      'TOOL_ARGUMENT_VERIFICATION',
-      prompt,
-      (raw) => this.orchestrator.validateToolArgumentVerification(raw),
-      this.getRunnerOptions(),
-    );
-    return result;
   }
 
   private shouldSkipToolExecution(
@@ -2094,34 +1934,6 @@ export class Pipeline {
     return lines.join('\n');
   }
 
-  /**
-   * Builds a compact reference context for scoring comparisons.
-   */
-  private formatReferenceContext(
-    contextSnapshot?: ContextSnapshot,
-    toolMeta?: { toolName?: ToolName; toolArgs?: Record<string, unknown> },
-  ): string {
-    if (!contextSnapshot && !toolMeta) {
-      return 'Not provided.';
-    }
-
-    const payload = {
-      ENVIRONMENT: contextSnapshot?.environment ?? {},
-      STATE: contextSnapshot?.state ?? {},
-      TOOL: toolMeta?.toolName
-        ? {
-            name: toolMeta.toolName,
-            args: toolMeta.toolArgs ?? null,
-          }
-        : undefined,
-    };
-
-    try {
-      return JSON.stringify(payload, null, 2);
-    } catch {
-      return String(payload);
-    }
-  }
 
   /**
    * Summarizes structured tool output using the response formatting contract.
@@ -2150,65 +1962,6 @@ export class Pipeline {
       fallback,
       contextSnapshot,
     );
-  }
-
-  private async runScoringEvaluation(
-    label: string,
-    text: string,
-    userGoal?: string,
-    referenceContext?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): Promise<{ evaluation?: Record<string, number>; attempts: number; alert?: EvaluationAlert }> {
-    if (!text || !text.trim()) {
-      return { attempts: 0 };
-    }
-
-    const stageStartMs = Date.now();
-    try {
-      const prompt = this.orchestrator.buildScoringPrompt(
-        text,
-        userGoal,
-        referenceContext,
-        contextSnapshot,
-      );
-      const result = await this.runner.executeContract(
-        'SCORING_EVALUATION',
-        prompt,
-        (raw) => this.orchestrator.validateScoring(raw),
-        this.getRunnerOptions(),
-      );
-
-      if (result.ok) {
-        Logger.debug('pipeline', 'Scoring evaluation succeeded', { stage: label });
-        const evaluation = result.value;
-        const hasLowScore = Object.values(evaluation).some(
-          (score) => typeof score === 'number' && score < LOW_SCORE_THRESHOLD,
-        );
-        return {
-          evaluation,
-          attempts: result.attempts,
-          alert: hasLowScore ? 'low_scores' : undefined,
-        };
-      }
-
-      Logger.warn('pipeline', 'Scoring evaluation failed', {
-        stage: label,
-        attempts: result.attempts,
-        history: result.history,
-      });
-      return { attempts: result.attempts, alert: 'scoring_failed' };
-    } catch (error) {
-      if (isAbortError(error)) {
-        throw error;
-      }
-      const durationMs = measureDurationMs(stageStartMs);
-      Logger.error('pipeline', 'Scoring evaluation error', {
-        stage: label,
-        error,
-        durationMs,
-      });
-      return { attempts: 0, alert: 'scoring_failed' };
-    }
   }
 
   /**
@@ -2286,17 +2039,6 @@ export class Pipeline {
         contextSnapshot,
       );
     }
-    const evaluationText =
-      typeof formattedResult === 'string'
-        ? formattedResult
-        : summary ?? this.stringifyToolResult(toolResult);
-    const scoring = await this.runScoringEvaluation(
-      `tool.${toolName}`,
-      evaluationText,
-      userInput,
-      this.formatReferenceContext(contextSnapshot, { toolName, toolArgs: args }),
-      contextSnapshot,
-    );
     const durationMs = measureDurationMs(pipelineStartMs);
     Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,
@@ -2309,12 +2051,9 @@ export class Pipeline {
       args,
       result: formattedResult,
       summary,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
       intent,
       language,
-      attempts:
-        baseAttempts + languageAttemptOffset + scoring.attempts,
+      attempts: baseAttempts + languageAttemptOffset,
     };
   }
 

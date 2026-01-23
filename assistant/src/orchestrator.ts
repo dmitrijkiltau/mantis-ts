@@ -9,14 +9,6 @@ import {
   validateToolArguments,
 } from './contracts/tool.argument.extraction.js';
 import {
-  type ToolArgumentVerificationResult,
-  validateToolArgumentVerification,
-} from './contracts/tool.argument.verification.js';
-import {
-  type ScoringCriteria,
-  validateScoring,
-} from './contracts/scoring.evaluation.js';
-import {
   ANSWER_MODE_INSTRUCTIONS,
   validateAnswer,
   type AnswerMode,
@@ -286,95 +278,6 @@ export class Orchestrator {
   }
 
   /**
-   * Builds a prompt to verify extracted tool arguments against user intent.
-   */
-  public buildToolArgumentVerificationPrompt(
-    toolName: string,
-    description: string,
-    schema: ToolSchema,
-    userInput: string,
-    extractedArgs: Record<string, unknown>,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('TOOL_ARGUMENT_VERIFICATION', {
-      TOOL_NAME: toolName,
-      TOOL_DESCRIPTION: description,
-      TOOL_SCHEMA: this.formatToolSchema(schema),
-      USER_INPUT: this.normalize(userInput),
-      EXTRACTED_ARGS: this.formatToolArguments(extractedArgs),
-    }, contextSnapshot);
-  }
-
-  private formatScoringSchema(criteria: ScoringCriteria): string {
-    const schema: Record<string, string> = {};
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      schema[criterion.name] = 'number';
-    }
-    return JSON.stringify(schema, null, 2);
-  }
-
-  private buildScoringTask(criteria: ScoringCriteria): string {
-    if (criteria.length === 0) {
-      return (
-        'Evaluate the provided text according to the given criteria. Use USER_GOAL and REFERENCE_CONTEXT '
-        + 'to assess relevance, correctness, and usefulness. Each criterion must be scored independently.'
-      );
-    }
-
-    const names: string[] = [];
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      names.push(criterion.name);
-    }
-    const joinedNames = names.join(', ');
-    return (
-      `Evaluate the provided text according to the following criteria: ${joinedNames}. `
-      + 'Use USER_GOAL and REFERENCE_CONTEXT to assess each criterion. Each criterion must be scored independently.'
-    );
-  }
-
-  private formatCriteriaDefinitions(criteria: ScoringCriteria): string {
-    if (criteria.length === 0) {
-      return '- Not specified.';
-    }
-
-    const definitions: string[] = [];
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      definitions.push(`- ${criterion.name}: ${criterion.definition}`);
-    }
-    return definitions.join('\n');
-  }
-
-  public buildScoringPrompt(
-    text: string,
-    userGoal?: string,
-    referenceContext?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    const contract = this.contractRegistry.SCORING_EVALUATION;
-    const criteria = (contract.CRITERIA ?? []) as ScoringCriteria;
-    return this.buildPrompt('SCORING_EVALUATION', {
-      CRITERIA_SCHEMA: this.formatScoringSchema(criteria),
-      CRITERIA_TASK: this.buildScoringTask(criteria),
-      CRITERIA_DEFINITIONS: this.formatCriteriaDefinitions(criteria),
-      TEXT: this.normalize(text),
-      USER_GOAL: userGoal?.trim() || 'Not provided.',
-      REFERENCE_CONTEXT: referenceContext?.trim() || 'Not provided.',
-    }, contextSnapshot);
-  }
-
-  /**
    * Builds a unified answer prompt with mode support.
    * @param mode - 'strict' for concise factual answers, 'normal' for natural responses
    */
@@ -480,15 +383,6 @@ export class Orchestrator {
         const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
         return this.buildToolArgumentPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', opts.verifierNotes, opts.contextSnapshot);
       }
-      case 'TOOL_ARGUMENT_VERIFICATION': {
-        const tool = (TOOLS as any)[opts.toolName ?? 'filesystem'];
-        const desc = opts.toolDescription ?? tool?.description ?? '';
-        const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
-        const extracted = opts.extractedArgs ?? { action: 'read', path: './README.md', limit: null, maxBytes: null };
-        return this.buildToolArgumentVerificationPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', extracted, opts.contextSnapshot);
-      }
-      case 'SCORING_EVALUATION':
-        return this.buildScoringPrompt(opts.response ?? 'Sample output', opts.userInput ?? 'Sample goal', opts.response ?? 'Sample context', opts.contextSnapshot);
       case 'ANSWER':
         return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
       case 'CONVERSATIONAL_ANSWER':
@@ -521,21 +415,6 @@ export class Orchestrator {
     return validateToolArguments(schema)(raw);
   }
 
-  /**
-   * Validates tool-argument verification output.
-   */
-  public validateToolArgumentVerification(
-    raw: string,
-  ): ValidationResult<ToolArgumentVerificationResult> {
-    return validateToolArgumentVerification(raw);
-  }
-
-  public validateScoring(
-    raw: string,
-  ): ValidationResult<Record<string, number>> {
-    return validateScoring(raw);
-  }
-
   public validateLanguageDetection(
     raw: string,
   ): ValidationResult<string> {
@@ -559,16 +438,4 @@ export class Orchestrator {
   public validateImageRecognition(raw: string): ValidationResult<string> {
     return validateImageRecognition(raw);
   }
-
-  /**
-   * Formats tool arguments for deterministic prompt inclusion.
-   */
-  private formatToolArguments(args: Record<string, unknown>): string {
-    try {
-      return JSON.stringify(args, null, 2);
-    } catch {
-      return String(args);
-    }
-  }
-
 }

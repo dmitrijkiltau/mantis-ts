@@ -18,16 +18,7 @@ const prompts = [
     filesystem.schema,
     'Read ./README.md',
   ),
-  orchestrator.buildToolArgumentVerificationPrompt(
-    'filesystem',
-    filesystem.description,
-    filesystem.schema,
-    'Read ./README.md',
-    { action: 'read', path: './README.md', limit: null, maxBytes: null },
-  ),
-  orchestrator.buildTextTransformationPrompt('Fix this text'),
-  orchestrator.buildScoringPrompt('Sample output', 'Sample goal', 'Sample context'),
-  orchestrator.buildStrictAnswerPrompt('What is MANTIS?'),
+  orchestrator.buildAnswerPrompt('What is MANTIS?'),
   orchestrator.buildConversationalAnswerPrompt('Hi there'),
   orchestrator.buildResponseFormattingPrompt(
     'Here is a response',

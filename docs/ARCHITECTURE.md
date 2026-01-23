@@ -16,9 +16,9 @@ The Orchestrator renders contract prompts with predefined MANTIS personality (in
 
 ## Contract Set
 
-The system uses 9 contracts organized into 3 categories:
+The system uses 7 contracts organized into 3 categories:
 
-### Core Contracts (5)
+### Core Contracts (4)
 
 These contracts form the decision pipeline and are always active:
 
@@ -36,15 +36,7 @@ These contracts form the decision pipeline and are always active:
    - **Retry**: Up to 2 attempts
    - **Failure**: Returns empty object `{}`
 
-3. **TOOL_ARGUMENT_VERIFICATION** 
-   - **Purpose**: Makes final execution decision on tool safety and completeness
-   - **Input**: Tool name + extracted arguments + schema
-   - **Output**: Decision (`execute`, `clarify`, `abort`) with reasoning
-   - **Retry**: None (1 attempt only)
-   - **Failure**: Defaults to `clarify` with error explanation
-   - **Decision is final**: No retry loop exists; pipeline honors the decision immediately
-
-4. **ANSWER** 
+3. **ANSWER** 
    - **Purpose**: Unified knowledge answer contract with mode support
    - **Input**: User question + context + mode (`strict` or `normal`)
    - **Output**: Natural language answer
@@ -53,15 +45,15 @@ These contracts form the decision pipeline and are always active:
      - `normal`: Open-ended questions allowing broader interpretation
    - **Retry**: Up to 2 attempts
    - **Failure**: Returns "I don't know" message
-   - **Output is final**: No formatting or scoring applied
+   - **Output is final**: No formatting or external evaluation applied
 
-5. **CONVERSATIONAL_ANSWER** 
+4. **CONVERSATIONAL_ANSWER** 
    - **Purpose**: Handles greetings, small talk, and social interactions
    - **Input**: User message
    - **Output**: Friendly conversational response
    - **Retry**: Up to 2 attempts
    - **Failure**: Returns generic error response
-   - **Isolated path**: No fallback to other contracts; output is final with no scoring
+   - **Isolated path**: No fallback to other contracts; output is final
 
 ### Modality Contracts (1)
 
@@ -75,7 +67,7 @@ These contracts are triggered situationally based on input modality:
    - **Failure**: Returns "I cannot see the image" message
    - **Bypass**: Triggered immediately when images are attached, bypassing intent classification
 
-### Optional Contracts (3)
+### Optional Contracts (2)
 
 These contracts provide auxiliary functionality and never affect routing decisions:
 
@@ -96,31 +88,24 @@ These contracts provide auxiliary functionality and never affect routing decisio
    - **Scope**: Applied only to tool outputs, never to ANSWER or CONVERSATIONAL_ANSWER
    - **Best-effort**: Failures are graceful; pipeline never blocks
 
-9. **SCORING_EVALUATION** 
-   - **Purpose**: Evaluates response quality for debugging and QA
-   - **Input**: Response + label (e.g., `tool.filesystem`, `direct_tool.pcinfo`)
-   - **Output**: Numeric metrics (helpfulness, accuracy, conciseness)
-   - **Retry**: Up to 1 additional attempt
-   - **Failure**: Assigns default score (0) and flags `evaluation_failed`
-   - **Off-path**: Runs only for tool outputs; results logged but never affect routing
-
 ## Decision Boundaries
 
 The pipeline enforces strict decision boundaries to maintain deterministic behavior:
 
-### 1. Verification Decisions are Final
+### 1. Required fields & clarification
 
-`TOOL_ARGUMENT_VERIFICATION` returns one of three decisions:
-- `execute` - Arguments are valid and safe, proceed with tool execution
-- `clarify` - Arguments are ambiguous or incomplete, request user clarification  
-- `abort` - Arguments are invalid or unsafe, terminate the tool path
+The pipeline uses schema validation and explicit clarification rules to ensure tool runs are safe and sensible:
 
-**No retry loop exists**. The pipeline honors this decision immediately and does not invoke verification again. This eliminates retry cascades and makes tool execution deterministic.
+- **Schema validation**: Extracted arguments are validated against a tool's schema and required fields are identified.
+- **Required-field overrides**: For tools that can reasonably default common fields (for example `filesystem.path` defaulting to the current working directory), the pipeline tracks which fields may be auto-filled from context.
+- **Clarification**: If required fields are missing and the intent confidence is high, the pipeline asks a concise clarification question. Otherwise it falls back to a non-tool answer.
+
+This keeps tool execution deterministic while avoiding a separate verification contract.
 
 ### 2. Answer Outputs are Final
 
 `ANSWER` contract output is returned directly to the user with no post-processing:
-- No scoring evaluation
+
 - No response formatting
 - No additional contracts in the chain
 
@@ -140,13 +125,6 @@ This ensures knowledge answers remain accurate and unmodified.
 - Never applied to `ANSWER` or `CONVERSATIONAL_ANSWER` outputs
 - Failures are graceful: original output is preserved
 
-### 5. Scoring is Off-Path
-
-`SCORING_EVALUATION` provides quality metrics but never affects routing:
-- Runs only for tool outputs
-- Never runs for answer or conversational outputs  
-- Results are logged for debugging, not used for decision-making
-
 ## Communication Pipeline
 
 ```
@@ -165,21 +143,19 @@ INTENT_CLASSIFICATION
    |  TOOL_ARGUMENT_EXTRACTION
    |  |
    |  v
-   |  TOOL_ARGUMENT_VERIFICATION
-   |  |
-   |  ├─ execute ──> Tool Execution ──> RESPONSE_FORMATTING ──> SCORING_EVALUATION ──> Output
+   |  ├─ execute ──> Tool Execution ──> RESPONSE_FORMATTING ──> Output
    |  ├─ clarify ──> Clarification Request ──> Output
    |  └─ abort ──> Error Message ──> Output
    |
    ├─ conversational intent
    |  |
    |  v
-   |  CONVERSATIONAL_ANSWER ──> Output (no scoring)
+   |  CONVERSATIONAL_ANSWER ──> Output
    |
    └─ answer.general or low confidence
       |
       v
-      ANSWER (strict or normal mode) ──> Output (no formatting, no scoring)
+      ANSWER (strict or normal mode) ──> Output
 
 LANGUAGE_DETECTION runs in parallel with tool execution for telemetry
 ```
@@ -199,8 +175,7 @@ Validators remain mandatory regardless of mode and are the ultimate gatekeeper f
 | INTENT_CLASSIFICATION      | raw  | Strict JSON output with compact intent + confidence                    |
 | LANGUAGE_DETECTION         | raw  | Single-token ISO code output                                           |
 | TOOL_ARGUMENT_EXTRACTION   | raw  | Schema-shaped JSON requires strict, tool-focused prompting             |
-| TOOL_ARGUMENT_VERIFICATION | raw  | JSON decision payload (execute/clarify/abort)                          |
-| SCORING_EVALUATION         | raw  | Numeric JSON scores without chatter                                    |
+
 | ANSWER                     | chat | Natural-language answer with mode support and tone/language control    |
 | CONVERSATIONAL_ANSWER      | chat | Chatty small-talk responses suit chat roles                            |
 | RESPONSE_FORMATTING        | chat | Natural-language formatting grounded in tool output                    |
@@ -236,10 +211,8 @@ When a tool intent is detected (confidence ≥ 0.6):
 2. **Argument Extraction**: Use `TOOL_ARGUMENT_EXTRACTION` to parse structured arguments
 3. **Schema Validation**: Validate extracted arguments against tool schema
 4. **Skip Heuristics**: Skip execution if >50% of required fields are null
-5. **Verification**: Call `TOOL_ARGUMENT_VERIFICATION` for final safety check
-6. **Execution**: If decision is `execute`, run the tool
-7. **Formatting**: Apply `RESPONSE_FORMATTING` (best-effort, failures preserve original output)
-8. **Scoring**: Run `SCORING_EVALUATION` for quality metrics (off-path, never blocks)
+5. **Execution**: Run the tool
+6. **Formatting**: Apply `RESPONSE_FORMATTING` (best-effort, failures preserve original output)
 
 **Language Detection** runs in parallel with tool execution (Promise.all) to reduce latency.
 
@@ -280,11 +253,10 @@ Key methods for generating contract prompts:
 
 - `buildIntentClassificationPrompt(tools, userInput)` - Routing prompt with tool registry
 - `buildToolArgumentPrompt(tool, userInput)` - Extraction prompt with tool schema
-- `buildToolVerificationPrompt(tool, args)` - Verification prompt with arguments
 - `buildAnswerPrompt(question, mode)` - Answer prompt with mode-specific instructions
 - `buildConversationalAnswerPrompt(input)` - Conversational response prompt
 - `buildResponseFormattingPrompt(toolOutput, language)` - Formatting prompt
-- `buildScoringPrompt(response, label)` - Evaluation prompt
+
 
 ### Prompt Conventions
 
@@ -407,7 +379,7 @@ Tool intents use explicit trigger guards when confidence is moderate:
 
 ### Scoring Thresholds
 
-If any numeric metric in scoring evaluation is below 3, the pipeline sets `evaluationAlert: "low_scores"`. Failures to evaluate are flagged as `scoring_failed`.
+
 
 ### Attempt Tracking
 

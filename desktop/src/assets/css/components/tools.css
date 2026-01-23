@@ -10,7 +10,7 @@
   }
 
   .tool-panel-title {
-    @apply text-sm font-bold tracking-[0.2em] text-terminal-primary;
+    @apply text-sm font-bold tracking-widest text-terminal-primary;
     text-shadow: var(--shadow-text-primary-soft);
   }
 
@@ -283,7 +283,7 @@
   }
 
   .tool-placeholder {
-    @apply text-[11px] uppercase tracking-[0.2em] text-primary-70 py-4 px-4 border border-dashed;
+    @apply text-[11px] uppercase tracking-widest text-primary-70 py-4 px-4 border border-dashed;
     border-color: var(--color-primary-30);
     background: var(--color-primary-5);
   }

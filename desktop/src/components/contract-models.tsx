@@ -4,12 +4,10 @@ import { CONTRACTS } from '../../../assistant/src/contracts/registry';
 import contractIntentClassificationSource from '../../../assistant/src/contracts/intent.classification.ts?raw';
 import contractLanguageDetectionSource from '../../../assistant/src/contracts/language.detection.ts?raw';
 import contractToolArgumentExtractionSource from '../../../assistant/src/contracts/tool.argument.extraction.ts?raw';
-import contractScoringEvaluationSource from '../../../assistant/src/contracts/scoring.evaluation.ts?raw';
 import contractAnswerSource from '../../../assistant/src/contracts/answer.ts?raw';
 import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
 import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
-import contractToolArgumentVerificationSource from '../../../assistant/src/contracts/tool.argument.verification.ts?raw';
 import { renderMarkdown } from '../bubble/markdown';
 import { ToolOutputContent } from '../bubble/tool-output';
 import { useDesktopServices } from '../state/desktop-context';
@@ -33,7 +31,6 @@ type AccessLabel = 'LOCKED' | 'OPEN';
 type SubsystemGroupId =
   | 'CORE_REASONING'
   | 'TOOL_CONTROL'
-  | 'EVALUATION'
   | 'INTERACTION'
   | 'PERCEPTION'
   | 'AUXILIARY';
@@ -83,14 +80,8 @@ const SUBSYSTEM_GROUPS: SubsystemGroupConfig[] = [
   {
     id: 'TOOL_CONTROL',
     label: 'TOOL CONTROL',
-    description: 'Tool arguments and execution verification.',
+    description: 'Tool argument extraction and related helpers.',
     order: 2,
-  },
-  {
-    id: 'EVALUATION',
-    label: 'EVALUATION',
-    description: 'Scoring and confidence auditing.',
-    order: 3,
   },
   {
     id: 'INTERACTION',
@@ -149,26 +140,6 @@ const CONTRACT_MODULES = new Map<ContractKey, ContractModuleConfig>([
       role: 'ARGUMENT EXTRACTION',
       state: 'ACTIVE',
       priority: 5,
-    },
-  ],
-  [
-    'TOOL_ARGUMENT_VERIFICATION',
-    {
-      title: 'TOOL VERIFY',
-      group: 'TOOL_CONTROL',
-      role: 'ARGUMENT VALIDATION',
-      state: 'STANDBY',
-      priority: 4,
-    },
-  ],
-  [
-    'SCORING_EVALUATION',
-    {
-      title: 'SCORING MATRIX',
-      group: 'EVALUATION',
-      role: 'CONFIDENCE AUDIT',
-      state: 'IDLE',
-      priority: 3,
     },
   ],
   [
@@ -301,20 +272,6 @@ const CONTRACT_SOURCE_MAP = new Map<ContractKey, ContractSource>([
     {
       path: 'assistant/src/contracts/tool.argument.extraction.ts',
       content: contractToolArgumentExtractionSource,
-    },
-  ],
-  [
-    'TOOL_ARGUMENT_VERIFICATION',
-    {
-      path: 'assistant/src/contracts/tool.argument.verification.ts',
-      content: contractToolArgumentVerificationSource,
-    },
-  ],
-  [
-    'SCORING_EVALUATION',
-    {
-      path: 'assistant/src/contracts/scoring.evaluation.ts',
-      content: contractScoringEvaluationSource,
     },
   ],
   [

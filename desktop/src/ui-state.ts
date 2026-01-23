@@ -2,13 +2,9 @@ import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import type { AvatarMood } from './avatar';
-import type { EvaluationAlert, PipelineResult } from '../../assistant/src/pipeline';
-import { formatEvaluationSummary, getEvaluationAlertMessage } from './evaluation-utils';
+import type { PipelineResult } from '../../assistant/src/pipeline';
 
 export type TelemetryNodes = {
-  totalEvaluations: HTMLElement | null;
-  lowScoreCount: HTMLElement | null;
-  failureCount: HTMLElement | null;
   toolCallCount: HTMLElement | null;
   averageAttempts: HTMLElement | null;
   schemaMismatchCount: HTMLElement | null;
@@ -36,14 +32,9 @@ export type BubbleContent =
       finalHtml: string;
     };
 
-type EvaluationHistoryEntry = {
-  timestamp: number;
-  alert?: EvaluationAlert;
-  label?: string;
-  evaluation?: Record<string, number>;
-};
 
-const TELEMETRY_HISTORY_LIMIT = 5;
+
+
 const TYPEWRITER_MIN_DELAY_MS = 12;
 const TYPEWRITER_MAX_DELAY_MS = 26;
 const TYPEWRITER_PUNCTUATION_PAUSE_MS = 140;
@@ -55,19 +46,13 @@ export class UIState {
   private isBusy = false;
   private bubbleDispose: (() => void) | null = null;
   private telemetryNodes: TelemetryNodes = {
-    totalEvaluations: null,
-    lowScoreCount: null,
-    failureCount: null,
     toolCallCount: null,
     averageAttempts: null,
     schemaMismatchCount: null,
     averageContainer: null,
     recentList: null,
   };
-  private evaluationTotals = { total: 0, lowScores: 0, failures: 0 };
-  private evaluationSums: Record<string, number> = {};
-  private evaluationCounts: Record<string, number> = {};
-  private evaluationHistory: EvaluationHistoryEntry[] = [];
+
   private requestCount = 0;
   private attemptTotal = 0;
   private toolCallCount = 0;
@@ -254,60 +239,10 @@ export class UIState {
     this.refreshTelemetry();
   }
 
-  recordEvaluation(
-    evaluation: Record<string, number> | undefined,
-    alert: EvaluationAlert | undefined,
-    label?: string,
-  ): void {
-    if (!evaluation && !alert) {
-      return;
-    }
 
-    this.evaluationTotals.total += 1;
-    if (alert === 'low_scores') {
-      this.evaluationTotals.lowScores += 1;
-    }
-    if (alert === 'scoring_failed') {
-      this.evaluationTotals.failures += 1;
-    }
-
-    if (evaluation) {
-      const entries = Object.entries(evaluation);
-      for (let index = 0; index < entries.length; index += 1) {
-        const entry = entries[index];
-        if (!entry) {
-          continue;
-        }
-        const [criterion, value] = entry;
-        if (typeof value !== 'number' || Number.isNaN(value)) {
-          continue;
-        }
-        this.evaluationSums[criterion] = (this.evaluationSums[criterion] ?? 0) + value;
-        this.evaluationCounts[criterion] = (this.evaluationCounts[criterion] ?? 0) + 1;
-      }
-    }
-
-    const record: EvaluationHistoryEntry = {
-      timestamp: Date.now(),
-      alert,
-      label,
-    };
-    if (evaluation) {
-      record.evaluation = { ...evaluation };
-    }
-    this.evaluationHistory.unshift(record);
-    if (this.evaluationHistory.length > TELEMETRY_HISTORY_LIMIT) {
-      this.evaluationHistory.pop();
-    }
-
-    this.refreshTelemetry();
-  }
 
   private refreshTelemetry(): void {
     const {
-      totalEvaluations,
-      lowScoreCount,
-      failureCount,
       toolCallCount,
       averageAttempts,
       schemaMismatchCount,
@@ -315,15 +250,6 @@ export class UIState {
       recentList,
     } = this.telemetryNodes;
 
-    if (totalEvaluations) {
-      totalEvaluations.textContent = String(this.evaluationTotals.total);
-    }
-    if (lowScoreCount) {
-      lowScoreCount.textContent = String(this.evaluationTotals.lowScores);
-    }
-    if (failureCount) {
-      failureCount.textContent = String(this.evaluationTotals.failures);
-    }
     if (toolCallCount) {
       toolCallCount.textContent = String(this.toolCallCount);
     }
@@ -337,37 +263,18 @@ export class UIState {
 
     if (averageContainer) {
       averageContainer.innerHTML = '';
-      const criteria = Object.keys(this.evaluationSums)
-        .filter((criterion) => (this.evaluationCounts[criterion] ?? 0) > 0)
-        .sort();
-
-      if (criteria.length === 0) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'telemetry-averages-placeholder';
-        placeholder.textContent = 'Waiting for scores...';
-        averageContainer.appendChild(placeholder);
-      } else {
-        for (const criterion of criteria) {
-          const count = this.evaluationCounts[criterion] ?? 1;
-          const total = this.evaluationSums[criterion] ?? 0;
-          const average = total / count;
-          averageContainer.appendChild(this.createAverageRow(criterion, average));
-        }
-      }
+      const placeholder = document.createElement('div');
+      placeholder.className = 'telemetry-averages-placeholder';
+      placeholder.textContent = 'Telemetry averages are not available.';
+      averageContainer.appendChild(placeholder);
     }
 
     if (recentList) {
       recentList.innerHTML = '';
-      if (this.evaluationHistory.length === 0) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'telemetry-recent-placeholder';
-        placeholder.textContent = 'No evaluation events yet.';
-        recentList.appendChild(placeholder);
-      } else {
-        for (const entry of this.evaluationHistory) {
-          recentList.appendChild(this.createRecentItem(entry));
-        }
-      }
+      const placeholder = document.createElement('div');
+      placeholder.className = 'telemetry-recent-placeholder';
+      placeholder.textContent = 'No telemetry events yet.';
+      recentList.appendChild(placeholder);
     }
   }
 
@@ -529,50 +436,7 @@ export class UIState {
     }
   }
 
-  private createAverageRow(criterion: string, average: number): HTMLElement {
-    const row = document.createElement('div');
-    row.className = 'telemetry-average-row';
 
-    const label = document.createElement('span');
-    label.textContent = criterion;
 
-    const value = document.createElement('span');
-    value.textContent = average.toFixed(1);
 
-    row.appendChild(label);
-    row.appendChild(value);
-    return row;
-  }
-
-  private createRecentItem(entry: EvaluationHistoryEntry): HTMLElement {
-    const item = document.createElement('div');
-    item.className = 'telemetry-recent-item';
-
-    const time = document.createElement('span');
-    time.className = 'telemetry-recent-time';
-    time.textContent = new Date(entry.timestamp).toLocaleTimeString([], { hour12: false });
-
-    const label = document.createElement('span');
-    label.className = 'telemetry-recent-label';
-    label.textContent = entry.label ?? 'Evaluation event';
-
-    item.appendChild(time);
-    item.appendChild(label);
-
-    if (entry.alert) {
-      const alertNode = document.createElement('span');
-      alertNode.className = 'telemetry-recent-alert';
-      alertNode.textContent = getEvaluationAlertMessage(entry.alert);
-      item.appendChild(alertNode);
-    }
-
-    if (entry.evaluation) {
-      const detail = document.createElement('span');
-      detail.className = 'telemetry-recent-detail';
-      detail.textContent = formatEvaluationSummary(entry.evaluation);
-      item.appendChild(detail);
-    }
-
-    return item;
-  }
 }

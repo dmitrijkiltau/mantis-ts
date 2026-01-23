@@ -10,26 +10,17 @@ export const createMockOrchestrator = (): Orchestrator => {
     buildIntentClassificationPrompt: vi.fn(),
     buildLanguageDetectionPrompt: vi.fn(),
     buildToolArgumentPrompt: vi.fn(),
-    buildToolArgumentVerificationPrompt: vi.fn(),
     buildAnswerPrompt: vi.fn(),
     buildConversationalAnswerPrompt: vi.fn(),
     buildResponseFormattingPrompt: vi.fn(),
     buildImageRecognitionPrompt: vi.fn(),
-    buildScoringPrompt: vi.fn().mockReturnValue({
-      contractName: 'SCORING_EVALUATION',
-      model: 'test-model',
-      mode: 'raw',
-      rawPrompt: 'test prompt',
-    }),
     validateIntentClassification: vi.fn(),
     validateLanguageDetection: vi.fn(),
     validateToolArguments: vi.fn(),
-    validateToolArgumentVerification: vi.fn(),
     validateAnswer: vi.fn(),
     validateConversationalAnswer: vi.fn(),
     validateResponseFormatting: vi.fn(),
     validateImageRecognition: vi.fn(),
-    validateScoring: vi.fn(),
   };
 
   return orchestrator as unknown as Orchestrator;

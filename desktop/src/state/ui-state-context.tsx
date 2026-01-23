@@ -28,9 +28,6 @@ type UIRefSetters = {
   statusAction: (element: HTMLElement) => void;
   statQueries: (element: HTMLElement) => void;
   statRuntime: (element: HTMLElement) => void;
-  telemetryTotal: (element: HTMLElement) => void;
-  telemetryLowScore: (element: HTMLElement) => void;
-  telemetryFailures: (element: HTMLElement) => void;
   telemetryToolCalls: (element: HTMLElement) => void;
   telemetryAverageAttempts: (element: HTMLElement) => void;
   telemetrySchemaMismatch: (element: HTMLElement) => void;
@@ -58,9 +55,6 @@ type UINodeAccessors = {
   statusAction: Accessor<HTMLElement | null>;
   statQueries: Accessor<HTMLElement | null>;
   statRuntime: Accessor<HTMLElement | null>;
-  telemetryTotal: Accessor<HTMLElement | null>;
-  telemetryLowScore: Accessor<HTMLElement | null>;
-  telemetryFailures: Accessor<HTMLElement | null>;
   telemetryToolCalls: Accessor<HTMLElement | null>;
   telemetryAverageAttempts: Accessor<HTMLElement | null>;
   telemetrySchemaMismatch: Accessor<HTMLElement | null>;
@@ -100,9 +94,6 @@ export const UIStateProvider: ParentComponent = (props) => {
   const [statusAction, setStatusAction] = createSignal<HTMLElement | null>(null);
   const [statQueries, setStatQueries] = createSignal<HTMLElement | null>(null);
   const [statRuntime, setStatRuntime] = createSignal<HTMLElement | null>(null);
-  const [telemetryTotal, setTelemetryTotal] = createSignal<HTMLElement | null>(null);
-  const [telemetryLowScore, setTelemetryLowScore] = createSignal<HTMLElement | null>(null);
-  const [telemetryFailures, setTelemetryFailures] = createSignal<HTMLElement | null>(null);
   const [telemetryToolCalls, setTelemetryToolCalls] = createSignal<HTMLElement | null>(null);
   const [telemetryAverageAttempts, setTelemetryAverageAttempts] = createSignal<HTMLElement | null>(null);
   const [telemetrySchemaMismatch, setTelemetrySchemaMismatch] = createSignal<HTMLElement | null>(null);
@@ -130,9 +121,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     statusAction: (element) => setStatusAction(element),
     statQueries: (element) => setStatQueries(element),
     statRuntime: (element) => setStatRuntime(element),
-    telemetryTotal: (element) => setTelemetryTotal(element),
-    telemetryLowScore: (element) => setTelemetryLowScore(element),
-    telemetryFailures: (element) => setTelemetryFailures(element),
     telemetryToolCalls: (element) => setTelemetryToolCalls(element),
     telemetryAverageAttempts: (element) => setTelemetryAverageAttempts(element),
     telemetrySchemaMismatch: (element) => setTelemetrySchemaMismatch(element),
@@ -160,9 +148,6 @@ export const UIStateProvider: ParentComponent = (props) => {
     statusAction,
     statQueries,
     statRuntime,
-    telemetryTotal,
-    telemetryLowScore,
-    telemetryFailures,
     telemetryToolCalls,
     telemetryAverageAttempts,
     telemetrySchemaMismatch,
