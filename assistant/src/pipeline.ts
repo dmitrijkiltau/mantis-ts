@@ -321,7 +321,6 @@ export class Pipeline {
           toneInstructions,
           personalityDescription,
           contextSnapshot,
-          this.buildToolTriggerSuggestion(toolName),
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_trigger_missing',
@@ -1002,13 +1001,6 @@ export class Pipeline {
       }
     }
     return false;
-  }
-
-  /**
-   * Provides a short suggestion when tool triggers are missing.
-   */
-  private buildToolTriggerSuggestion(toolName: ToolName): string {
-    return `Tip: I can use the ${toolName} tool if you want—ask me to use it.`;
   }
 
   private meetsToolConfidence(confidence: number): boolean {
