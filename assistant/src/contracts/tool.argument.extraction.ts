@@ -6,7 +6,7 @@ import { parseJsonObjectStrict, stripMarkdownFences } from './parsing.js';
  * Contract for tool argument extraction.
  */
 export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
-  MODEL: 'granite3-dense:2b',
+  MODEL: 'granite4:350m',
   MODE: 'raw',
   EXPECTS_JSON: true,
   PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".

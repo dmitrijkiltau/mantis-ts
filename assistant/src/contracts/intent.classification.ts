@@ -19,7 +19,7 @@ RULES:
 - Do NOT include markdown.
 - If unsure, follow the fallback rule defined below.
 
-SCHEMA:
+ANSWER SCHEMA:
 {
   "intent": "string",
   "confidence": "number"
