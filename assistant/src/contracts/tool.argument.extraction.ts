@@ -9,7 +9,7 @@ export const CONTRACT_TOOL_ARGUMENT_EXTRACTION = {
   MODEL: 'granite3-dense:2b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
+  PROMPT: `You extract structured arguments for the tool "{{TOOL_NAME}}".
 You do not validate permissions.
 You do not guess missing values or invent defaults.
 Required fields are non-nullable in the schema; optional fields are nullable or optional.
@@ -25,8 +25,9 @@ Tool description:
 {{TOOL_DESCRIPTION}}
 
 Output exactly (no formatting):
-{{TOOL_SCHEMA}}`,
-  USER_PROMPT: `Extract arguments from the following user input.
+{{TOOL_SCHEMA}}
+
+Extract arguments from the following user input.
 
 User input:
 {{USER_INPUT}}`,

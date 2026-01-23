@@ -379,7 +379,7 @@ const listProcesses = async (query: string | null, limit: number): Promise<Proce
  */
 export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = {
   name: 'process',
-  description: 'LISTS running processes only (read-only). Use for "what is running", "top", "task manager". Do not use for process control or filesystem/http tasks.',
+  description: 'list processes, filter by name, and resource snapshot on the host system',
   schema: {
     action: 'string',
     query: 'string|null',

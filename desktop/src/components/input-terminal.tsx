@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
-import { createSignal, type Component } from 'solid-js';
+import { createSignal, Show, type Component } from 'solid-js';
 import type { ImageAttachment } from '../../../assistant/src/pipeline';
-import { buildImageAttachmentFromFile } from '../image-attachments';
+import { buildDataUrl, buildImageAttachmentFromFile } from '../image-attachments';
 import { captureScreenSelectionAttachment } from '../screen-capture';
 import { useDesktopServices } from '../state/desktop-context';
 import { useImageAttachmentStore } from '../state/image-attachment-context';
@@ -63,6 +63,11 @@ export const InputTerminal: Component = () => {
   const attachmentLabel = () => {
     const current = attachment();
     return current ? `${current.name} (${current.source.toUpperCase()})` : 'None';
+  };
+
+  const attachmentPreviewUrl = () => {
+    const current = attachment();
+    return current ? buildDataUrl(current.data, current.mimeType) : '';
   };
 
   /**
@@ -265,29 +270,30 @@ export const InputTerminal: Component = () => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         ></textarea>
-        <div class="terminal-working-dir" data-has-dir={workingDirectory() ? 'true' : 'false'}>
-          <span class="terminal-working-label">WORKDIR</span>
-          <span class="terminal-working-value" title={workingDirectoryLabel()}>
-            {workingDirectoryLabel()}
-          </span>
-          <div class="terminal-working-actions">
-            <button
-              type="button"
-              class="button terminal-action-button"
-              onClick={handleWorkingDirectorySelect}
-            >
-              <span class="button-bracket">[</span> SET <span class="button-bracket">]</span>
-            </button>
-            <button
-              type="button"
-              class="button terminal-action-button"
-              onClick={handleWorkingDirectoryClear}
-              disabled={!workingDirectory()}
-            >
-              <span class="button-bracket">[</span> CLEAR <span class="button-bracket">]</span>
-            </button>
+        {workingDirectory() && (
+          <div class="terminal-working-dir">
+            <span class="terminal-working-label">WORKDIR</span>
+            <span class="terminal-working-value" title={workingDirectoryLabel()}>
+              {workingDirectoryLabel()}
+            </span>
+            <div class="terminal-working-actions">
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectorySelect}
+              >
+                <span class="button-bracket">[</span> CHANGE <span class="button-bracket">]</span>
+              </button>
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectoryClear}
+              >
+                <span class="button-bracket">[</span> CLEAR <span class="button-bracket">]</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         <div
           id="terminal-attachment"
           class="terminal-attachment"
@@ -296,6 +302,18 @@ export const InputTerminal: Component = () => {
           classList={{ hidden: !attachment() }}
           data-source={attachment()?.source}
         >
+          <span class="terminal-attachment-preview" aria-hidden="true">
+            <Show when={attachmentPreviewUrl()} keyed>
+              {(url) => (
+                <img
+                  src={url}
+                  alt={`Preview of ${attachment()?.name ?? 'attachment'}`}
+                  class="terminal-attachment-image"
+                  loading="lazy"
+                />
+              )}
+            </Show>
+          </span>
           <span class="terminal-attachment-label">IMAGE</span>
           <span id="terminal-attachment-name" class="terminal-attachment-name" ref={refs.attachmentName}>
             {attachmentLabel()}
@@ -338,6 +356,15 @@ export const InputTerminal: Component = () => {
               ref={refs.imageUploadInput}
               onChange={handleFileChange}
             />
+            {!workingDirectory() && (
+              <button
+                type="button"
+                class="button terminal-action-button"
+                onClick={handleWorkingDirectorySelect}
+              >
+                <span class="button-bracket">[</span> WORKDIR <span class="button-bracket">]</span>
+              </button>
+            )}
           </div>
           <button
             type="submit"

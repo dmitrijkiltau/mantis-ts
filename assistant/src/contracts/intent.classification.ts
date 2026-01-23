@@ -5,43 +5,60 @@ import { extractFirstJsonObject } from './parsing.js';
  * Contract for intent classification.
  */
 export const CONTRACT_INTENT_CLASSIFICATION = {
-  MODEL: 'qwen2.5:1.5b',
+  MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You classify the intent of the input based on the allowed list.
-Pick one tool intent when the request matches that tool's capability.
+  PROMPT: `You are executing a single, isolated contract.
 
-**Negative constraints (must follow):**
-- Do not use tool.shell if filesystem/process/http/pcinfo/clipboard/search fits.
-- Do not use tool.filesystem/search for URLs; use tool.http.
-- Do not use tool.http for local filesystem paths.
+RULES:
+- Output MUST be valid JSON.
+- Output MUST strictly match the provided schema.
+- Return exactly ONE intent from the allowed list.
+- Do NOT add explanations, comments, or natural language.
+- Do NOT infer missing information.
+- Do NOT include markdown.
+- If unsure, follow the fallback rule defined below.
 
-**Priority Rule:**
-Always prefer specific structured tools over generic tools (shell) if they can fulfill the request. Use 'tool.shell' only as a last resort.
-If the request is about current time, date, or weekday, use "answer.general".
-Use the CONTEXT block to resolve pronouns or follow-up references when available.
+SCHEMA:
+{
+  "intent": "string",
+  "confidence": "number"
+}
+
+TASK:
+Classify the intent of the input text.
+Select the single most appropriate intent based on the allowed intents and rules.
+
+SELECTION RULES:
+- Prefer specific structured tools over generic tools.
+- If the request is about current time, date, or weekday, use "answer.general".
+- Use the CONTEXT block to resolve pronouns or follow-up references when available.
+
+NEGATIVE CONSTRAINTS:
+- Do not invoke "tool.shell" unless no other tool can fulfill the request.
+- Do not choose "answer.general" or any conversational fallback while a tool clearly matches the intent.
 
 CONTEXT:
 {{CONTEXT_BLOCK}}
 
-Allowed intents (tool descriptions are the selection rules):
+ALLOWED INTENTS:
 {{TOOL_REFERENCE}}
 
-Confidence range:
-0.0 (no confidence) to 1.0 (full confidence).
+CONFIDENCE SCALE:
+0.0 = no confidence
+1.0 = full confidence
 
-Output JSON exactly (no formatting):
-{"intent":"<intent>","confidence":<number>}`,
-  USER_PROMPT: `Classify the intent of the following input.
-
-Input:
+INPUT:
 {{USER_INPUT}}`,
   RETRIES: {
     0: `Your previous output violated the contract.
 Return exactly one intent from the allowed list.
 Return valid JSON only.`,
     1: `If you are unsure, return:
-{"intent":"answer.general","confidence":0.0}`
+{
+  "intent": "answer.general",
+  "confidence": 0.1
+}`
   },
 };
 

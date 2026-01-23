@@ -12,9 +12,15 @@ import {
   type ToolArgumentVerificationResult,
   validateToolArgumentVerification,
 } from './contracts/tool.argument.verification.js';
-import { validateTextTransformation } from './contracts/text.transformation.js';
-import { validateScoring } from './contracts/scoring.evaluation.js';
-import { validateStrictAnswer } from './contracts/strict.answer.js';
+import {
+  type ScoringCriteria,
+  validateScoring,
+} from './contracts/scoring.evaluation.js';
+import {
+  ANSWER_MODE_INSTRUCTIONS,
+  validateAnswer,
+  type AnswerMode,
+} from './contracts/answer.js';
 import { validateConversationalAnswer } from './contracts/conversational.answer.js';
 import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
@@ -37,8 +43,9 @@ export type ContractPrompt = {
   contractName: ContractName;
   model: string;
   mode: ContractMode;
-  systemPrompt: string;
+  systemPrompt?: string;
   userPrompt?: string;
+  rawPrompt?: string;
   retries?: Record<number, string>;
   expectsJson?: boolean;
   images?: string[];
@@ -70,21 +77,39 @@ export class Orchestrator {
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
-    const systemPrompt = renderTemplate(contract.SYSTEM_PROMPT, {
+    const mode = contract.MODE ?? 'chat';
+    const promptContext = {
       ...context,
       CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
-    });
+    };
+
+    if (mode === 'raw') {
+      const legacyPrompt = [contract.SYSTEM_PROMPT, contract.USER_PROMPT]
+        .filter(Boolean)
+        .join('\n\n');
+      const template = contract.PROMPT ?? legacyPrompt;
+      const rawPrompt = template ? renderTemplate(template, promptContext) : '';
+      return {
+        contractName,
+        model: this.resolveModel(contractName),
+        mode,
+        rawPrompt,
+        retries: contract.RETRIES,
+        expectsJson: contract.EXPECTS_JSON,
+      };
+    }
+
+    const systemPrompt = contract.SYSTEM_PROMPT
+      ? renderTemplate(contract.SYSTEM_PROMPT, promptContext)
+      : '';
     const userPrompt = contract.USER_PROMPT
-      ? renderTemplate(contract.USER_PROMPT, {
-        ...context,
-        CONTEXT_BLOCK: this.formatContextBlock(contextSnapshot),
-      })
+      ? renderTemplate(contract.USER_PROMPT, promptContext)
       : undefined;
 
     return {
       contractName,
       model: this.resolveModel(contractName),
-      mode: contract.MODE ?? 'chat',
+      mode,
       systemPrompt,
       userPrompt,
       retries: contract.RETRIES,
@@ -170,10 +195,10 @@ export class Orchestrator {
     }
 
     lines.push(
-      `- ${GENERAL_ANSWER_INTENT}: Use only when NO tool applies. For general knowledge, coding help, or complex reasoning.`,
+      `- ${GENERAL_ANSWER_INTENT}: (use only when NO tool applies) general knowledge, coding help, and complex reasoning`,
     );
     lines.push(
-      `- ${CONVERSATION_INTENT}: Small talk, greetings, or thanks only.`,
+      `- ${CONVERSATION_INTENT}: small talk, greetings, and thanks only`,
     );
 
     const formatted = lines.join('\n');
@@ -280,15 +305,55 @@ export class Orchestrator {
     }, contextSnapshot);
   }
 
-  public buildTextTransformationPrompt(
-    text: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    const contract = this.contractRegistry.TEXT_TRANSFORMATION;
-    return this.buildPrompt('TEXT_TRANSFORMATION', {
-      RULES: contract.RULES,
-      TEXT: this.normalize(text),
-    }, contextSnapshot);
+  private formatScoringSchema(criteria: ScoringCriteria): string {
+    const schema: Record<string, string> = {};
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      schema[criterion.name] = 'number';
+    }
+    return JSON.stringify(schema, null, 2);
+  }
+
+  private buildScoringTask(criteria: ScoringCriteria): string {
+    if (criteria.length === 0) {
+      return (
+        'Evaluate the provided text according to the given criteria. Use USER_GOAL and REFERENCE_CONTEXT '
+        + 'to assess relevance, correctness, and usefulness. Each criterion must be scored independently.'
+      );
+    }
+
+    const names: string[] = [];
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      names.push(criterion.name);
+    }
+    const joinedNames = names.join(', ');
+    return (
+      `Evaluate the provided text according to the following criteria: ${joinedNames}. `
+      + 'Use USER_GOAL and REFERENCE_CONTEXT to assess each criterion. Each criterion must be scored independently.'
+    );
+  }
+
+  private formatCriteriaDefinitions(criteria: ScoringCriteria): string {
+    if (criteria.length === 0) {
+      return '- Not specified.';
+    }
+
+    const definitions: string[] = [];
+    for (let index = 0; index < criteria.length; index += 1) {
+      const criterion = criteria[index];
+      if (!criterion) {
+        continue;
+      }
+      definitions.push(`- ${criterion.name}: ${criterion.definition}`);
+    }
+    return definitions.join('\n');
   }
 
   public buildScoringPrompt(
@@ -298,24 +363,35 @@ export class Orchestrator {
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const contract = this.contractRegistry.SCORING_EVALUATION;
+    const criteria = (contract.CRITERIA ?? []) as ScoringCriteria;
     return this.buildPrompt('SCORING_EVALUATION', {
-      CRITERIA: contract.CRITERIA,
+      CRITERIA_SCHEMA: this.formatScoringSchema(criteria),
+      CRITERIA_TASK: this.buildScoringTask(criteria),
+      CRITERIA_DEFINITIONS: this.formatCriteriaDefinitions(criteria),
       TEXT: this.normalize(text),
       USER_GOAL: userGoal?.trim() || 'Not provided.',
       REFERENCE_CONTEXT: referenceContext?.trim() || 'Not provided.',
     }, contextSnapshot);
   }
 
-  public buildStrictAnswerPrompt(
+  /**
+   * Builds a unified answer prompt with mode support.
+   * @param mode - 'strict' for concise factual answers, 'normal' for natural responses
+   */
+  public buildAnswerPrompt(
     question: string,
+    mode: AnswerMode = 'strict',
     toneInstructions?: string,
     language?: { language: string; name: string },
+    personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
-    return this.buildPrompt('STRICT_ANSWER', {
+    return this.buildPrompt('ANSWER', {
       QUESTION: this.normalize(question),
+      MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
+      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
     }, contextSnapshot);
   }
 
@@ -411,12 +487,10 @@ export class Orchestrator {
         const extracted = opts.extractedArgs ?? { action: 'read', path: './README.md', limit: null, maxBytes: null };
         return this.buildToolArgumentVerificationPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', extracted, opts.contextSnapshot);
       }
-      case 'TEXT_TRANSFORMATION':
-        return this.buildTextTransformationPrompt(opts.userInput ?? 'Fix this text', opts.contextSnapshot);
       case 'SCORING_EVALUATION':
         return this.buildScoringPrompt(opts.response ?? 'Sample output', opts.userInput ?? 'Sample goal', opts.response ?? 'Sample context', opts.contextSnapshot);
-      case 'STRICT_ANSWER':
-        return this.buildStrictAnswerPrompt(opts.userInput ?? 'What is MANTIS?', undefined, opts.language, opts.contextSnapshot);
+      case 'ANSWER':
+        return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
       case 'CONVERSATIONAL_ANSWER':
         return this.buildConversationalAnswerPrompt(opts.userInput ?? 'Hi there', undefined, opts.language, undefined, opts.contextSnapshot);
       case 'RESPONSE_FORMATTING':
@@ -456,10 +530,6 @@ export class Orchestrator {
     return validateToolArgumentVerification(raw);
   }
 
-  public validateTextTransformation(raw: string): ValidationResult<string> {
-    return validateTextTransformation(raw);
-  }
-
   public validateScoring(
     raw: string,
   ): ValidationResult<Record<string, number>> {
@@ -472,8 +542,8 @@ export class Orchestrator {
     return validateLanguageDetection(raw);
   }
 
-  public validateStrictAnswer(raw: string): ValidationResult<string> {
-    return validateStrictAnswer(raw);
+  public validateAnswer(raw: string): ValidationResult<string> {
+    return validateAnswer(raw);
   }
 
   public validateConversationalAnswer(raw: string): ValidationResult<string> {

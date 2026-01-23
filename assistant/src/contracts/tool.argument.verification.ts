@@ -8,7 +8,7 @@ export const CONTRACT_TOOL_ARGUMENT_VERIFICATION = {
   MODEL: 'llama3.2:3b',
   MODE: 'raw',
   EXPECTS_JSON: true,
-  SYSTEM_PROMPT: `You verify extracted arguments for the tool "{{TOOL_NAME}}".
+  PROMPT: `You verify extracted arguments for the tool "{{TOOL_NAME}}".
 Check that the tool is appropriate and that the arguments align with the user input and schema.
 
 CONTEXT:
@@ -16,13 +16,12 @@ CONTEXT:
 
 Decisions:
 - execute: arguments are correct, sufficient, and align with user input.
-- retry: arguments conflict with input or are incomplete due to extraction errors; re-extraction is likely to fix.
 - clarify: tool is clearly intended but user input is missing or ambiguous for required fields.
 - abort: tool appears incorrect or unsafe for this request.
 
-Clarify vs retry:
-- Use clarify when missing/ambiguous info must come from the user and cannot be inferred.
-- Use retry when the user did provide the info but it was extracted incorrectly or incompletely.
+Default behavior:
+- If the extracted arguments satisfy the schema, match the user input literally, and no required data is missing or contradicted, prefer "execute".
+- Let "clarify" and "abort" be the exception, not the default, to avoid unnecessary hesitation.
 
 missingFields and suggestedArgs:
 - Populate missingFields only when decision is clarify; include required fields that are missing/ambiguous.
@@ -34,13 +33,14 @@ Return JSON only.
 
 Expected schema (no formatting):
 {
-  "decision": "<execute|retry|clarify|abort>",
+  "decision": "<execute|clarify|abort>",
   "confidence": <number between 0.0 and 1.0>,
   "reason": "<brief explanation>",
   "missingFields": ["<field name>", ...],
   "suggestedArgs": { "<field>": "<value>", ... }
-}`,
-  USER_PROMPT: `User input:
+}
+
+User input:
 {{USER_INPUT}}
 
 Tool description:
@@ -57,7 +57,7 @@ Do not include extra keys.`,
   },
 };
 
-export type ToolArgumentVerificationDecision = 'execute' | 'retry' | 'clarify' | 'abort';
+export type ToolArgumentVerificationDecision = 'execute' | 'clarify' | 'abort';
 
 export type ToolArgumentVerificationResult = {
   decision: ToolArgumentVerificationDecision;
@@ -78,7 +78,6 @@ export type ToolArgumentVerificationValidationError =
 
 const allowedDecisions = new Set<ToolArgumentVerificationDecision>([
   'execute',
-  'retry',
   'clarify',
   'abort',
 ]);

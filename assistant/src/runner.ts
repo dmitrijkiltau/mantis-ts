@@ -13,7 +13,7 @@ import { Logger } from './logger.js';
 export type ModelInvocation = {
   model: string;
   mode: ContractMode;
-  systemPrompt: string;
+  systemPrompt?: string;
   userPrompt?: string;
   rawPrompt?: string;
   expectsJson?: boolean;
@@ -27,6 +27,25 @@ export type ModelInvocation = {
 function measureDurationMs(startMs: number): number {
   return Math.round((Date.now() - startMs) * 100) / 100;
 }
+
+/**
+ * Contract execution telemetry emitted after each contract completes.
+ */
+export type ContractExecutionTelemetry = {
+  contractName: ContractName;
+  model: string;
+  mode: ContractMode;
+  durationMs: number;
+  attempts: number;
+  ok: boolean;
+  confidence?: number;
+  timestamp: number;
+};
+
+/**
+ * Callback that consumes contract execution telemetry.
+ */
+export type ContractExecutionTelemetrySink = (telemetry: ContractExecutionTelemetry) => void;
 
 const createAbortError = (): Error => {
   const error = new Error('Contract execution aborted');
@@ -94,6 +113,7 @@ export class Runner {
   constructor(
     private readonly orchestrator: Orchestrator,
     private readonly llm: LLMClient,
+    private readonly telemetrySink?: ContractExecutionTelemetrySink,
   ) {}
 
   /**
@@ -115,6 +135,47 @@ export class Runner {
     }
 
     return history;
+  }
+
+  /**
+   * Extracts a confidence value from known contract outputs.
+   */
+  private extractConfidence(value: unknown): number | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+    const candidate = (value as { confidence?: unknown }).confidence;
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+      return undefined;
+    }
+    return candidate;
+  }
+
+  /**
+   * Emits telemetry for a completed contract execution.
+   */
+  private recordTelemetry(
+    contractName: ContractName,
+    prompt: ContractPrompt,
+    durationMs: number,
+    attempts: number,
+    ok: boolean,
+    value?: unknown,
+  ): void {
+    if (!this.telemetrySink) {
+      return;
+    }
+
+    this.telemetrySink({
+      contractName,
+      model: prompt.model,
+      mode: prompt.mode,
+      durationMs,
+      attempts,
+      ok,
+      confidence: this.extractConfidence(value),
+      timestamp: Date.now(),
+    });
   }
 
   /**
@@ -168,6 +229,14 @@ export class Runner {
           attemptDurationMs: llmDurationMs,
           totalDurationMs,
         });
+        this.recordTelemetry(
+          contractName,
+          attemptPrompt,
+          totalDurationMs,
+          attempt + 1,
+          true,
+          validation.value,
+        );
         const retention: HistoryRetention = options?.historyRetention ?? 'minimal';
         return {
           ok: true,
@@ -188,6 +257,13 @@ export class Runner {
     Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`, {
       totalDurationMs,
     });
+    this.recordTelemetry(
+      contractName,
+      prompt,
+      totalDurationMs,
+      history.length,
+      false,
+    );
     const retention: HistoryRetention = options?.historyRetention ?? 'minimal';
     return { ok: false, attempts: history.length, history: this.filterHistory(history, retention) };
   }
@@ -224,6 +300,14 @@ export class Runner {
       return prompt;
     }
 
+    if (prompt.mode === 'raw') {
+      const rawPrompt = this.buildRawPrompt(prompt);
+      return {
+        ...prompt,
+        rawPrompt: rawPrompt ? `${retryInstruction}\n\n${rawPrompt}` : retryInstruction,
+      };
+    }
+
     if (prompt.userPrompt) {
       return {
         ...prompt,
@@ -240,6 +324,10 @@ export class Runner {
   private buildRawPrompt(prompt: ContractPrompt): string | undefined {
     if (prompt.mode !== 'raw') {
       return undefined;
+    }
+
+    if (prompt.rawPrompt) {
+      return prompt.rawPrompt;
     }
 
     const parts: string[] = [];

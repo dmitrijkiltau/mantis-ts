@@ -187,35 +187,165 @@
 
   .status-section-header {
     @apply flex items-center justify-between gap-3;
-
-    .contract-models {
-      @apply flex-1;
-    }
   }
 
   .status-section-meta {
-    @apply text-[10px] font-mono text-terminal-primary px-2 py-1 rounded border;
+    @apply text-[10px] font-mono text-terminal-primary px-2 py-1;
+    @apply bg-bg-black-soft rounded border border-primary-30;
+  }
+
+  .subsystem-groups {
+    @apply flex flex-col gap-4;
+  }
+
+  .subsystem-group {
+    @apply flex flex-col gap-3;
+  }
+
+  .subsystem-group-header {
+    @apply flex flex-col gap-1;
+  }
+
+  .subsystem-group-title {
+    @apply text-[11px] font-bold tracking-[0.3em] text-terminal-primary;
+    text-shadow: var(--shadow-text-primary-soft);
+  }
+
+  .subsystem-group-subtitle {
+    @apply text-[10px] font-mono text-primary-60;
+  }
+
+  .subsystem-module-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .subsystem-module {
+    @apply flex flex-col gap-2 p-3 rounded border;
     background: var(--color-bg-black-soft);
+    border-color: var(--color-primary-20);
+    box-shadow: var(--shadow-inset-glow);
+  }
+
+  .subsystem-module[data-state='ACTIVE'] {
+    background: var(--color-status-ok);
+    border-color: var(--color-emerald-40);
+  }
+
+  .subsystem-module[data-state='STANDBY'] {
+    background: var(--color-amber-20);
+    border-color: var(--color-amber-40);
+  }
+
+  .subsystem-module[data-state='IDLE'] {
+    background: var(--color-status-neutral);
+    border-color: var(--color-primary-40);
+  }
+
+  .subsystem-module[data-state='DEGRADED'] {
+    background: var(--color-status-error);
+    border-color: var(--color-status-error-border);
+  }
+
+  .subsystem-module[data-state='OFFLINE'] {
+    background: var(--color-bg-black);
+    border-color: var(--color-primary-15);
+  }
+
+  .subsystem-module-header {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .subsystem-module-title {
+    @apply flex items-center gap-2 text-xs font-bold tracking-wider text-terminal-primary;
+  }
+
+  .subsystem-module-lamp {
+    @apply w-2 h-2 rounded-full border;
+    background: var(--color-primary-30);
+    border-color: var(--color-primary-50);
+    box-shadow: var(--shadow-glow-primary-soft);
+  }
+
+  .subsystem-module-lamp[data-state='ACTIVE'] {
+    background: var(--color-terminal-emerald);
+    border-color: var(--color-emerald-40);
+    box-shadow: var(--shadow-glow-primary-strong);
+  }
+
+  .subsystem-module-lamp[data-state='STANDBY'] {
+    background: var(--color-terminal-amber);
+    border-color: var(--color-amber-40);
+    box-shadow: var(--shadow-glow-amber);
+  }
+
+  .subsystem-module-lamp[data-state='IDLE'] {
+    background: var(--color-primary-40);
+    border-color: var(--color-primary-60);
+  }
+
+  .subsystem-module-lamp[data-state='DEGRADED'] {
+    background: var(--color-status-error-border);
+    border-color: var(--color-status-error-border);
+  }
+
+  .subsystem-module-lamp[data-state='OFFLINE'] {
+    background: var(--color-primary-20);
+    border-color: var(--color-primary-30);
+    box-shadow: none;
+  }
+
+  .subsystem-module-status {
+    @apply text-[9px] font-bold tracking-[0.25em] uppercase px-2 py-0.5 rounded border;
+    background: var(--color-bg-black-soft);
+    border-color: var(--color-primary-20);
+    color: var(--color-primary-70);
+  }
+
+  .subsystem-module-status[data-state='ACTIVE'] {
+    color: var(--color-terminal-primary);
+    border-color: var(--color-emerald-40);
+  }
+
+  .subsystem-module-status[data-state='STANDBY'] {
+    color: var(--color-terminal-amber);
+    border-color: var(--color-amber-40);
+  }
+
+  .subsystem-module-status[data-state='IDLE'] {
+    color: var(--color-primary-70);
     border-color: var(--color-primary-30);
   }
 
-  .contract-model-list {
-    @apply grid gap-2;
+  .subsystem-module-status[data-state='DEGRADED'] {
+    color: var(--color-status-error-border);
+    border-color: var(--color-status-error-border);
   }
 
-  .contract-model-row {
-    @apply grid items-center gap-3 px-3 py-2 rounded border;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    background: var(--color-bg-black-soft);
+  .subsystem-module-status[data-state='OFFLINE'] {
+    color: var(--color-primary-50);
     border-color: var(--color-primary-20);
   }
 
-  .contract-model-name {
-    @apply text-[11px] font-semibold tracking-wider text-primary-70;
+  .subsystem-module-body {
+    @apply flex flex-col gap-1;
   }
 
-  .contract-model-link,
-  .contract-model-contract {
+  .subsystem-module-row {
+    @apply grid gap-2 text-[11px] font-mono;
+    grid-template-columns: 84px 1fr;
+  }
+
+  .subsystem-module-label {
+    @apply text-[9px] uppercase tracking-[0.3em] text-primary-60;
+  }
+
+  .subsystem-module-value {
+    @apply text-terminal-primary;
+    word-break: break-word;
+  }
+
+  .subsystem-module-link {
     @apply text-terminal-primary underline decoration-primary-40;
     text-underline-offset: 2px;
 
@@ -224,29 +354,29 @@
     }
   }
 
-  .contract-model-mode {
-    @apply inline-flex items-center px-1 py-0.5 rounded border text-[9px] font-bold tracking-widest uppercase;
+  .subsystem-module-access {
+    @apply inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-widest uppercase;
     background: var(--color-bg-black-soft);
   }
 
-  .contract-model-mode[data-mode='raw'] {
+  .subsystem-module-access[data-access='LOCKED'] {
     @apply text-terminal-cyan border-terminal-cyan;
   }
 
-  .contract-model-mode[data-mode='chat'] {
+  .subsystem-module-access[data-access='OPEN'] {
     @apply text-terminal-primary border-primary-30;
   }
 
-  .contract-model-count {
-    @apply text-primary-60;
+  .subsystem-module-load {
+    @apply text-terminal-primary text-xs tracking-[0.3em] font-mono;
   }
 
-  .contract-model-value {
-    @apply text-xs font-mono text-terminal-primary;
-    word-break: break-word;
+  .subsystem-module-telemetry {
+    @apply mt-1 pt-2 flex flex-col gap-1 text-[10px] font-mono text-primary-60 border-t;
+    border-color: var(--color-primary-15);
   }
 
-  .contract-model-placeholder {
+  .subsystem-placeholder {
     @apply text-xs text-primary-60 font-mono px-3 py-2 rounded border border-primary-20;
     background: var(--color-bg-black-soft);
   }
@@ -362,7 +492,7 @@
   }
 
   .telemetry-metric-label {
-    @apply text-[9px] uppercase tracking-[0.2em] text-primary-70;
+    @apply text-[9px] uppercase tracking-widest text-primary-70;
   }
 
   .telemetry-metric-value {

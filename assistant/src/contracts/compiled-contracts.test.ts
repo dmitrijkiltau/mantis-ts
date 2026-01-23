@@ -36,9 +36,8 @@ describe('compiled contract prompts', () => {
         'Read ./README.md',
         { action: 'read', path: './README.md', limit: null, maxBytes: null },
       ),
-      orchestrator.buildTextTransformationPrompt('Fix this text'),
       orchestrator.buildScoringPrompt('Sample output', 'Sample goal', 'Sample context'),
-      orchestrator.buildStrictAnswerPrompt('What is MANTIS?'),
+      orchestrator.buildAnswerPrompt('What is MANTIS?'),
       orchestrator.buildConversationalAnswerPrompt('Hi there'),
       orchestrator.buildResponseFormattingPrompt(
         'Here is a response',
@@ -49,6 +48,10 @@ describe('compiled contract prompts', () => {
 
     for (let index = 0; index < prompts.length; index += 1) {
       const prompt = prompts[index]!;
+      if (prompt.mode === 'raw') {
+        assertCompiled(prompt.rawPrompt, `${prompt.contractName} raw`);
+        continue;
+      }
       assertCompiled(prompt.systemPrompt, `${prompt.contractName} system`);
       assertCompiled(prompt.userPrompt, `${prompt.contractName} user`);
     }

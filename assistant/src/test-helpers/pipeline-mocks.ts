@@ -11,25 +11,28 @@ export const createMockOrchestrator = (): Orchestrator => {
     buildLanguageDetectionPrompt: vi.fn(),
     buildToolArgumentPrompt: vi.fn(),
     buildToolArgumentVerificationPrompt: vi.fn(),
-    buildStrictAnswerPrompt: vi.fn(),
+    buildAnswerPrompt: vi.fn(),
+    buildConversationalAnswerPrompt: vi.fn(),
     buildResponseFormattingPrompt: vi.fn(),
+    buildImageRecognitionPrompt: vi.fn(),
     buildScoringPrompt: vi.fn().mockReturnValue({
       contractName: 'SCORING_EVALUATION',
       model: 'test-model',
-      systemPrompt: 'test system',
+      mode: 'raw',
+      rawPrompt: 'test prompt',
     }),
-    buildErrorChannelPrompt: vi.fn(),
     validateIntentClassification: vi.fn(),
     validateLanguageDetection: vi.fn(),
     validateToolArguments: vi.fn(),
     validateToolArgumentVerification: vi.fn(),
-    validateStrictAnswer: vi.fn(),
+    validateAnswer: vi.fn(),
+    validateConversationalAnswer: vi.fn(),
     validateResponseFormatting: vi.fn(),
+    validateImageRecognition: vi.fn(),
     validateScoring: vi.fn(),
-    validateErrorChannel: vi.fn(),
   };
 
-  return orchestrator as Orchestrator;
+  return orchestrator as unknown as Orchestrator;
 };
 
 /**
@@ -40,5 +43,5 @@ export const createMockRunner = (): Runner => {
     executeContract: vi.fn(),
   };
 
-  return runner as Runner;
+  return runner as unknown as Runner;
 };
