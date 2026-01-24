@@ -1,5 +1,6 @@
 import type { Orchestrator } from './orchestrator.js';
-import type { Runner, RunnerOptions } from './runner.js';
+import type { Runner } from './runner.js';
+import type { RunnerOptions } from './types.js';
 import type { ContextSnapshot } from './context.js';
 import {
   TOOLS,
@@ -1804,7 +1805,6 @@ export class Pipeline {
 
     return lines.join('\n');
   }
-
 
   /**
    * Summarizes structured tool output using the response formatting contract.

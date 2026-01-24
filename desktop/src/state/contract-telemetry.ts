@@ -1,5 +1,5 @@
 import type { ContractName } from '../../../assistant/src/orchestrator';
-import type { ContractExecutionTelemetry } from '../../../assistant/src/runner';
+import type { ContractExecutionTelemetry } from '../../../assistant/src/types';
 
 export type ContractTelemetrySnapshot = {
   lastExecAt: number | null;

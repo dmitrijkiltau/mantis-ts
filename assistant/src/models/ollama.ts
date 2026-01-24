@@ -1,4 +1,4 @@
-import type { LLMClient, ModelInvocation } from '../runner.js';
+import type { LLMClient, ModelInvocation } from '../types.js';
 
 type OllamaChatMessage = {
   role?: string;
