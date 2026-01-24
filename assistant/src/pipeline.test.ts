@@ -390,6 +390,12 @@ describe('Pipeline', () => {
       expect(result).toBe(false);
     });
 
+    it('LANGUAGE_FALLBACK is en and deriveDetectedLanguage returns fallback when missing', () => {
+      const { LANGUAGE_FALLBACK, deriveDetectedLanguage } = require('./pipeline/language');
+      expect(LANGUAGE_FALLBACK).toBe('en');
+      expect(deriveDetectedLanguage(undefined)).toBe('en');
+    });
+
     it('should return true for tool intents with prefix', () => {
       const result = (pipeline as any).isToolIntent('tool.search');
       expect(result).toBe(true);

@@ -196,20 +196,26 @@ export class Pipeline {
 
     this.ensureNotAborted();
 
+    const languagePromise = userInput.trim()
+      ? this.detectLanguage(userInput)
+      : Promise.resolve({ ok: false, language: LANGUAGE_FALLBACK, attempts: 0 });
+
     const imageAttachments = this.normalizeImageAttachments(attachments);
     if (imageAttachments.length > 0) {
+      const languageResult = await languagePromise;
       const result = await this.runImageRecognition(
         userInput,
         imageAttachments,
         pipelineStartMs,
         contextSnapshot,
+        languageResult,
       );
       return this.completePipeline(result, 'image_recognition', pipelineStartMs, {
         imageCount: imageAttachments.length,
       });
     }
 
-    const directTool = await this.tryRunDirectTool(userInput, contextSnapshot);
+    const directTool = await this.tryRunDirectTool(userInput, contextSnapshot, languagePromise);
     if (directTool) {
       return this.completePipeline(directTool.result, 'direct_tool', pipelineStartMs, {
         tool: directTool.metadata.tool,
@@ -230,6 +236,8 @@ export class Pipeline {
       this.getRunnerOptions(),
     );
 
+    const languageResult = await languagePromise;
+
     if (!intentResult.ok) {
       Logger.warn('pipeline', 'Intent classification failed, falling back to strict answer');
       const result = await this.runNonToolAnswer(
@@ -237,6 +245,9 @@ export class Pipeline {
         undefined,
         intentResult.attempts,
         contextSnapshot,
+        undefined,
+        languageResult.language,
+        languageResult.attempts,
       );
       return this.completePipeline(result, 'intent_failed', pipelineStartMs, {
         reason: 'intent_classification_failure',
@@ -253,6 +264,9 @@ export class Pipeline {
         intent,
         intentResult.attempts,
         contextSnapshot,
+        undefined,
+        languageResult.language,
+        languageResult.attempts,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'non_tool_intent',
@@ -334,6 +348,9 @@ export class Pipeline {
           intent,
           attemptsSoFar,
           contextSnapshot,
+          undefined,
+          languageResult.language,
+          languageResult.attempts,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_extraction_failed',
@@ -375,6 +392,8 @@ export class Pipeline {
           intent,
           attemptsSoFar,
           contextSnapshot,
+          languageResult.language,
+          languageResult.attempts,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_clarify',
@@ -392,6 +411,9 @@ export class Pipeline {
         intent,
         attemptsSoFar,
         contextSnapshot,
+        undefined,
+        languageResult.language,
+        languageResult.attempts,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_clarify_denied',
@@ -410,6 +432,9 @@ export class Pipeline {
         intent,
         attemptsSoFar,
         contextSnapshot,
+        undefined,
+        languageResult.language,
+        languageResult.attempts,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
@@ -444,6 +469,8 @@ export class Pipeline {
       attemptsSoFar,
       pipelineStartMs,
       contextSnapshot,
+      languageResult.language,
+      languageResult.attempts,
     );
     return this.completePipeline(toolResult, 'tool_execution', pipelineStartMs, {
       tool: activeToolName,
@@ -511,18 +538,19 @@ export class Pipeline {
     attachments: ImageAttachment[],
     pipelineStartMs: number,
     contextSnapshot?: ContextSnapshot,
+    languageResultParam?: { ok: boolean; language: DetectedLanguage; attempts: number },
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', 'Running image recognition contract', {
       imageCount: attachments.length,
     });
 
-    const languageResult = userInput.trim()
+    const languageResult = languageResultParam ?? (userInput.trim()
       ? await this.detectLanguage(userInput)
       : {
           ok: false,
           language: LANGUAGE_FALLBACK,
           attempts: 0,
-        };
+        });
 
     const prompt = this.orchestrator.buildImageRecognitionPrompt(
       userInput,
@@ -543,7 +571,7 @@ export class Pipeline {
       durationMs,
     });
 
-    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
+    const attemptOffset = languageResult.attempts;
     if (!result.ok) {
       Logger.error('pipeline', 'Image recognition contract failed');
       return {
@@ -567,6 +595,7 @@ export class Pipeline {
   private async tryRunDirectTool(
     userInput: string,
     contextSnapshot?: ContextSnapshot,
+    languagePromise?: Promise<{ ok: boolean; language: DetectedLanguage; attempts: number }>,
   ): Promise<DirectToolExecutionResult | null> {
     const directMatch = this.parseDirectToolRequest(userInput);
     if (!directMatch) {
@@ -607,6 +636,12 @@ export class Pipeline {
           };
         }
       }
+
+      const languageResult = languagePromise
+        ? await languagePromise
+        : { ok: false, language: LANGUAGE_FALLBACK, attempts: 0 };
+      const language = languageResult.language;
+
       const toolResult = await tool.execute(directMatch.args);
       let formattedResult = toolResult;
       let summary: string | undefined;
@@ -614,7 +649,7 @@ export class Pipeline {
       if (typeof toolResult === 'string') {
         formattedResult = await this.formatResponse(
           toolResult,
-          LANGUAGE_FALLBACK,
+          language,
           userInput,
           directMatch.tool,
           undefined,
@@ -623,7 +658,7 @@ export class Pipeline {
       } else {
         summary = await this.summarizeToolResult(
           toolResult,
-          LANGUAGE_FALLBACK,
+          language,
           directMatch.tool,
           userInput,
           contextSnapshot,
@@ -638,8 +673,8 @@ export class Pipeline {
           result: formattedResult,
           summary,
           intent: `tool.${directMatch.tool}`,
-          language: LANGUAGE_FALLBACK,
-          attempts: 0,
+          language,
+          attempts: languageResult.attempts,
         },
         metadata: {
           tool: directMatch.tool,
@@ -1086,14 +1121,14 @@ export class Pipeline {
     intent: string | undefined,
     attempts: number,
     contextSnapshot?: ContextSnapshot,
+    language?: DetectedLanguage,
+    languageAttempts: number = 0,
   ): Promise<PipelineResult> {
-    const languageResult = await this.detectLanguage(userInput);
-    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
-    const language = languageResult.language;
+    const normalizedLanguage = language ?? LANGUAGE_FALLBACK;
     const question = this.buildClarificationQuestion(toolName, missingFields);
     const formatted = await this.formatResponse(
       question,
-      language,
+      normalizedLanguage,
       userInput,
       toolName,
       question,
@@ -1104,8 +1139,8 @@ export class Pipeline {
       kind: 'strict_answer',
       value: formatted,
       intent,
-      language,
-      attempts: attempts + attemptOffset,
+      language: normalizedLanguage,
+      attempts: attempts + languageAttempts,
     };
   }
 
@@ -1277,17 +1312,18 @@ export class Pipeline {
     attempts: number,
     contextSnapshot?: ContextSnapshot,
     toolSuggestion?: string,
+    language?: DetectedLanguage,
+    languageAttempts: number = 0,
   ): Promise<PipelineResult> {
-    const languageResult = await this.detectLanguage(userInput);
-    const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
-    const language = languageResult.language;
+    const normalizedLanguage = language ?? (await this.detectLanguage(userInput)).language;
+    const totalAttemptsBeforeAnswer = attempts + languageAttempts;
 
     if (intent === CONVERSATION_INTENT) {
       return this.runAnswer(
         userInput,
         intent,
-        attempts + attemptOffset,
-        language,
+        totalAttemptsBeforeAnswer,
+        normalizedLanguage,
         contextSnapshot,
         'conversational',
       );
@@ -1296,8 +1332,8 @@ export class Pipeline {
     return this.runAnswer(
       userInput,
       intent,
-      attempts + attemptOffset,
-      language,
+      totalAttemptsBeforeAnswer,
+      normalizedLanguage,
       contextSnapshot,
       toolSuggestion,
       'strict',
@@ -1795,7 +1831,7 @@ export class Pipeline {
 
   /**
    * Executes a tool and formats its response.
-   * Fetches language detection in parallel with tool execution.
+   * Uses precomputed language detection results provided by the caller.
    * Handles formatting, error cases, and logging.
    */
   private async executeAndFormatTool(
@@ -1807,80 +1843,83 @@ export class Pipeline {
     baseAttempts: number,
     pipelineStartMs: number,
     contextSnapshot?: ContextSnapshot,
+    language?: DetectedLanguage,
+    languageAttempts: number = 0,
   ): Promise<PipelineResult> {
-    // Fetch language in parallel with tool execution since we'll need it for formatting
-    const languagePrompt = this.orchestrator.buildLanguageDetectionPrompt(userInput);
-    const [languageResult, toolExecResult] = await Promise.all([
-      this.runner.executeContract(
-        'LANGUAGE_DETECTION',
-        languagePrompt,
-        (raw) => this.orchestrator.validateLanguageDetection(raw),
-        this.getRunnerOptions(),
-      ),
-      (async () => {
+    const effectiveLanguage = language ?? LANGUAGE_FALLBACK;
+
+    try {
+      const toolExecResult = await (async () => {
         try {
           return { ok: true, result: await tool.execute(args) };
         } catch (error) {
           return { ok: false, error };
         }
-      })(),
-    ]);
+      })();
 
-    const languageAttemptOffset = languageResult.ok ? 0 : languageResult.attempts;
-    const language = languageResult.ok
-      ? deriveDetectedLanguage(languageResult.value)
-      : LANGUAGE_FALLBACK;
+      if (!toolExecResult.ok) {
+        Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
+        return {
+          ok: false,
+          kind: 'error',
+          stage: 'tool_execution',
+          attempts: baseAttempts + languageAttempts,
+          error: this.buildToolError(toolExecResult.error),
+        };
+      }
 
-    if (!toolExecResult.ok) {
-      Logger.error('pipeline', `Tool ${toolName} execution failed`, toolExecResult.error);
+      const toolResult = toolExecResult.result;
+      Logger.debug('pipeline', `Tool ${toolName} executed successfully`);
+      let formattedResult = toolResult;
+      let summary: string | undefined;
+
+      if (typeof toolResult === 'string') {
+        formattedResult = await this.formatResponse(
+          toolResult,
+          effectiveLanguage,
+          userInput,
+          toolName,
+          undefined,
+          contextSnapshot,
+        );
+      } else {
+        summary = await this.summarizeToolResult(
+          toolResult,
+          effectiveLanguage,
+          toolName,
+          userInput,
+          contextSnapshot,
+        );
+      }
+      const durationMs = measureDurationMs(pipelineStartMs);
+      Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
+        tool: toolName,
+        durationMs,
+      });
+      return {
+        ok: true,
+        kind: 'tool',
+        tool: toolName,
+        args,
+        result: formattedResult,
+        summary,
+        intent: intent as string,
+        language: effectiveLanguage,
+        attempts: baseAttempts + languageAttempts,
+      };
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      Logger.error('pipeline', `Tool ${toolName} execution unexpected error`, error);
       return {
         ok: false,
         kind: 'error',
         stage: 'tool_execution',
-        attempts: baseAttempts + languageAttemptOffset,
-        error: this.buildToolError(toolExecResult.error),
+        attempts: baseAttempts + languageAttempts,
+        error: this.buildToolError(error),
       };
     }
-
-    const toolResult = toolExecResult.result;
-    Logger.debug('pipeline', `Tool ${toolName} executed successfully`);
-    let formattedResult = toolResult;
-    let summary: string | undefined;
-
-    if (typeof toolResult === 'string') {
-      formattedResult = await this.formatResponse(
-        toolResult,
-        language,
-        userInput,
-        toolName,
-        undefined,
-        contextSnapshot,
-      );
-    } else {
-      summary = await this.summarizeToolResult(
-        toolResult,
-        language,
-        toolName,
-        userInput,
-        contextSnapshot,
-      );
-    }
-    const durationMs = measureDurationMs(pipelineStartMs);
-    Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
-      tool: toolName,
-      durationMs,
-    });
-    return {
-      ok: true,
-      kind: 'tool',
-      tool: toolName,
-      args,
-      result: formattedResult,
-      summary,
-      intent: intent as string,
-      language,
-      attempts: baseAttempts + languageAttemptOffset,
-    };
   }
 
   private buildToolError(error?: unknown): PipelineError {

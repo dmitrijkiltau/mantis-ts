@@ -13,7 +13,7 @@ RULES:
 - Output MUST be a valid ISO 639-1 language code.
 - Do NOT add explanations, examples, or formatting.
 - Do NOT include whitespace or additional characters.
-- If the language cannot be determined with confidence, return "unknown".
+- If the language cannot be determined with confidence, return "en".
 
 TASK:
 Detect the primary language of the input text.
@@ -22,7 +22,7 @@ INPUT:
 {{USER_INPUT}}`,
   RETRIES: {
     0: 'Your previous output violated the contract. Return only the two-letter ISO 639-1 code (e.g., "en"). No extra text or formatting.',
-    1: 'If you cannot determine the language, return "unknown".',
+    1: 'If you cannot determine the language, return "en".',
   },
 };
 
@@ -46,9 +46,6 @@ export const validateLanguageDetection: ContractValidator<
   }
 
   const normalized = trimmed.toLowerCase();
-  if (normalized === 'unknown') {
-    return { ok: true, value: 'unknown' };
-  }
 
   const firstToken = normalized.split(/\s+/)[0];
   if (!firstToken) {
