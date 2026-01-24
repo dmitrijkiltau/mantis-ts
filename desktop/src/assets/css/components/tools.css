@@ -45,7 +45,7 @@
   }
 
   .tool-icon {
-    @apply text-xs font-mono px-2 py-1 border;
+    @apply text-xs px-2 py-1 border;
     background: var(--color-primary-10);
     border-color: var(--color-primary-40);
     color: var(--color-terminal-cyan);
@@ -93,10 +93,6 @@
     @apply uppercase tracking-[0.25em] text-primary-70;
   }
 
-  .tool-meta-value {
-    @apply font-mono;
-  }
-
   .tool-meta-value[data-risk='LOW'] {
     color: var(--color-terminal-emerald);
   }
@@ -140,7 +136,7 @@
   }
 
   .tool-brief-lines {
-    @apply flex flex-col gap-1 text-[11px] font-mono uppercase tracking-widest text-primary-80;
+    @apply flex flex-col gap-1 text-[11px] uppercase tracking-widest text-primary-80;
   }
 
   .tool-brief-line {
@@ -156,7 +152,7 @@
   }
 
   .tool-capability-item {
-    @apply pl-4 text-xs font-mono uppercase tracking-wider relative;
+    @apply pl-4 text-xs uppercase tracking-wider relative;
 
     &::before {
       content: "-";
@@ -173,7 +169,7 @@
   }
 
   .tool-argument-row {
-    @apply grid items-center gap-2 px-2 py-2 border text-[11px] font-mono;
+    @apply grid items-center gap-2 px-2 py-2 border text-[11px];
     background: var(--color-bg-black);
     border-color: var(--color-primary-30);
     grid-template-columns: minmax(0, 1fr) auto auto;
@@ -235,7 +231,7 @@
   }
 
   .tool-manual-tag {
-    @apply px-2 py-1 border text-[10px] font-mono uppercase tracking-widest;
+    @apply px-2 py-1 border text-[10px] uppercase tracking-widest;
     background: var(--color-primary-8);
     border-color: var(--color-primary-30);
     color: var(--color-terminal-primary);
@@ -259,7 +255,7 @@
   }
 
   .field-input {
-    @apply w-full px-3 py-2 rounded border text-sm font-mono;
+    @apply w-full px-3 py-2 rounded border text-sm;
     background: var(--color-bg-black);
     border-color: var(--color-primary-30);
     color: var(--color-terminal-primary);
@@ -358,7 +354,7 @@
   }
 
   .process-pid {
-    @apply px-2 py-1 rounded text-xs font-mono font-bold;
+    @apply px-2 py-1 rounded text-xs font-bold;
     background: var(--color-primary-10);
     color: var(--color-terminal-cyan);
     min-width: 60px;
@@ -383,7 +379,7 @@
   }
 
   .process-stat-value {
-    @apply text-xs font-mono;
+    @apply text-xs;
   }
 
   .process-cpu-bar {
@@ -415,7 +411,7 @@
   }
 
   .process-command {
-    @apply text-[11px] font-mono text-primary-70 mt-1 px-2 py-1 rounded;
+    @apply text-[11px] text-primary-70 mt-1 px-2 py-1 rounded;
     background: var(--color-primary-5);
     border: 1px solid var(--color-primary-10);
     word-break: break-all;

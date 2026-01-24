@@ -38,7 +38,7 @@
 
   .terminal-input {
     @apply w-full min-h-25 px-4 pt-4 pb-4 bg-transparent;
-    @apply border-none outline-none font-mono resize-y;
+    @apply border-none outline-none resize-y;
 
     &::placeholder {
       @apply text-primary-40;
@@ -113,7 +113,7 @@
   }
 
   .terminal-attachment-name {
-    @apply text-[11px] font-mono;
+    @apply text-[11px];
   }
 
   #terminal-attachment-clear {
@@ -130,7 +130,7 @@
   }
 
   .terminal-working-value {
-    @apply min-w-0 flex-1 text-[11px] font-mono truncate;
+    @apply min-w-0 flex-1 text-[11px] truncate;
   }
 
   .terminal-working-dir[data-has-dir="false"] .terminal-working-value {

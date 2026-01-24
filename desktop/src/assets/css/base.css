@@ -98,7 +98,7 @@
 
   .button {
     @apply inline-flex items-center justify-center px-6 py-2 text-sm font-semibold;
-    @apply transition-all duration-200 ease-out font-mono;
+    @apply transition-all duration-200 ease-out;
 
     &:hover {
       @apply brightness-125;
@@ -209,7 +209,7 @@
 
   /* Retro data readout styling */
   .data-readout {
-    @apply font-mono text-xs px-2 py-1 rounded border;
+    @apply text-xs px-2 py-1 rounded border;
     @apply bg-bg-black border-primary-30;
     text-shadow: var(--shadow-text-primary-soft);
     letter-spacing: var(--tracking-normal);

@@ -28,7 +28,7 @@
 
   .bubble-content {
     @apply flex flex-col items-stretch justify-start pr-2 overflow-y-auto;
-    @apply text-base leading-relaxed font-mono;
+    @apply text-base leading-relaxed;
     max-height: min(50vh, 420px);
 
     & p {
@@ -77,7 +77,7 @@
         @apply inline-flex items-center justify-center gap-1 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
         @apply text-[10px] font-semibold tracking-widest uppercase;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-18 font-mono;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-18;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;
@@ -108,10 +108,6 @@
       pre {
         @apply m-0 p-3 text-xs overflow-x-auto;
         white-space: pre;
-
-        code {
-          @apply font-mono;
-        }
       }
     }
 
@@ -152,7 +148,7 @@
       }
 
       .file-preview-path {
-        @apply text-[11px] font-mono underline;
+        @apply text-[11px] underline;
         @apply decoration-primary-40 underline-offset-2 cursor-pointer;
         @apply bg-transparent border-0 p-0 transition-colors duration-150;
 
@@ -210,7 +206,7 @@
         }
 
         .http-meta-value {
-          @apply text-[11px] font-mono wrap-break-word;
+          @apply text-[11px] wrap-break-word;
         }
       }
 
@@ -257,12 +253,12 @@
       }
 
       .http-json-pretty pre {
-        @apply m-0 text-[12px] leading-snug font-mono overflow-x-auto;
+        @apply m-0 text-[12px] leading-snug overflow-x-auto;
         white-space: pre;
       }
 
       .http-json-viewer {
-        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto font-mono leading-snug;
+        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto leading-snug;
       }
 
       .http-json-controls {
@@ -278,7 +274,7 @@
         @apply inline-flex items-center justify-center gap-2 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
         @apply text-[10px] font-semibold uppercase tracking-widest;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5 font-mono;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;
@@ -341,7 +337,7 @@
         }
 
         .tool-output-accordion-hint {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-file-title {
@@ -349,11 +345,11 @@
         }
 
         .tool-output-file-name {
-          @apply text-[11px] font-mono;
+          @apply text-[11px];
         }
 
         .tool-output-file-path {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-file-lang {
@@ -373,7 +369,7 @@
         }
 
         .tool-output-http-url {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-accordion-controls {
@@ -446,10 +442,6 @@
         }
       }
 
-      code {
-        @apply font-mono;
-      }
-
       .code-line {
         @apply block relative pl-2 leading-[inherit];
 
@@ -502,10 +494,6 @@
       @apply text-primary-60 font-semibold tracking-widest;
     }
 
-    .pcinfo-row-value {
-      @apply font-mono;
-    }
-
     .pcinfo-bar {
       @apply flex flex-col gap-1;
     }
@@ -527,7 +515,7 @@
     }
 
     .pcinfo-bar-detail {
-      @apply text-[10px] font-mono text-primary-60;
+      @apply text-[10px] text-primary-60;
     }
 
     .pcinfo-disk {
@@ -543,11 +531,11 @@
     }
 
     .tool-output-pcinfo-host {
-      @apply text-[11px] font-mono;
+      @apply text-[11px];
     }
 
     .tool-output-pcinfo-subtitle {
-      @apply text-[10px] font-mono text-primary-60;
+      @apply text-[10px] text-primary-60;
     }
 
     .tool-output-panel {
@@ -688,19 +676,15 @@
         pre {
           @apply m-0 p-3 text-xs overflow-x-auto whitespace-pre;
         }
-
-        code {
-          @apply font-mono;
-        }
       }
 
       .code-block-json-viewer {
-        @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
+        @apply text-[11px] p-3 max-h-96 overflow-y-auto leading-snug;
       }
     }
 
     .file-output-block .code-block-json-viewer {
-      @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
+      @apply text-[11px] p-3 max-h-96 overflow-y-auto leading-snug;
     }
 
     .json-viewer-root {
@@ -708,7 +692,7 @@
     }
 
     .json-node {
-      @apply font-mono text-[11px] leading-snug;
+      @apply text-[11px] leading-snug;
 
       & summary {
         @apply list-none flex items-center gap-1 cursor-pointer text-[11px];
@@ -725,16 +709,16 @@
       }
 
       .json-node-key {
-        @apply font-mono text-[11px];
+        @apply text-[11px];
       }
 
       .json-node-type,
       .json-node-count {
-        @apply text-primary-60 text-[10px] font-mono;
+        @apply text-primary-60 text-[10px];
       }
 
       .json-value {
-        @apply text-[11px] font-mono;
+        @apply text-[11px];
 
         &-string {
           @apply text-terminal-amber;
@@ -752,7 +736,7 @@
       }
 
       .json-node-empty {
-        @apply text-[10px] font-mono text-primary-70;
+        @apply text-[10px] text-primary-70;
       }
     }
 
@@ -794,7 +778,7 @@
 
         .file-tree-path,
         .file-tree-meta {
-          @apply text-[11px] font-mono text-primary-70;
+          @apply text-[11px] text-primary-70;
         }
 
         .file-tree-warning {
@@ -830,11 +814,11 @@
         @apply flex flex-col gap-1 flex-1 min-w-0;
 
         .file-node-size {
-          @apply text-[11px] font-mono text-primary-70 ml-auto self-start whitespace-nowrap;
+          @apply text-[11px] text-primary-70 ml-auto self-start whitespace-nowrap;
         }
 
         .file-node-path {
-          @apply text-[11px] font-mono text-primary-70 break-all;
+          @apply text-[11px] text-primary-70 break-all;
         }
       }
     }

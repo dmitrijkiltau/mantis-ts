@@ -56,15 +56,11 @@
   }
 
   .stat-item {
-    @apply px-2 py-1 rounded border font-mono;
-    background: var(--color-bg-black);
-    border-color: var(--color-primary-30);
+    @apply px-2 py-1 bg-bg-black rounded border border-primary-30;
   }
 
   .tablet-tabs {
-    @apply flex border-b-2;
-    background: var(--color-bg-black-soft);
-    border-color: var(--color-primary-30);
+    @apply flex bg-bg-black-soft border-b-2 border-b-primary-30;
   }
 
   .tab-button {
@@ -173,7 +169,7 @@
   }
 
   .status-value {
-    @apply text-sm font-mono;
+    @apply text-sm;
     text-shadow: var(--shadow-text-primary-soft);
   }
 
@@ -190,7 +186,7 @@
   }
 
   .status-section-meta {
-    @apply text-[10px] font-mono px-2 py-1;
+    @apply text-[10px] px-2 py-1;
     @apply bg-bg-black-soft rounded border border-primary-30;
   }
 
@@ -212,7 +208,7 @@
   }
 
   .subsystem-group-subtitle {
-    @apply text-[10px] font-mono text-primary-60;
+    @apply text-[10px] text-primary-60;
   }
 
   .subsystem-module-grid {
@@ -332,7 +328,7 @@
   }
 
   .subsystem-module-row {
-    @apply grid gap-2 text-[11px] font-mono;
+    @apply grid gap-2 text-[11px];
     grid-template-columns: 84px 1fr;
   }
 
@@ -367,16 +363,16 @@
   }
 
   .subsystem-module-load {
-    @apply text-xs tracking-[0.3em] font-mono;
+    @apply text-xs tracking-[0.3em];
   }
 
   .subsystem-module-telemetry {
-    @apply mt-1 pt-2 flex flex-col gap-1 text-[10px] font-mono text-primary-60 border-t;
+    @apply mt-1 pt-2 flex flex-col gap-1 text-[10px] text-primary-60 border-t;
     border-color: var(--color-primary-15);
   }
 
   .subsystem-placeholder {
-    @apply text-xs text-primary-60 font-mono px-3 py-2 rounded border border-primary-20;
+    @apply text-xs text-primary-60 px-3 py-2 rounded border border-primary-20;
     background: var(--color-bg-black-soft);
   }
 
@@ -425,7 +421,7 @@
   }
 
   .history-meta {
-    @apply text-[11px] font-mono text-primary-60;
+    @apply text-[11px] text-primary-60;
   }
 
   .history-body {
@@ -441,7 +437,7 @@
   }
 
   .history-text {
-    @apply text-sm font-mono whitespace-pre-wrap;
+    @apply text-sm whitespace-pre-wrap;
     word-break: break-word;
   }
 
@@ -459,7 +455,7 @@
   }
 
   .history-evaluation-score {
-    @apply font-mono text-xs;
+    @apply text-xs;
   }
 
   .history-evaluation-alert {
@@ -479,7 +475,7 @@
   }
 
   .telemetry-subtitle {
-    @apply text-[11px] font-mono text-primary-60;
+    @apply text-[11px] text-primary-60;
   }
 
   .telemetry-grid {
@@ -514,11 +510,11 @@
 
   .telemetry-averages-placeholder,
   .telemetry-recent-placeholder {
-    @apply text-[10px] text-primary-60 font-mono;
+    @apply text-[10px] text-primary-60;
   }
 
   .telemetry-average-row {
-    @apply flex items-center justify-between text-[12px] font-mono;
+    @apply flex items-center justify-between text-[12px];
   }
 
   .telemetry-recent-item {
@@ -538,7 +534,7 @@
   }
 
   .telemetry-recent-detail {
-    @apply text-[10px] font-mono text-primary-60;
+    @apply text-[10px] text-primary-60;
   }
 
   .history-bubble-shell {
@@ -555,7 +551,7 @@
   }
 
   .logs-console {
-    @apply flex flex-col gap-1 max-h-100 overflow-y-auto text-xs font-mono;
+    @apply flex flex-col gap-1 max-h-100 overflow-y-auto text-xs;
   }
 
   .log-entry {
