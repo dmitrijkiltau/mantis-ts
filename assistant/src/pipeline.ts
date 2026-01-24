@@ -13,7 +13,6 @@ import {
 import type { AnswerMode } from './contracts/answer.js';
 import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
-import { DEFAULT_PERSONALITY } from './personality.js';
 import {
   REQUIRED_NULL_RATIO_THRESHOLD,
   TOOL_INTENT_PREFIX,
@@ -218,8 +217,6 @@ export class Pipeline {
       });
     }
 
-    const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
-    const personalityDescription = DEFAULT_PERSONALITY.description;
     Logger.debug('pipeline', 'Using predefined MANTIS tone instructions');
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(
       userInput,
@@ -239,8 +236,6 @@ export class Pipeline {
         userInput,
         undefined,
         intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'intent_failed', pipelineStartMs, {
@@ -257,8 +252,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -274,8 +267,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -292,8 +283,6 @@ export class Pipeline {
         userInput,
         intent,
         intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -344,8 +333,6 @@ export class Pipeline {
           userInput,
           intent,
           attemptsSoFar,
-          toneInstructions,
-          personalityDescription,
           contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -387,7 +374,6 @@ export class Pipeline {
           requiredMissing,
           intent,
           attemptsSoFar,
-          toneInstructions,
           contextSnapshot,
         );
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -405,8 +391,6 @@ export class Pipeline {
         userInput,
         intent,
         attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -425,8 +409,6 @@ export class Pipeline {
         userInput,
         intent,
         attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
         contextSnapshot,
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
@@ -458,7 +440,6 @@ export class Pipeline {
       tool,
       effectiveArgs,
       userInput,
-      toneInstructions,
       intent,
       attemptsSoFar,
       pipelineStartMs,
@@ -535,7 +516,6 @@ export class Pipeline {
       imageCount: attachments.length,
     });
 
-    const toneInstructions = DEFAULT_PERSONALITY.toneInstructions;
     const languageResult = userInput.trim()
       ? await this.detectLanguage(userInput)
       : {
@@ -547,7 +527,6 @@ export class Pipeline {
     const prompt = this.orchestrator.buildImageRecognitionPrompt(
       userInput,
       attachments.length,
-      toneInstructions,
       languageResult.language,
       contextSnapshot,
     );
@@ -636,7 +615,6 @@ export class Pipeline {
         formattedResult = await this.formatResponse(
           toolResult,
           LANGUAGE_FALLBACK,
-          DEFAULT_PERSONALITY.toneInstructions,
           userInput,
           directMatch.tool,
           undefined,
@@ -646,7 +624,6 @@ export class Pipeline {
         summary = await this.summarizeToolResult(
           toolResult,
           LANGUAGE_FALLBACK,
-          DEFAULT_PERSONALITY.toneInstructions,
           directMatch.tool,
           userInput,
           contextSnapshot,
@@ -1108,7 +1085,6 @@ export class Pipeline {
     missingFields: string[] | undefined,
     intent: string | undefined,
     attempts: number,
-    toneInstructions: string | undefined,
     contextSnapshot?: ContextSnapshot,
   ): Promise<PipelineResult> {
     const languageResult = await this.detectLanguage(userInput);
@@ -1118,7 +1094,6 @@ export class Pipeline {
     const formatted = await this.formatResponse(
       question,
       language,
-      toneInstructions,
       userInput,
       toolName,
       question,
@@ -1300,8 +1275,6 @@ export class Pipeline {
     userInput: string,
     intent: string | undefined,
     attempts: number,
-    toneInstructions: string | undefined,
-    personalityDescription: string,
     contextSnapshot?: ContextSnapshot,
     toolSuggestion?: string,
   ): Promise<PipelineResult> {
@@ -1314,11 +1287,8 @@ export class Pipeline {
         userInput,
         intent,
         attempts + attemptOffset,
-        toneInstructions,
-        personalityDescription,
         language,
         contextSnapshot,
-        undefined,
         'conversational',
       );
     }
@@ -1327,8 +1297,6 @@ export class Pipeline {
       userInput,
       intent,
       attempts + attemptOffset,
-      toneInstructions,
-      personalityDescription,
       language,
       contextSnapshot,
       toolSuggestion,
@@ -1340,8 +1308,6 @@ export class Pipeline {
     userInput: string,
     intent: string | undefined,
     attempts: number,
-    toneInstructions?: string,
-    personalityDescription?: string,
     language?: DetectedLanguage,
     contextSnapshot?: ContextSnapshot,
     toolSuggestion?: string,
@@ -1351,9 +1317,7 @@ export class Pipeline {
     const prompt = this.orchestrator.buildAnswerPrompt(
       userInput,
       mode,
-      toneInstructions,
       language,
-      personalityDescription,
       contextSnapshot,
     );
     const result = await this.runner.executeContract(
@@ -1397,7 +1361,6 @@ export class Pipeline {
   private async formatResponse(
     text: string,
     language: DetectedLanguage,
-    toneInstructions: string | undefined,
     requestContext: string,
     toolLabel?: string,
     fallbackText?: string,
@@ -1409,9 +1372,7 @@ export class Pipeline {
       const prompt = this.orchestrator.buildAnswerPrompt(
         text,
         'tool-formatting',
-        toneInstructions,
         language,
-        undefined,
         contextSnapshot,
         { requestContext, toolName: toolLabel, response: text },
       );
@@ -1812,7 +1773,6 @@ export class Pipeline {
   private async summarizeToolResult(
     toolResult: unknown,
     language: DetectedLanguage,
-    toneInstructions: string | undefined,
     toolName: ToolName,
     userInput: string,
     contextSnapshot?: ContextSnapshot,
@@ -1826,7 +1786,6 @@ export class Pipeline {
     return this.formatResponse(
       payload,
       language,
-      toneInstructions,
       userInput,
       toolName,
       fallback,
@@ -1844,7 +1803,6 @@ export class Pipeline {
     tool: ReturnType<typeof getToolDefinition>,
     args: Record<string, unknown>,
     userInput: string,
-    toneInstructions: string | undefined,
     intent: string | undefined,
     baseAttempts: number,
     pipelineStartMs: number,
@@ -1893,7 +1851,6 @@ export class Pipeline {
       formattedResult = await this.formatResponse(
         toolResult,
         language,
-        toneInstructions,
         userInput,
         toolName,
         undefined,
@@ -1903,7 +1860,6 @@ export class Pipeline {
       summary = await this.summarizeToolResult(
         toolResult,
         language,
-        toneInstructions,
         toolName,
         userInput,
         contextSnapshot,

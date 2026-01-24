@@ -133,22 +133,6 @@ export class Orchestrator {
     return buildContextBlock(snapshot);
   }
 
-  /**
-   * Ensures tone instructions are injected as an optional leading block.
-   */
-  private formatToneInstructions(toneInstructions?: string): string {
-    if (!toneInstructions) {
-      return '';
-    }
-
-    const normalized = toneInstructions.trim();
-    if (!normalized) {
-      return '';
-    }
-
-    return `${normalized}\n`;
-  }
-
   private formatToolSchema(schema: ToolSchema): string {
     // Create a cache key from schema keys + types for lightweight lookup
     const schemaKeyStr = Object.entries(schema)
@@ -287,18 +271,14 @@ export class Orchestrator {
   public buildAnswerPrompt(
     questionOrResponse: string,
     mode: AnswerMode = 'strict',
-    toneInstructions?: string,
     language?: string | { language: string; name: string },
-    personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
     formattingOptions?: { requestContext?: string; toolName?: string; response?: string },
   ): ContractPrompt {
     const context: Record<string, string> = {
       QUESTION: this.normalize(questionOrResponse),
       MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
-      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
     };
 
     if (mode === 'tool-formatting') {
@@ -312,15 +292,12 @@ export class Orchestrator {
     return this.buildPrompt('ANSWER', context, contextSnapshot);
   }
 
-
-
   /**
    * Builds a prompt for analyzing attached image(s).
    */
   public buildImageRecognitionPrompt(
     userInput: string,
     imageCount: number,
-    toneInstructions?: string,
     language?: string | { language: string; name: string },
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
@@ -328,7 +305,6 @@ export class Orchestrator {
     return this.buildPrompt('IMAGE_RECOGNITION', {
       USER_INPUT: normalized || 'No additional question provided.',
       IMAGE_COUNT: String(imageCount),
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
     }, contextSnapshot);
   }
@@ -357,16 +333,14 @@ export class Orchestrator {
 
     // Backwards-compatible aliases: allow callers to request legacy keys
     if (contractName === ('CONVERSATIONAL_ANSWER' as ContractName)) {
-      return this.buildAnswerPrompt(opts.userInput ?? 'Hi there', 'conversational', undefined, opts.language, undefined, opts.contextSnapshot);
+      return this.buildAnswerPrompt(opts.userInput ?? 'Hi there', 'conversational', opts.language, opts.contextSnapshot);
     }
 
     if (contractName === ('RESPONSE_FORMATTING' as ContractName)) {
       return this.buildAnswerPrompt(
         opts.response ?? 'Here is a response',
         'tool-formatting',
-        undefined,
         opts.language ?? 'en',
-        undefined,
         opts.contextSnapshot,
         { requestContext: opts.requestContext ?? 'Not provided.', toolName: opts.toolName ?? 'Not specified', response: opts.response ?? 'Here is a response' },
       );
@@ -384,9 +358,9 @@ export class Orchestrator {
         return this.buildToolArgumentPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', opts.verifierNotes, opts.contextSnapshot);
       }
       case 'ANSWER':
-        return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
+        return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', opts.language, opts.contextSnapshot);
       case 'IMAGE_RECOGNITION':
-        return this.buildImageRecognitionPrompt(opts.userInput ?? 'Describe the image', opts.imageCount ?? 1, undefined, opts.language, opts.contextSnapshot);
+        return this.buildImageRecognitionPrompt(opts.userInput ?? 'Describe the image', opts.imageCount ?? 1, opts.language, opts.contextSnapshot);
       default:
         return this.buildPrompt(contractName);
     }
