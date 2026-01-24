@@ -16,7 +16,8 @@ All code should be written in most recent TypeScript, leveraging its type safety
 
 ### TailwindCSS 4
 
-Prefer `@apply` in CSS with semantic class names, CSS nesting and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics. Theme defined colors can be used as normal Tailwind colors.
+Prefer `@apply` in CSS with semantic class names, CSS nesting and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics. 
+Theme defined colors can be used as normal Tailwind colors, e.g. bg-terminal-primary, border-bg-bubble, etc.
 
 ### Modularity
 
