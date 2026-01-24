@@ -28,7 +28,7 @@
   }
 
   .terminal-title {
-    @apply text-xs font-bold tracking-wider text-terminal-primary ml-12;
+    @apply text-xs font-bold tracking-wider ml-12;
     text-shadow: var(--shadow-text-primary);
   }
 
@@ -37,8 +37,8 @@
   }
 
   .terminal-input {
-    @apply w-full min-h-25 px-4 pt-4 pb-4 bg-transparent text-terminal-primary;
-    @apply border-none outline-none font-mono resize-y;
+    @apply w-full min-h-25 px-4 pt-4 pb-4 bg-transparent;
+    @apply border-none outline-none resize-y;
 
     &::placeholder {
       @apply text-primary-40;
@@ -51,7 +51,7 @@
 
   .terminal-button {
     @apply px-6 py-2 bg-primary-15 font-bold;
-    @apply text-terminal-primary border-2 border-terminal-primary;
+    @apply border-2 border-terminal-primary;
     @apply transition-all duration-200 ease-out;
     letter-spacing: 0.1em;
 
@@ -93,7 +93,6 @@
   .terminal-attachment {
     @apply flex items-center gap-3 px-4 py-2 text-xs;
     @apply border-t border-primary-30 bg-primary-10;
-    @apply text-terminal-primary;
   }
 
   .terminal-attachment-label {
@@ -114,7 +113,7 @@
   }
 
   .terminal-attachment-name {
-    @apply text-[11px] font-mono text-terminal-primary;
+    @apply text-[11px];
   }
 
   #terminal-attachment-clear {
@@ -124,7 +123,6 @@
   .terminal-working-dir {
     @apply flex items-center gap-3 px-4 py-2 text-xs;
     @apply border-t border-primary-30 bg-primary-10;
-    @apply text-terminal-primary;
   }
 
   .terminal-working-label {
@@ -132,7 +130,7 @@
   }
 
   .terminal-working-value {
-    @apply min-w-0 flex-1 text-[11px] font-mono text-terminal-primary truncate;
+    @apply min-w-0 flex-1 text-[11px] truncate;
   }
 
   .terminal-working-dir[data-has-dir="false"] .terminal-working-value {
@@ -154,7 +152,7 @@
 
   .terminal-action-button {
     @apply px-3 py-1 text-[11px] font-bold;
-    @apply text-terminal-primary border border-terminal-primary bg-primary-10;
+    @apply border border-terminal-primary bg-primary-10;
     @apply transition-all duration-200 ease-out;
     letter-spacing: 0.1em;
 

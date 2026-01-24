@@ -29,20 +29,9 @@ describe('compiled contract prompts', () => {
         filesystem.schema,
         'Read ./README.md',
       ),
-      orchestrator.buildToolArgumentVerificationPrompt(
-        'filesystem',
-        filesystem.description,
-        filesystem.schema,
-        'Read ./README.md',
-        { action: 'read', path: './README.md', limit: null, maxBytes: null },
-      ),
-      orchestrator.buildScoringPrompt('Sample output', 'Sample goal', 'Sample context'),
       orchestrator.buildAnswerPrompt('What is MANTIS?'),
-      orchestrator.buildConversationalAnswerPrompt('Hi there'),
-      orchestrator.buildResponseFormattingPrompt(
-        'Here is a response',
-        { language: 'en', name: 'English' },
-      ),
+      orchestrator.buildAnswerPrompt('Hi there', 'conversational'),
+      orchestrator.buildAnswerPrompt('Here is a response', 'tool-formatting', undefined, 'en', undefined, undefined, { requestContext: 'Not provided.', toolName: 'Not specified', response: 'Here is a response' }),
       orchestrator.buildImageRecognitionPrompt('Describe the image', 1),
     ];
 

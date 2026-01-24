@@ -1,4 +1,4 @@
-import { Pipeline, type PipelineResult, type EvaluationAlert } from '../../assistant/src/pipeline';
+import { Pipeline, type PipelineResult } from '../../assistant/src/pipeline';
 import { Logger } from '../../assistant/src/logger';
 import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
@@ -10,10 +10,7 @@ import { ToolOutputContent } from './bubble/tool-output';
 import { safeJsonStringify } from './bubble/shared';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from './tauri-invoke';
-import {
-  formatEvaluationSummary,
-  getEvaluationAlertMessage,
-} from './evaluation-utils';
+
 import type { ImageAttachmentStore } from './state/image-attachment-context';
 
 const hasToolSummary = (
@@ -116,87 +113,9 @@ const createHistoryText = (value: string): HTMLDivElement => {
   return node;
 };
 
-const createEvaluationNode = (evaluation: Record<string, number>): HTMLDivElement => {
-  const container = document.createElement('div');
-  container.className = 'history-evaluation';
 
-  const entries = Object.entries(evaluation).sort((a, b) => a[0].localeCompare(b[0]));
-  for (const [criterion, score] of entries) {
-    const row = document.createElement('div');
-    row.className = 'history-evaluation-row';
 
-    const label = document.createElement('span');
-    label.className = 'history-evaluation-label';
-    label.textContent = criterion;
 
-    const value = document.createElement('span');
-    value.className = 'history-evaluation-score';
-    value.textContent = `${score}/10`;
-
-    row.appendChild(label);
-    row.appendChild(value);
-    container.appendChild(row);
-  }
-
-  return container;
-};
-
-const createEvaluationAlertBanner = (alert: EvaluationAlert): HTMLDivElement => {
-  const node = document.createElement('div');
-  node.className = 'history-evaluation-alert';
-  node.textContent = getEvaluationAlertMessage(alert);
-  return node;
-};
-
-const appendEvaluationSection = (
-  body: HTMLElement,
-  evaluation?: Record<string, number>,
-  alert?: EvaluationAlert,
-): void => {
-  if (!evaluation && !alert) {
-    return;
-  }
-
-  if (evaluation) {
-    const evaluationNode = createEvaluationNode(evaluation);
-    if (alert === 'low_scores') {
-      evaluationNode.appendChild(createEvaluationAlertBanner(alert));
-    }
-    body.appendChild(createHistorySection('Evaluation', evaluationNode));
-    return;
-  }
-
-  if (alert) {
-    body.appendChild(createHistorySection('Evaluation', createHistoryText(getEvaluationAlertMessage(alert))));
-  }
-};
-
-const logEvaluationOutcome = (result: PipelineResult, uiState: UIState): void => {
-  if (!result.ok) {
-    return;
-  }
-
-  const label = result.kind === 'tool' ? `tool.${result.tool}` : 'strict_answer';
-  if (result.evaluation || result.evaluationAlert) {
-    uiState.recordEvaluation(result.evaluation, result.evaluationAlert, label);
-  }
-
-  if (result.evaluation) {
-    const summary = formatEvaluationSummary(result.evaluation);
-    uiState.addLog(`Evaluation scores: ${summary}`);
-    Logger.info('ui', 'Evaluation scores', result.evaluation);
-  }
-
-  if (result.evaluationAlert === 'scoring_failed') {
-    const message = getEvaluationAlertMessage('scoring_failed');
-    uiState.addLog(message);
-    Logger.warn('ui', message);
-  } else if (result.evaluationAlert === 'low_scores') {
-    const message = getEvaluationAlertMessage('low_scores');
-    uiState.addLog(message);
-    Logger.warn('ui', message, result.evaluation);
-  }
-};
 
 type QuestionHandlerOptions = {
   onStart?: () => void;
@@ -261,7 +180,6 @@ const buildHistoryEntry = (question: string, result: PipelineResult): HTMLDetail
     } else {
       body.appendChild(createHistorySection('Answer', createHistoryContentShell(renderHistoryContent(result.value))));
     }
-    appendEvaluationSection(body, result.evaluation, result.evaluationAlert);
   } else {
     const errorDetail = result.error
       ? `${result.error.code}: ${result.error.message}`
@@ -279,7 +197,6 @@ export const createQuestionHandler = (
   pipeline: Pipeline,
   uiState: UIState,
   promptInput: HTMLTextAreaElement,
-  form: HTMLFormElement,
   historyElement: HTMLElement,
   imageStore?: ImageAttachmentStore,
   contextStore?: ContextStore,
@@ -362,7 +279,6 @@ export const createQuestionHandler = (
 
           uiState.showBubble(buildBubbleContent(result.value));
         }
-        logEvaluationOutcome(result, uiState);
       } else {
         Logger.error('ui', `Pipeline failed at stage: ${result.stage}`);
         uiState.setMood('concerned');

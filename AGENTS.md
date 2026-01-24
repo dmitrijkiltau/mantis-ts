@@ -16,7 +16,8 @@ All code should be written in most recent TypeScript, leveraging its type safety
 
 ### TailwindCSS 4
 
-Prefer `@apply` in CSS with semantic class names, CSS nesting and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics. Theme defined colors can be used as normal Tailwind colors.
+Prefer `@apply` in CSS with semantic class names, CSS nesting and avoid Tailwind utility classes in the HTML structure. Desktop styling uses `desktop/src/assets/css/theme.css` with a **Fallout-inspired retro-futuristic theme** featuring terminal green (#00ff88), scanline effects, and Vault-Tec aesthetics. 
+Theme defined colors can be used as normal Tailwind colors, e.g. bg-terminal-primary, border-bg-bubble, etc.
 
 ### Modularity
 
@@ -34,12 +35,13 @@ Implement explicit error handling. Use validators to enforce contract compliance
 
 Write unit tests for all critical components, especially for the Orchestrator and Validators. Ensure that edge cases are covered.
 
-Test scripts:
+Type checking can be performed using:
 ```bash
-# Run type-checking
 npm run typecheck
+```
 
-# Run tests
+Only for contract and pipeline changes:
+```bash
 npm run test
 ```
 

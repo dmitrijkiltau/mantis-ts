@@ -193,7 +193,6 @@ export const InputTerminal: Component = () => {
       services.pipeline,
       state,
       promptInput,
-      form,
       historyElement,
       attachmentStore,
       services.contextStore,

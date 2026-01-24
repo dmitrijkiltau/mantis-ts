@@ -1,4 +1,4 @@
-import type { HttpResponseResult } from '../tools/web/http-core.js';
+import type { HttpResponseResult } from '../tools/web/http.js';
 
 export type PcInfoSummary = {
   system?: {

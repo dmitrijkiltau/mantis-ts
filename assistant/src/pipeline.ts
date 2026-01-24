@@ -9,16 +9,11 @@ import {
   TOOL_TRIGGERS,
   type ToolName,
 } from './tools/registry.js';
+import type { AnswerMode } from './contracts/answer.js';
 import type { FieldType } from './contracts/definition.js';
-import type { ToolArgumentVerificationResult } from './contracts/tool.argument.verification.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
 import {
-  LOW_SCORE_THRESHOLD,
-  MIN_CLARIFY_INTENT_CONFIDENCE,
-  MIN_CLARIFY_VERIFICATION_CONFIDENCE,
-  MIN_TOOL_CONFIDENCE,
-  MIN_TOOL_TRIGGER_CONFIDENCE,
   REQUIRED_NULL_RATIO_THRESHOLD,
   TOOL_INTENT_PREFIX,
 } from './pipeline/config.js';
@@ -38,7 +33,6 @@ type PipelineRunOptions = {
   allowLowScoreRetry?: boolean;
   signal?: AbortSignal;
 };
-
 
 /**
  * Helper to measure execution duration in milliseconds.
@@ -71,16 +65,12 @@ export type PipelineError = {
   message: string;
 };
 
-export type EvaluationAlert = 'scoring_failed' | 'low_scores';
-
 export type PipelineResult =
   | {
       ok: true;
       kind: 'strict_answer';
       value: string;
-      evaluation?: Record<string, number>;
-      evaluationAlert?: EvaluationAlert;
-      intent?: { intent: string; confidence: number };
+      intent?: string;
       language: DetectedLanguage;
       attempts: number;
     }
@@ -91,9 +81,7 @@ export type PipelineResult =
       args: Record<string, unknown>;
       result: unknown;
       summary?: string;
-      evaluation?: Record<string, number>;
-      evaluationAlert?: EvaluationAlert;
-      intent: { intent: string; confidence: number };
+      intent: string;
       language: DetectedLanguage;
       attempts: number;
     }
@@ -132,7 +120,6 @@ type PipelineSummaryStage =
   | 'direct_tool'
   | 'intent_failed'
   | 'non_tool_intent'
-  | 'low_confidence'
   | 'tool_not_found'
   | 'argument_extraction_failed'
   | 'null_tool_arguments';
@@ -141,8 +128,6 @@ type PipelineSummaryExtras = {
   reason?: string;
   tool?: ToolName;
   intent?: string;
-  intentConfidence?: number;
-  evaluationAlert?: EvaluationAlert;
   imageCount?: number;
   error?: PipelineError;
 };
@@ -262,12 +247,10 @@ export class Pipeline {
       });
     }
 
-    const intent = intentResult.value;
-    Logger.debug('pipeline', `Intent classified: ${intent.intent}`, {
-      confidence: intent.confidence,
-    });
+    const intent = intentResult.value as string;
+    Logger.debug('pipeline', `Intent classified: ${intent}`);
 
-    if (!this.isToolIntent(intent.intent)) {
+    if (!this.isToolIntent(intent)) {
       Logger.debug('pipeline', 'Non-tool intent selected, using non-tool answer');
       const result = await this.runNonToolAnswer(
         userInput,
@@ -279,29 +262,11 @@ export class Pipeline {
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'non_tool_intent',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
-
-    if (!this.meetsToolConfidence(intent.confidence)) {
-      Logger.debug('pipeline', 'Tool intent below confidence threshold, using strict answer');
-      const result = await this.runNonToolAnswer(
-        userInput,
         intent,
-        intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'low_confidence',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
       });
     }
 
-    const toolName = this.resolveToolName(intent.intent);
+    const toolName = this.resolveToolName(intent);
     if (!toolName) {
       Logger.debug('pipeline', 'No matching tool for intent, using strict answer');
       const result = await this.runNonToolAnswer(
@@ -314,36 +279,26 @@ export class Pipeline {
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'tool_not_found',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
-    if (!this.hasToolTrigger(userInput, toolName)) {
-      if (intent.confidence < MIN_TOOL_TRIGGER_CONFIDENCE) {
-        Logger.debug('pipeline', 'Tool intent missing trigger keywords, using strict answer', {
-          tool: toolName,
-        });
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          intentResult.attempts,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-          this.buildToolTriggerSuggestion(toolName),
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'tool_trigger_missing',
-          tool: toolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      Logger.debug('pipeline', 'Tool trigger missing but confidence is high, proceeding', {
+    if (!this.hasToolTrigger(userInput, toolName, intent)) {
+      Logger.debug('pipeline', 'Tool trigger missing, using strict answer', {
         tool: toolName,
-        intentConfidence: intent.confidence,
+      });
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        toneInstructions,
+        personalityDescription,
+        contextSnapshot,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'tool_trigger_missing',
+        tool: toolName,
+        intent,
       });
     }
 
@@ -395,8 +350,7 @@ export class Pipeline {
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_extraction_failed',
           tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
+          intent,
         });
       }
       toolArgs = toolArgResult.value as Record<string, unknown>;
@@ -407,120 +361,25 @@ export class Pipeline {
     }
 
     const schemaValidation = this.validateToolArgsSchema(tool, toolArgs);
-    let verificationResult: ToolArgumentVerificationResult;
+    let verificationResult = {
+      decision: 'execute' as const,
+    }
     if (!schemaValidation.ok) {
       verificationResult = schemaValidation.result;
-    } else {
-      toolArgs = schemaValidation.value;
-      const verification = await this.verifyToolArguments(
-        activeToolName,
-        tool.description,
-        tool.schema,
-        userInput,
-        toolArgs,
-        contextSnapshot,
-      );
-      attemptsSoFar += verification.attempts;
-      if (!verification.ok) {
-        Logger.warn(
-          'pipeline',
-          `Tool argument verification failed for ${activeToolName}, falling back to strict answer`,
-        );
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'argument_verification_failed',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      verificationResult = verification.value;
     }
     Logger.debug('pipeline', 'Tool argument verification decision', {
       tool: activeToolName,
       decision: verificationResult.decision,
-      confidence: verificationResult.confidence,
-      reason: verificationResult.reason,
     });
-
-    // Handle verification decisions: execute, clarify, or abort
-    if (verificationResult.decision === 'abort') {
-      Logger.debug(
-        'pipeline',
-        `Tool argument verification aborted for ${activeToolName}, using answer instead`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_abort',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
-
-    if (verificationResult.decision === 'clarify') {
-      if (this.shouldClarifyToolArguments(intent.confidence, verificationResult)) {
-        const result = await this.runToolClarification(
-          userInput,
-          activeToolName,
-          verificationResult.missingFields,
-          intent,
-          attemptsSoFar,
-          toneInstructions,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'tool_clarify',
-          tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      Logger.debug(
-        'pipeline',
-        `Clarify requested for ${activeToolName} but confidence too low, falling back to strict answer`,
-      );
-      const result = await this.runNonToolAnswer(
-        userInput,
-        intent,
-        attemptsSoFar,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'argument_verification_clarify_denied',
-        tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
 
     const requiredMissing = this.getMissingRequiredOverrides(activeToolName, toolArgs);
     if (requiredMissing.length > 0) {
-      const missingVerification: ToolArgumentVerificationResult = {
+      const missingVerification = {
         decision: 'clarify',
-        confidence: 1,
         reason: 'required_fields_missing',
         missingFields: requiredMissing,
       };
-      if (this.shouldClarifyToolArguments(intent.confidence, missingVerification)) {
+      if (this.shouldClarifyToolArguments(missingVerification)) {
         const result = await this.runToolClarification(
           userInput,
           activeToolName,
@@ -533,14 +392,13 @@ export class Pipeline {
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_clarify',
           tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
+          intent,
         });
       }
 
       Logger.debug(
         'pipeline',
-        `Required args missing for ${activeToolName} but confidence too low, falling back to strict answer`,
+        `Required args missing for ${activeToolName}, falling back to strict answer`,
       );
       const result = await this.runNonToolAnswer(
         userInput,
@@ -553,8 +411,7 @@ export class Pipeline {
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_clarify_denied',
         tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
@@ -574,8 +431,7 @@ export class Pipeline {
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
         tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
@@ -632,17 +488,12 @@ export class Pipeline {
       result.kind === 'strict_answer' &&
       result.intent
     ) {
-      summary.intent = result.intent.intent;
-      summary.intentConfidence = result.intent.confidence;
+      summary.intent = result.intent;
     }
 
     if (result.kind === 'tool') {
       summary.tool = summary.tool ?? result.tool;
       summary.args = result.args;
-    }
-
-    if (result.ok && result.evaluationAlert) {
-      summary.evaluationAlert = summary.evaluationAlert ?? result.evaluationAlert;
     }
 
     if (result.kind === 'error' && result.error) {
@@ -800,20 +651,6 @@ export class Pipeline {
           contextSnapshot,
         );
       }
-      const evaluationText =
-        typeof formattedResult === 'string'
-          ? formattedResult
-          : summary ?? this.stringifyToolResult(toolResult);
-      const scoring = await this.runScoringEvaluation(
-        `direct_tool.${directMatch.tool}`,
-        evaluationText,
-        userInput,
-        this.formatReferenceContext(contextSnapshot, {
-          toolName: directMatch.tool,
-          toolArgs: directMatch.args,
-        }),
-        contextSnapshot,
-      );
       return {
         result: {
           ok: true,
@@ -822,11 +659,9 @@ export class Pipeline {
           args: directMatch.args,
           result: formattedResult,
           summary,
-          evaluation: scoring.evaluation,
-          evaluationAlert: scoring.alert,
-          intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
+          intent: `tool.${directMatch.tool}`,
           language: LANGUAGE_FALLBACK,
-          attempts: scoring.attempts,
+          attempts: 0,
         },
         metadata: {
           tool: directMatch.tool,
@@ -942,8 +777,6 @@ export class Pipeline {
       args: {
         action,
         path,
-        limit: null,
-        maxBytes: null,
       },
       reason: `direct_${action}_filesystem`,
     };
@@ -1110,51 +943,37 @@ export class Pipeline {
     return intent.startsWith(TOOL_INTENT_PREFIX);
   }
 
-  private hasToolTrigger(userInput: string, toolName: ToolName): boolean {
+  private hasToolTrigger(userInput: string, toolName: ToolName, intent?: string): boolean {
     const triggers = TOOL_TRIGGERS[toolName];
     if (!triggers || triggers.length === 0) {
       return true;
     }
 
-    const normalized = userInput.toLowerCase();
+    const normalizedInput = userInput.toLowerCase();
+    const normalizedIntent = (intent ?? '').toLowerCase();
+
     for (let index = 0; index < triggers.length; index += 1) {
       const trigger = triggers[index];
-      if (trigger && normalized.includes(trigger)) {
+      if (!trigger) {
+        continue;
+      }
+      if (normalizedInput.includes(trigger) || normalizedIntent.includes(trigger)) {
         return true;
       }
     }
     return false;
   }
 
-  /**
-   * Provides a short suggestion when tool triggers are missing.
-   */
-  private buildToolTriggerSuggestion(toolName: ToolName): string {
-    return `Tip: I can use the ${toolName} tool if you want—ask me to use it.`;
-  }
-
-  private meetsToolConfidence(confidence: number): boolean {
-    return confidence >= MIN_TOOL_CONFIDENCE;
-  }
-
-  /**
-   * Allows clarification only when tool intent confidence is very high.
-   */
   private shouldClarifyToolArguments(
-    intentConfidence: number,
-    verification: ToolArgumentVerificationResult,
+    verification: any,
   ): boolean {
-    return (
-      verification.decision === 'clarify' &&
-      intentConfidence >= MIN_CLARIFY_INTENT_CONFIDENCE &&
-      verification.confidence >= MIN_CLARIFY_VERIFICATION_CONFIDENCE
-    );
+    return verification.decision === 'clarify';
   }
 
   private validateToolArgsSchema(
     tool: ReturnType<typeof getToolDefinition>,
     args: Record<string, unknown>,
-  ): { ok: true; value: Record<string, unknown> } | { ok: false; result: ToolArgumentVerificationResult } {
+  ): { ok: true; value: Record<string, unknown> } | { ok: false; result: any } {
     if (!tool.argsSchema) {
       return { ok: true, value: args };
     }
@@ -1188,7 +1007,6 @@ export class Pipeline {
       ok: false,
       result: {
         decision: 'clarify',
-        confidence: 1,
         reason,
         missingFields: missingFields.size > 0 ? Array.from(missingFields) : undefined,
       },
@@ -1253,15 +1071,6 @@ export class Pipeline {
       }
     }
 
-    if (toolName === 'clipboard') {
-      if (hasField('action')) {
-        return 'Do you want to copy to the clipboard or paste from it?';
-      }
-      if (hasField('content')) {
-        return 'What content should I copy to the clipboard?';
-      }
-    }
-
     if (toolName === 'process') {
       if (hasField('action')) {
         return 'Should I list running processes?';
@@ -1296,7 +1105,7 @@ export class Pipeline {
     userInput: string,
     toolName: ToolName,
     missingFields: string[] | undefined,
-    intent: { intent: string; confidence: number },
+    intent: string | undefined,
     attempts: number,
     toneInstructions: string | undefined,
     contextSnapshot?: ContextSnapshot,
@@ -1314,22 +1123,13 @@ export class Pipeline {
       question,
       contextSnapshot,
     );
-    const scoring = await this.runScoringEvaluation(
-      `tool.${toolName}.clarify`,
-      formatted,
-      userInput,
-      this.formatReferenceContext(contextSnapshot, { toolName }),
-      contextSnapshot,
-    );
     return {
       ok: true,
       kind: 'strict_answer',
       value: formatted,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
       intent,
       language,
-      attempts: attempts + attemptOffset + scoring.attempts,
+      attempts: attempts + attemptOffset,
     };
   }
 
@@ -1357,34 +1157,6 @@ export class Pipeline {
       this.getRunnerOptions(),
     );
     return toolArgResult;
-  }
-
-  /**
-   * Verifies tool arguments with a dedicated verification contract.
-   */
-  private async verifyToolArguments(
-    toolName: ToolName,
-    description: string,
-    schema: Record<string, FieldType>,
-    userInput: string,
-    extractedArgs: Record<string, unknown>,
-    contextSnapshot?: ContextSnapshot,
-  ) {
-    const prompt = this.orchestrator.buildToolArgumentVerificationPrompt(
-      toolName,
-      description,
-      schema,
-      userInput,
-      extractedArgs,
-      contextSnapshot,
-    );
-    const result = await this.runner.executeContract(
-      'TOOL_ARGUMENT_VERIFICATION',
-      prompt,
-      (raw) => this.orchestrator.validateToolArgumentVerification(raw),
-      this.getRunnerOptions(),
-    );
-    return result;
   }
 
   private shouldSkipToolExecution(
@@ -1525,7 +1297,7 @@ export class Pipeline {
    */
   private async runNonToolAnswer(
     userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
+    intent: string | undefined,
     attempts: number,
     toneInstructions: string | undefined,
     personalityDescription: string,
@@ -1536,8 +1308,8 @@ export class Pipeline {
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.language;
 
-    if (intent?.intent === CONVERSATION_INTENT) {
-      return this.runConversationalAnswer(
+    if (intent === CONVERSATION_INTENT) {
+      return this.runAnswer(
         userInput,
         intent,
         attempts + attemptOffset,
@@ -1545,6 +1317,8 @@ export class Pipeline {
         personalityDescription,
         language,
         contextSnapshot,
+        undefined,
+        'conversational',
       );
     }
 
@@ -1561,65 +1335,16 @@ export class Pipeline {
     );
   }
 
-  /**
-   * Runs the conversational answer contract for simple dialogue.
-   */
-  private async runConversationalAnswer(
-    userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
-    attempts: number,
-    toneInstructions: string | undefined,
-    personalityDescription: string,
-    language: DetectedLanguage,
-    contextSnapshot?: ContextSnapshot,
-  ): Promise<PipelineResult> {
-    Logger.debug('pipeline', 'Running conversational answer contract');
-    const prompt = this.orchestrator.buildConversationalAnswerPrompt(
-      userInput,
-      toneInstructions,
-      language,
-      personalityDescription,
-      contextSnapshot,
-    );
-    const result = await this.runner.executeContract(
-      'CONVERSATIONAL_ANSWER',
-      prompt,
-      (raw) => this.orchestrator.validateConversationalAnswer(raw),
-      this.getRunnerOptions(),
-    );
-
-    if (!result.ok) {
-      Logger.error('pipeline', 'Conversational answer contract failed');
-      return {
-        ok: false,
-        kind: 'error',
-        stage: 'strict_answer',
-        attempts: attempts + result.attempts,
-      };
-    }
-
-    Logger.debug('pipeline', 'Conversational answer generated successfully');
-    // Conversational answers are isolated - no scoring, no post-processing
-    return {
-      ok: true,
-      kind: 'strict_answer',
-      value: result.value,
-      intent,
-      language,
-      attempts: attempts + result.attempts,
-    };
-  }
-
   private async runAnswer(
     userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
+    intent: string | undefined,
     attempts: number,
     toneInstructions?: string,
     personalityDescription?: string,
     language?: DetectedLanguage,
     contextSnapshot?: ContextSnapshot,
     toolSuggestion?: string,
-    mode: 'strict' | 'normal' = 'strict',
+    mode: AnswerMode = 'strict',
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', `Running answer contract (mode: ${mode})`);
     const prompt = this.orchestrator.buildAnswerPrompt(
@@ -1633,7 +1358,7 @@ export class Pipeline {
     const result = await this.runner.executeContract(
       'ANSWER',
       prompt,
-      (raw) => this.orchestrator.validateAnswer(raw),
+      (raw) => this.orchestrator.validateAnswerMode(raw, mode),
       this.getRunnerOptions(),
     );
 
@@ -1680,18 +1405,19 @@ export class Pipeline {
     const stageStartMs = Date.now();
     const fallback = fallbackText ?? text;
     try {
-      const prompt = this.orchestrator.buildResponseFormattingPrompt(
+      const prompt = this.orchestrator.buildAnswerPrompt(
         text,
-        language,
+        'tool-formatting',
         toneInstructions,
-        requestContext,
-        toolLabel,
+        language,
+        undefined,
         contextSnapshot,
+        { requestContext, toolName: toolLabel, response: text },
       );
       const result = await this.runner.executeContract(
-        'RESPONSE_FORMATTING',
+        'ANSWER',
         prompt,
-        (raw) => this.orchestrator.validateResponseFormatting(raw),
+        (raw) => this.orchestrator.validateAnswerMode(raw, 'tool-formatting'),
         this.getRunnerOptions(),
       );
 
@@ -2005,35 +1731,20 @@ export class Pipeline {
   /**
    * Builds a localized pcinfo summary from structured data.
    */
-  private buildPcInfoSummary(result: PcInfoSummary, language: DetectedLanguage): string {
-    const isGerman = language.language.startsWith('de');
-    const labels = isGerman
-      ? {
-          system: 'System',
-          hostname: 'Hostname',
-          uptime: 'Betriebszeit',
-          platform: 'Plattform',
-          cpu: 'CPU',
-          memory: 'RAM',
-          disk: 'Datenträger',
-          usage: 'Auslastung',
-          cores: 'Kerne',
-          threads: 'Threads',
-          free: 'Frei',
-        }
-      : {
-          system: 'System',
-          hostname: 'Hostname',
-          uptime: 'Uptime',
-          platform: 'Platform',
-          cpu: 'CPU',
-          memory: 'RAM',
-          disk: 'Disk',
-          usage: 'Usage',
-          cores: 'cores',
-          threads: 'threads',
-          free: 'Free',
-        };
+  private buildPcInfoSummary(result: PcInfoSummary): string {
+    const labels = {
+      system: 'System',
+      hostname: 'Hostname',
+      uptime: 'Uptime',
+      platform: 'Platform',
+      cpu: 'CPU',
+      memory: 'RAM',
+      disk: 'Disk',
+      usage: 'Usage',
+      cores: 'cores',
+      threads: 'threads',
+      free: 'Free',
+    };
 
     const lines: string[] = [];
 
@@ -2094,34 +1805,6 @@ export class Pipeline {
     return lines.join('\n');
   }
 
-  /**
-   * Builds a compact reference context for scoring comparisons.
-   */
-  private formatReferenceContext(
-    contextSnapshot?: ContextSnapshot,
-    toolMeta?: { toolName?: ToolName; toolArgs?: Record<string, unknown> },
-  ): string {
-    if (!contextSnapshot && !toolMeta) {
-      return 'Not provided.';
-    }
-
-    const payload = {
-      ENVIRONMENT: contextSnapshot?.environment ?? {},
-      STATE: contextSnapshot?.state ?? {},
-      TOOL: toolMeta?.toolName
-        ? {
-            name: toolMeta.toolName,
-            args: toolMeta.toolArgs ?? null,
-          }
-        : undefined,
-    };
-
-    try {
-      return JSON.stringify(payload, null, 2);
-    } catch {
-      return String(payload);
-    }
-  }
 
   /**
    * Summarizes structured tool output using the response formatting contract.
@@ -2135,7 +1818,7 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
     if (toolName === 'pcinfo' && isPcInfoSummary(toolResult)) {
-      return this.buildPcInfoSummary(toolResult, language);
+      return this.buildPcInfoSummary(toolResult);
     }
 
     const payload = this.stringifyToolResult(toolResult);
@@ -2152,65 +1835,6 @@ export class Pipeline {
     );
   }
 
-  private async runScoringEvaluation(
-    label: string,
-    text: string,
-    userGoal?: string,
-    referenceContext?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): Promise<{ evaluation?: Record<string, number>; attempts: number; alert?: EvaluationAlert }> {
-    if (!text || !text.trim()) {
-      return { attempts: 0 };
-    }
-
-    const stageStartMs = Date.now();
-    try {
-      const prompt = this.orchestrator.buildScoringPrompt(
-        text,
-        userGoal,
-        referenceContext,
-        contextSnapshot,
-      );
-      const result = await this.runner.executeContract(
-        'SCORING_EVALUATION',
-        prompt,
-        (raw) => this.orchestrator.validateScoring(raw),
-        this.getRunnerOptions(),
-      );
-
-      if (result.ok) {
-        Logger.debug('pipeline', 'Scoring evaluation succeeded', { stage: label });
-        const evaluation = result.value;
-        const hasLowScore = Object.values(evaluation).some(
-          (score) => typeof score === 'number' && score < LOW_SCORE_THRESHOLD,
-        );
-        return {
-          evaluation,
-          attempts: result.attempts,
-          alert: hasLowScore ? 'low_scores' : undefined,
-        };
-      }
-
-      Logger.warn('pipeline', 'Scoring evaluation failed', {
-        stage: label,
-        attempts: result.attempts,
-        history: result.history,
-      });
-      return { attempts: result.attempts, alert: 'scoring_failed' };
-    } catch (error) {
-      if (isAbortError(error)) {
-        throw error;
-      }
-      const durationMs = measureDurationMs(stageStartMs);
-      Logger.error('pipeline', 'Scoring evaluation error', {
-        stage: label,
-        error,
-        durationMs,
-      });
-      return { attempts: 0, alert: 'scoring_failed' };
-    }
-  }
-
   /**
    * Executes a tool and formats its response.
    * Fetches language detection in parallel with tool execution.
@@ -2222,7 +1846,7 @@ export class Pipeline {
     args: Record<string, unknown>,
     userInput: string,
     toneInstructions: string | undefined,
-    intent: { intent: string; confidence: number },
+    intent: string | undefined,
     baseAttempts: number,
     pipelineStartMs: number,
     contextSnapshot?: ContextSnapshot,
@@ -2286,17 +1910,6 @@ export class Pipeline {
         contextSnapshot,
       );
     }
-    const evaluationText =
-      typeof formattedResult === 'string'
-        ? formattedResult
-        : summary ?? this.stringifyToolResult(toolResult);
-    const scoring = await this.runScoringEvaluation(
-      `tool.${toolName}`,
-      evaluationText,
-      userInput,
-      this.formatReferenceContext(contextSnapshot, { toolName, toolArgs: args }),
-      contextSnapshot,
-    );
     const durationMs = measureDurationMs(pipelineStartMs);
     Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
       tool: toolName,
@@ -2309,12 +1922,9 @@ export class Pipeline {
       args,
       result: formattedResult,
       summary,
-      evaluation: scoring.evaluation,
-      evaluationAlert: scoring.alert,
-      intent,
+      intent: intent as string,
       language,
-      attempts:
-        baseAttempts + languageAttemptOffset + scoring.attempts,
+      attempts: baseAttempts + languageAttemptOffset,
     };
   }
 

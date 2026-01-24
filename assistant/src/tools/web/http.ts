@@ -1,136 +1,220 @@
 import type { ToolDefinition } from '../definition.js';
 import { z } from 'zod';
-import {
-  applyQueryParamEntries,
-  buildRequestBody,
-  clampPositiveInteger,
-  DEFAULT_MAX_BYTES,
-  DEFAULT_TIMEOUT_MS,
-  executeHttpRequest,
-  MAX_ALLOWED_BYTES,
-  MAX_TIMEOUT_MS,
-  normalizeMethod,
-  ensureHttpUrl,
-} from './http-core.js';
-import type { HttpResponseResult } from './http-core.js';
+
+/* ------------------------------------------------------------------------- *
+ * CORE (merged from http-core.ts)
+ * ------------------------------------------------------------------------- */
+
+export type HttpResponseResult = {
+  url: string;
+  finalUrl: string;
+  method: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  contentType: string | null;
+  content: string;
+  bytesRead: number;
+  totalBytes: number;
+  truncated: boolean;
+  redirected: boolean;
+};
+
+export type HttpRequestOptions = {
+  method: string;
+  headers: Record<string, string>;
+  body?: string;
+  maxBytes: number;
+  timeoutMs: number;
+};
+
+export const DEFAULT_MAX_BYTES = 150_000;
+export const MAX_ALLOWED_BYTES = 1_000_000;
+export const DEFAULT_TIMEOUT_MS = 15_000;
+export const MAX_TIMEOUT_MS = 60_000;
+
+export const ensureHttpUrl = (raw: string): string => {
+  const candidate = raw.trim();
+  if (!candidate) {
+    throw new Error('Request URL is required.');
+  }
+
+  const tryParse = (value: string): URL | null => {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z\d+-.]*:/.test(candidate);
+  let parsed: URL | null = tryParse(candidate);
+  if (!parsed && !hasScheme) {
+    const prefixed = candidate.startsWith('//')
+      ? `https:${candidate}`
+      : `https://${candidate}`;
+    parsed = tryParse(prefixed);
+  }
+
+  if (!parsed) {
+    throw new Error(`Invalid URL "${candidate}".`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Only http:// or https:// URLs are supported.');
+  }
+
+  return parsed.toString();
+};
+
+const readResponseContent = async (
+  response: Response,
+  byteLimit: number,
+): Promise<{
+  content: string;
+  bytesRead: number;
+  totalBytes: number;
+  truncated: boolean;
+}> => {
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const totalBytes = bytes.length;
+  const truncated = totalBytes > byteLimit;
+  const view = truncated ? bytes.subarray(0, byteLimit) : bytes;
+  const decoder = new TextDecoder();
+  const content = decoder.decode(view);
+
+  return {
+    content,
+    bytesRead: view.byteLength,
+    totalBytes,
+    truncated,
+  };
+};
+
+const buildHttpResponseResult = async (
+  requestUrl: string,
+  response: Response,
+  options: HttpRequestOptions,
+): Promise<HttpResponseResult> => {
+  const { content, bytesRead, totalBytes, truncated } = await readResponseContent(
+    response,
+    options.maxBytes,
+  );
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+
+  const finalUrl = response.url || requestUrl;
+  const redirected = response.redirected || finalUrl !== requestUrl;
+
+  return {
+    url: requestUrl,
+    finalUrl,
+    method: options.method,
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+    contentType: response.headers.get('content-type'),
+    content,
+    bytesRead,
+    totalBytes,
+    truncated,
+    redirected,
+  };
+};
+
+type TauriHttpModule = {
+  fetch: (url: string, options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) => Promise<Response>;
+};
+
+let tauriHttpModule: TauriHttpModule | null = null;
+
+const loadTauriHttp = async (): Promise<TauriHttpModule | null> => {
+  if (tauriHttpModule !== null) {
+    return tauriHttpModule;
+  }
+
+  try {
+    const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
+    tauriHttpModule = { fetch: tauriFetch as unknown as (url: string, options?: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+    }) => Promise<Response> };
+    return tauriHttpModule;
+  } catch {
+    return null;
+  }
+};
+
+export const executeHttpRequest = async (
+  url: string,
+  options: HttpRequestOptions,
+): Promise<HttpResponseResult> => {
+  const tauri = await loadTauriHttp();
+
+  if (tauri) {
+    try {
+      const response = await tauri.fetch(url, {
+        method: options.method,
+        headers: options.headers,
+        body: options.body,
+      });
+
+      return buildHttpResponseResult(url, response, options);
+    } catch (error) {
+      throw new Error(
+        `HTTP request failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+      signal: controller.signal,
+    });
+
+    return buildHttpResponseResult(url, response, options);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request to ${url} timed out after ${options.timeoutMs}ms.`);
+    }
+    throw new Error(
+      `HTTP request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 /* ------------------------------------------------------------------------- *
  * TYPES
  * ------------------------------------------------------------------------- */
 
-type HttpQueryPrimitive = string | number | boolean;
-type HttpQueryValue = HttpQueryPrimitive | Array<HttpQueryPrimitive>;
-
 type HttpToolArgs = {
   url: string;
-  method: string | null;
-  headers: Record<string, HttpQueryPrimitive | null | undefined> | null;
-  queryParams: Record<string, HttpQueryValue | null | undefined> | null;
   body: string | null;
-  maxBytes: number | null;
-  timeoutMs: number | null;
-  bypassCookieNotices: boolean | null;
 };
 
 type HttpToolResult = HttpResponseResult;
 
-const httpQueryPrimitive = z.union([z.string(), z.number(), z.boolean()]);
-const httpQueryValue = z.union([httpQueryPrimitive, z.array(httpQueryPrimitive)]);
-
 const httpArgsSchema = z.object({
   url: z.string().min(1),
-  method: z.string().nullable(),
-  headers: z.record(httpQueryPrimitive.nullable()).nullable(),
-  queryParams: z.record(httpQueryValue.nullable()).nullable(),
   body: z.string().nullable(),
-  maxBytes: z.number().int().positive().nullable(),
-  timeoutMs: z.number().int().positive().nullable(),
-  bypassCookieNotices: z.boolean().nullable(),
 });
-
-/* ------------------------------------------------------------------------- *
- * HELPERS
- * ------------------------------------------------------------------------- */
-
-const normalizeHeaders = (
-  raw: Record<string, HttpQueryPrimitive | null | undefined> | null,
-): Record<string, string> => {
-  if (!raw) {
-    return {};
-  }
-
-  const normalized: Record<string, string> = {};
-  const keys = Object.keys(raw);
-
-  for (let index = 0; index < keys.length; index += 1) {
-    const key = keys[index];
-    if (!key) {
-      continue;
-    }
-    const value = raw[key];
-    if (value === undefined) {
-      continue;
-    }
-    normalized[key] = value === null ? '' : String(value);
-  }
-
-  return normalized;
-};
-
-const isQueryPrimitive = (
-  value: unknown,
-): value is HttpQueryPrimitive => {
-  return (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  );
-};
-
-const buildQueryParamEntries = (
-  raw: Record<string, HttpQueryValue | null | undefined> | null,
-): Array<[string, string]> => {
-  if (!raw) {
-    return [];
-  }
-
-  const entries: Array<[string, string]> = [];
-  const keys = Object.keys(raw);
-
-  for (let index = 0; index < keys.length; index += 1) {
-    const key = keys[index];
-    if (!key) {
-      continue;
-    }
-    const value = raw[key];
-    if (value === undefined || value === null) {
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      for (let itemIndex = 0; itemIndex < value.length; itemIndex += 1) {
-        const item = value[itemIndex];
-        if (!isQueryPrimitive(item)) {
-          throw new Error(
-            `Query parameter array for "${key}" contains unsupported value.`,
-          );
-        }
-        entries.push([key, String(item)]);
-      }
-      continue;
-    }
-
-    if (!isQueryPrimitive(value)) {
-      throw new Error(
-        `Query parameter "${key}" must be a string, number, boolean, or array thereof.`,
-      );
-    }
-
-    entries.push([key, String(value)]);
-  }
-
-  return entries;
-};
 
 /* ------------------------------------------------------------------------- *
  * TOOL DEFINITION
@@ -138,35 +222,24 @@ const buildQueryParamEntries = (
 
 export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
   name: 'http',
-  description: 'fetch url, capture headers, and return response body',
+  description: 'Select to fetch a url (default to https:// without "www") and return the response body.',
   schema: {
     url: 'string',
-    method: 'string|null',
-    headers: 'object|null',
-    queryParams: 'object|null',
     body: 'string|null',
-    maxBytes: 'number|null',
-    timeoutMs: 'number|null',
-    bypassCookieNotices: 'boolean|null',
   },
   argsSchema: httpArgsSchema,
   async execute(args) {
-    const baseUrl = ensureHttpUrl(args.url);
-    const queryEntries = buildQueryParamEntries(args.queryParams);
-    const targetUrl = applyQueryParamEntries(baseUrl, queryEntries);
-    const method = normalizeMethod(args.method);
-    const headers = normalizeHeaders(args.headers);
-    const body = buildRequestBody(method, args.body);
-    const maxBytes = clampPositiveInteger(args.maxBytes, DEFAULT_MAX_BYTES, MAX_ALLOWED_BYTES);
-    const timeoutMs = clampPositiveInteger(args.timeoutMs, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
+    const targetUrl = ensureHttpUrl(args.url);
+    const method = 'GET'; // Only supported method
+    const maxBytes = DEFAULT_MAX_BYTES;
+    const timeoutMs = DEFAULT_TIMEOUT_MS;
 
+    // Provided body (if any) is ignored because GET is the only supported method.
     return executeHttpRequest(targetUrl, {
       method,
-      headers,
-      body,
+      headers: {},
       maxBytes,
       timeoutMs,
-      bypassCookieNotices: args.bypassCookieNotices ?? false,
     });
   },
 };

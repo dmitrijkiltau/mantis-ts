@@ -28,7 +28,7 @@
 
   .bubble-content {
     @apply flex flex-col items-stretch justify-start pr-2 overflow-y-auto;
-    @apply text-base leading-relaxed text-terminal-primary font-mono;
+    @apply text-base leading-relaxed;
     max-height: min(50vh, 420px);
 
     & p {
@@ -40,7 +40,7 @@
     }
 
     & strong {
-      @apply font-bold text-terminal-primary;
+      @apply font-bold;
     }
 
     & em {
@@ -48,7 +48,7 @@
     }
 
     & a {
-      @apply text-terminal-primary underline transition-colors hover:text-primary-70;
+      @apply underline transition-colors hover:text-primary-70;
     }
 
     .inline-code {
@@ -76,8 +76,8 @@
       .code-block-button {
         @apply inline-flex items-center justify-center gap-1 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold tracking-widest uppercase text-terminal-primary;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-18 font-mono;
+        @apply text-[10px] font-semibold tracking-widest uppercase;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-18;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;
@@ -108,10 +108,6 @@
       pre {
         @apply m-0 p-3 text-xs overflow-x-auto;
         white-space: pre;
-
-        code {
-          @apply font-mono text-terminal-primary;
-        }
       }
     }
 
@@ -152,7 +148,7 @@
       }
 
       .file-preview-path {
-        @apply text-[11px] font-mono text-terminal-primary underline;
+        @apply text-[11px] underline;
         @apply decoration-primary-40 underline-offset-2 cursor-pointer;
         @apply bg-transparent border-0 p-0 transition-colors duration-150;
 
@@ -210,7 +206,7 @@
         }
 
         .http-meta-value {
-          @apply text-[11px] font-mono text-terminal-primary wrap-break-word;
+          @apply text-[11px] wrap-break-word;
         }
       }
 
@@ -224,7 +220,7 @@
 
       .http-preview-badge {
         @apply text-[10px] font-bold tracking-widest border px-2 py-0.5;
-        @apply rounded border-primary-40 text-terminal-primary bg-primary-10;
+        @apply rounded border-primary-40 bg-primary-10;
 
         &.warning {
           @apply text-terminal-amber border-amber-40 bg-amber-20;
@@ -257,12 +253,12 @@
       }
 
       .http-json-pretty pre {
-        @apply m-0 text-[12px] leading-snug text-terminal-primary font-mono overflow-x-auto;
+        @apply m-0 text-[12px] leading-snug overflow-x-auto;
         white-space: pre;
       }
 
       .http-json-viewer {
-        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto font-mono leading-snug;
+        @apply text-[11px] whitespace-normal max-h-60 overflow-y-auto leading-snug;
       }
 
       .http-json-controls {
@@ -277,8 +273,8 @@
       .http-json-button {
         @apply inline-flex items-center justify-center gap-2 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold uppercase tracking-widest text-terminal-primary;
-        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5 font-mono;
+        @apply text-[10px] font-semibold uppercase tracking-widest;
+        @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5;
 
         &:focus-visible {
           @apply outline outline-terminal-cyan outline-offset-1;
@@ -314,10 +310,6 @@
     .tool-output {
       @apply flex flex-col gap-4;
 
-      .tool-output-summary {
-        @apply text-terminal-primary;
-      }
-
       .tool-output-accordion {
         @apply rounded border border-primary-30 bg-bg-terminal shadow-(--shadow-inset-glow);
 
@@ -345,7 +337,7 @@
         }
 
         .tool-output-accordion-hint {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-file-title {
@@ -353,11 +345,11 @@
         }
 
         .tool-output-file-name {
-          @apply text-terminal-primary text-[11px] font-mono;
+          @apply text-[11px];
         }
 
         .tool-output-file-path {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-file-lang {
@@ -377,7 +369,7 @@
         }
 
         .tool-output-http-url {
-          @apply text-[10px] font-mono text-primary-60;
+          @apply text-[10px] text-primary-60;
         }
 
         .tool-output-accordion-controls {
@@ -450,10 +442,6 @@
         }
       }
 
-      code {
-        @apply font-mono text-terminal-primary;
-      }
-
       .code-line {
         @apply block relative pl-2 leading-[inherit];
 
@@ -495,7 +483,7 @@
     }
 
     .pcinfo-title {
-      @apply text-terminal-primary font-semibold;
+      @apply font-semibold;
     }
 
     .pcinfo-row {
@@ -504,10 +492,6 @@
 
     .pcinfo-row-label {
       @apply text-primary-60 font-semibold tracking-widest;
-    }
-
-    .pcinfo-row-value {
-      @apply text-terminal-primary font-mono;
     }
 
     .pcinfo-bar {
@@ -531,7 +515,7 @@
     }
 
     .pcinfo-bar-detail {
-      @apply text-[10px] font-mono text-primary-60;
+      @apply text-[10px] text-primary-60;
     }
 
     .pcinfo-disk {
@@ -547,11 +531,11 @@
     }
 
     .tool-output-pcinfo-host {
-      @apply text-terminal-primary text-[11px] font-mono;
+      @apply text-[11px];
     }
 
     .tool-output-pcinfo-subtitle {
-      @apply text-[10px] font-mono text-primary-60;
+      @apply text-[10px] text-primary-60;
     }
 
     .tool-output-panel {
@@ -591,7 +575,7 @@
       }
 
       .markdown-preview-content {
-        @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+        @apply px-4 py-3 text-sm leading-relaxed;
 
         & p {
           @apply my-2 first:mt-0 last:mb-0;
@@ -632,7 +616,7 @@
     }
 
     .file-output-block .markdown-preview-content {
-      @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+      @apply px-4 py-3 text-sm leading-relaxed;
 
       & p {
         @apply my-2 first:mt-0 last:mb-0;
@@ -692,19 +676,15 @@
         pre {
           @apply m-0 p-3 text-xs overflow-x-auto whitespace-pre;
         }
-
-        code {
-          @apply font-mono text-terminal-primary;
-        }
       }
 
       .code-block-json-viewer {
-        @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
+        @apply text-[11px] p-3 max-h-96 overflow-y-auto leading-snug;
       }
     }
 
     .file-output-block .code-block-json-viewer {
-      @apply text-[11px] p-3 max-h-96 overflow-y-auto font-mono leading-snug;
+      @apply text-[11px] p-3 max-h-96 overflow-y-auto leading-snug;
     }
 
     .json-viewer-root {
@@ -712,7 +692,7 @@
     }
 
     .json-node {
-      @apply text-terminal-primary font-mono text-[11px] leading-snug;
+      @apply text-[11px] leading-snug;
 
       & summary {
         @apply list-none flex items-center gap-1 cursor-pointer text-[11px];
@@ -729,16 +709,16 @@
       }
 
       .json-node-key {
-        @apply font-mono text-terminal-primary text-[11px];
+        @apply text-[11px];
       }
 
       .json-node-type,
       .json-node-count {
-        @apply text-primary-60 text-[10px] font-mono;
+        @apply text-primary-60 text-[10px];
       }
 
       .json-value {
-        @apply text-[11px] font-mono;
+        @apply text-[11px];
 
         &-string {
           @apply text-terminal-amber;
@@ -756,7 +736,7 @@
       }
 
       .json-node-empty {
-        @apply text-[10px] font-mono text-primary-70;
+        @apply text-[10px] text-primary-70;
       }
     }
 
@@ -770,7 +750,7 @@
       @apply transition-colors duration-150 cursor-pointer;
 
       &:hover {
-        @apply text-terminal-primary decoration-terminal-primary;
+        @apply decoration-terminal-primary;
       }
 
       &:focus-visible {
@@ -798,7 +778,7 @@
 
         .file-tree-path,
         .file-tree-meta {
-          @apply text-[11px] font-mono text-primary-70;
+          @apply text-[11px] text-primary-70;
         }
 
         .file-tree-warning {
@@ -817,7 +797,7 @@
 
       .file-node-badge {
         @apply text-[10px] font-bold uppercase border px-2 py-0.5;
-        @apply rounded border-primary-40 text-terminal-primary bg-primary-10;
+        @apply rounded border-primary-40 bg-primary-10;
 
         &[data-kind="folder"] {
           @apply text-terminal-cyan border-cyan-40 bg-cyan-20;
@@ -833,14 +813,12 @@
       .file-node-info {
         @apply flex flex-col gap-1 flex-1 min-w-0;
 
-        .file-node-name {
-          @apply text-terminal-primary;
-        }
         .file-node-size {
-          @apply text-[11px] font-mono text-primary-70 ml-auto self-start whitespace-nowrap;
+          @apply text-[11px] text-primary-70 ml-auto self-start whitespace-nowrap;
         }
+
         .file-node-path {
-          @apply text-[11px] font-mono text-primary-70 break-all;
+          @apply text-[11px] text-primary-70 break-all;
         }
       }
     }
@@ -855,7 +833,6 @@
     content: "|";
     display: inline-block;
     margin-left: 2px;
-    color: var(--color-terminal-primary);
     animation: caret-blink 0.9s steps(2, start) infinite;
   }
 
@@ -868,7 +845,6 @@
     content: "|";
     display: inline-block;
     margin-left: 2px;
-    color: var(--color-terminal-primary);
     animation: caret-blink 0.9s steps(2, start) infinite;
   }
 

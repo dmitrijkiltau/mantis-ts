@@ -35,15 +35,6 @@ type ToolProfile = {
  * Fallout-styled tool profiles for the tablet UI.
  */
 const TOOL_PROFILES: Record<ToolName, ToolProfile> = {
-  clipboard: {
-    label: 'CLIPBOARD',
-    icon: '[=]',
-    access: 'LOCAL',
-    risk: 'LOW',
-    status: 'ACTIVE',
-    brief: ['LOCAL CLIPBOARD ONLY', 'NO FILESYSTEM', 'NO NETWORK'],
-    capabilities: ['read clipboard', 'write clipboard'],
-  },
   filesystem: {
     label: 'FILESYSTEM',
     icon: '[#]',

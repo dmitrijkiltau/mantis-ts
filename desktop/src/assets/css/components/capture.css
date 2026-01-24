@@ -17,7 +17,7 @@
   }
 
   .capture-title {
-    @apply text-xs font-bold tracking-widest text-terminal-primary;
+    @apply text-xs font-bold tracking-widest;
     text-shadow: var(--shadow-text-primary);
   }
 
@@ -36,7 +36,7 @@
 
   .capture-screen-card {
     @apply flex flex-col gap-2 p-2 rounded border border-primary-30 bg-bg-black-soft;
-    @apply text-terminal-primary transition-all duration-150 ease-out;
+    @apply transition-all duration-150 ease-out;
   }
 
   .capture-screen-card.active {
@@ -87,7 +87,7 @@
 
   .capture-button {
     @apply px-3 py-1 text-[11px] font-bold;
-    @apply text-terminal-primary border border-terminal-primary bg-primary-10;
+    @apply border border-terminal-primary bg-primary-10;
     @apply transition-all duration-200 ease-out;
     letter-spacing: 0.1em;
   }

@@ -67,7 +67,11 @@ describe('tool schema parity', () => {
     const toolEntries = Object.entries(TOOLS);
 
     for (let index = 0; index < toolEntries.length; index += 1) {
-      const [toolName, tool] = toolEntries[index];
+      const entry = toolEntries[index];
+      if (!entry) {
+        continue;
+      }
+      const [toolName, tool] = entry;
       if (!tool.argsSchema) {
         issues.push(`${toolName}: missing argsSchema`);
         continue;
@@ -79,6 +83,9 @@ describe('tool schema parity', () => {
 
       for (let keyIndex = 0; keyIndex < schemaKeys.length; keyIndex += 1) {
         const key = schemaKeys[keyIndex];
+        if (!key) {
+          continue;
+        }
         if (!Object.prototype.hasOwnProperty.call(argShape, key)) {
           issues.push(`${toolName}: argsSchema missing field "${key}"`);
         }
@@ -86,6 +93,9 @@ describe('tool schema parity', () => {
 
       for (let keyIndex = 0; keyIndex < argKeys.length; keyIndex += 1) {
         const key = argKeys[keyIndex];
+        if (!key) {
+          continue;
+        }
         if (!Object.prototype.hasOwnProperty.call(tool.schema, key)) {
           issues.push(`${toolName}: schema missing field "${key}"`);
         }
@@ -93,12 +103,15 @@ describe('tool schema parity', () => {
 
       for (let keyIndex = 0; keyIndex < schemaKeys.length; keyIndex += 1) {
         const key = schemaKeys[keyIndex];
+        if (!key) {
+          continue;
+        }
         if (!Object.prototype.hasOwnProperty.call(argShape, key)) {
           continue;
         }
 
-        const fieldType = tool.schema[key];
-        const { nullable } = unwrapForNullability(argShape[key]);
+        const fieldType = tool.schema[key]!;
+        const { nullable } = unwrapForNullability(argShape[key]!);
         const expectedNullable = isFieldNullable(fieldType);
         if (nullable !== expectedNullable) {
           issues.push(

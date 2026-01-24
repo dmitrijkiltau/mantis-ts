@@ -63,9 +63,6 @@ const DesktopBootstrap: Component = () => {
     );
 
     state.registerTelemetryNodes({
-      totalEvaluations: nodes.telemetryTotal(),
-      lowScoreCount: nodes.telemetryLowScore(),
-      failureCount: nodes.telemetryFailures(),
       toolCallCount: nodes.telemetryToolCalls(),
       averageAttempts: nodes.telemetryAverageAttempts(),
       schemaMismatchCount: nodes.telemetrySchemaMismatch(),

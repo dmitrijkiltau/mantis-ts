@@ -1,4 +1,4 @@
-import type { HttpResponseResult } from '../../../../assistant/src/tools/web/http-core';
+import type { HttpResponseResult } from '../../../../assistant/src/tools/web/http';
 import type {
   BubbleDirectoryPayload,
   BubbleFilePayload,

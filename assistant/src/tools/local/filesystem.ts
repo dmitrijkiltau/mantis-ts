@@ -11,8 +11,6 @@ type FilesystemAction = 'read' | 'list' | 'stat';
 type FilesystemToolArgs = {
   action: FilesystemAction;
   path: string | null;
-  limit?: number | null;
-  maxBytes?: number | null;
 };
 
 type DirectoryEntrySummary = {
@@ -79,8 +77,6 @@ const FILESYSTEM_ACTIONS = new Set<FilesystemAction>(['read', 'list', 'stat']);
 const filesystemArgsSchema = z.object({
   action: z.enum(['read', 'list', 'stat']),
   path: z.string().min(1).nullable(),
-  limit: z.number().int().positive().nullable().optional(),
-  maxBytes: z.number().int().positive().nullable().optional(),
 });
 
 /* -------------------------------------------------------------------------
@@ -318,18 +314,16 @@ const listDirectory = async (
 
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
-  description: `read file, list directory, and stat path information on the local filesystem (actions: read, list, stat)`,
+  description: `Select to read a file, list a directory, or stat path information on the local filesystem.`,
   schema: {
     action: 'string',
     path: 'string|null',
-    limit: 'number|null',
-    maxBytes: 'number|null',
   },
   argsSchema: filesystemArgsSchema,
   async execute(args) {
     const fs = await loadTauriFS();
-    const targetPath = validatePath(args.path ?? '');
-    const action = normalizeAction<FilesystemAction>(args.action, FILESYSTEM_ACTIONS);
+    const targetPath = validatePath((args as any).path ?? '');
+    const action = normalizeAction<FilesystemAction>((args as any).action, FILESYSTEM_ACTIONS);
 
     const statResult = await statPath(targetPath, fs);
     if (action === 'stat') {
@@ -390,10 +384,13 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
       );
     }
 
+    const limit = typeof (args as any).limit === 'number' ? (args as any).limit : null;
+    const maxBytes = typeof (args as any).maxBytes === 'number' ? (args as any).maxBytes : null;
+
     if (action === 'read') {
       if (statResult.stats.isDirectory) {
         try {
-          return await listDirectory(targetPath, args.limit, fs);
+          return await listDirectory(targetPath, limit, fs);
         } catch (error) {
           return buildNoticeFromError('list', targetPath, error);
         }
@@ -409,7 +406,7 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
       }
 
       try {
-        return await readFileContent(targetPath, args.maxBytes, fs);
+        return await readFileContent(targetPath, maxBytes, fs);
       } catch (error) {
         return buildNoticeFromError(action, targetPath, error);
       }
@@ -435,7 +432,7 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
       }
 
       try {
-        return await listDirectory(targetPath, args.limit, fs);
+        return await listDirectory(targetPath, limit, fs);
       } catch (error) {
         return buildNoticeFromError(action, targetPath, error);
       }
@@ -445,7 +442,7 @@ export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolR
       action,
       targetPath,
       'unknown',
-      `Unsupported filesystem action "${args.action}".`,
+      `Unsupported filesystem action "${(args as any).action}".`,
     );
   },
 };

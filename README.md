@@ -26,7 +26,7 @@ Tone is fixed: the orchestrator injects the predefined MANTIS personality instru
 
 `assistant/src/tools/registry.ts` exports the registry of available tools organized by category:
 
-- **Local**: `clipboard`, `filesystem`, `search`
+- **Local**: `filesystem`, `search`
 - **Web**: `http`
 - **System**: `process`, `shell`, `pcinfo`
 
@@ -42,9 +42,7 @@ These contracts form the decision pipeline and are always active:
 
 - **Intent Classification**: Routes user input to appropriate tool or answer path
 - **Tool Argument Extraction**: Extracts structured arguments for tool execution
-- **Tool Argument Verification**: Makes final execution decision (execute/clarify/abort)
-- **Answer**: Unified knowledge answer contract with mode support (strict/normal)
-- **Conversational Answer**: Handles small talk and greetings (isolated, no fallback)
+- **Answer**: Unified knowledge answer contract with mode support (strict/normal/conversational/tool-formatting)
 
 ### Modality Contracts (1)
 
@@ -57,13 +55,11 @@ Triggered situationally based on input modality:
 Auxiliary functionality that never affects routing:
 
 - **Language Detection**: Detects user's language (telemetry only)
-- **Response Formatting**: Formats tool output only (best-effort, not used for text answers)
-- **Scoring/Evaluation**: Evaluates response quality (debug and QA only, never routing-relevant)
 
 ### Design Principles
 
 - **One contract = one responsibility**: No overlap or ambiguity
-- **Decisions are final**: Verification returns execute/clarify/abort with no retry loop
+- **Clarification on missing fields**: When required tool arguments are missing, the pipeline will ask a concise clarification question when a tool intent is indicated and trigger checks permit; otherwise it falls back to a non-tool answer
 - **Answer outputs are final**: Not post-processed, formatted, or scored
 - **Scoring is off-path**: Quality metrics logged but never affect routing
 ## Pipeline
@@ -73,7 +69,7 @@ Auxiliary functionality that never affects routing:
 ### Key Features
 
 - **Direct tool commands**: Recognizes single-line commands like `read <path>`, `ps`, `fetch <url>` and bypasses contracts for efficiency
-- **Tool intent guards**: Enforces confidence thresholds (0.6 minimum) and trigger guards to avoid false positives
+- **Tool intent guards**: Enforces trigger guards and selection preferences to avoid false positives
 - **Skip heuristics**: Skips tool execution if >50% of required arguments are null
 - **Parallel execution**: Runs language detection in parallel with tool execution to reduce latency
 - **Final decisions**: Verification returns execute/clarify/abort with no retry loop; answer outputs are never formatted or scored

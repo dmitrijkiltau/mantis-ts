@@ -3,14 +3,12 @@
     @apply relative flex flex-col items-center gap-4;
   }
 
-  :has(.avatar-canvas:hover, .input-terminal:hover, .pip-tablet:active) .assistant-avatar-svg {
+  :has(.avatar-canvas:hover, .input-terminal:hover, .pip-tablet:active)
+    .assistant-avatar-svg {
     @apply scale-110;
   }
 
   .avatar-canvas {
-    @apply w-48 h-48 grid place-items-center;
-    filter: var(--shadow-glow-primary);
-    transition: filter 350ms ease-out;
     --pupil-x: 0px;
     --pupil-y: 0px;
     --pupil-scale: 1;
@@ -22,111 +20,144 @@
     --brow-right-y: 0px;
     --brow-left-rotate: 0deg;
     --brow-right-rotate: 0deg;
+    @apply w-48 h-48 grid place-items-center;
+    @apply transition-[filter] duration-350 ease-out;
+    filter: var(--shadow-glow-primary);
 
     .assistant-avatar-svg {
       @apply transition-transform duration-500 ease-out;
 
       /* All colorable elements transition smoothly */
-      & [stroke], & [fill] {
-        transition: stroke 350ms ease-out, fill 350ms ease-out;
+      & :is([stroke], [fill]) {
+        @apply transition-[stroke,fill] duration-350 ease-out;
+      }
+
+      & [data-pupil] {
+        transform: translate(var(--pupil-x), var(--pupil-y))
+          scale(var(--pupil-scale), var(--pupil-scale-y));
+        transform-origin: center;
+        @apply transition-transform duration-160 ease-out;
+      }
+
+      & [data-eye] {
+        transform: translateY(var(--eye-shift-y))
+          scale(var(--eye-scale), var(--eye-scale-y));
+        transform-origin: center;
+        transform-box: fill-box;
+        @apply transition-transform duration-220 ease-out;
+      }
+
+      & [data-eyebrow="left"] {
+        transform: translateY(var(--brow-left-y))
+          rotate(var(--brow-left-rotate));
+        transform-origin: center;
+        transform-box: fill-box;
+        @apply transition-transform duration-220 ease-out;
+      }
+
+      & [data-eyebrow="right"] {
+        transform: translateY(var(--brow-right-y))
+          rotate(var(--brow-right-rotate));
+        transform-origin: center;
+        transform-box: fill-box;
+        @apply transition-transform duration-220 ease-out;
       }
     }
-  }
 
-  .avatar-canvas .assistant-avatar-svg [data-pupil] {
-    transform: translate(var(--pupil-x), var(--pupil-y))
-      scale(var(--pupil-scale), var(--pupil-scale-y));
-    transform-origin: center;
-    transition: transform 160ms ease-out;
-  }
+    &[data-mood="listening"] {
+      --brow-left-y: -2px;
+      --brow-right-y: -2px;
+      --brow-left-rotate: -6deg;
+      --brow-right-rotate: 6deg;
+      --eye-scale: 1.12;
+      --pupil-scale: 1.12;
+    }
 
-  .avatar-canvas .assistant-avatar-svg [data-eye] {
-    transform: translateY(var(--eye-shift-y))
-      scale(var(--eye-scale), var(--eye-scale-y));
-    transform-origin: center;
-    transform-box: fill-box;
-    transition: transform 220ms ease-out;
-  }
+    &[data-mood="thinking"] {
+      --brow-left-y: -1px;
+      --brow-right-y: 1px;
+      --brow-left-rotate: -2deg;
+      --brow-right-rotate: 8deg;
+      --eye-scale: 0.9;
+      --eye-shift-y: -1.5px;
+      --pupil-scale: 0.95;
 
-  .avatar-canvas .assistant-avatar-svg [data-eyebrow='left'] {
-    transform: translateY(var(--brow-left-y)) rotate(var(--brow-left-rotate));
-    transform-origin: center;
-    transform-box: fill-box;
-    transition: transform 220ms ease-out;
-  }
+      /* Subtle thinking animation - eyes drift slightly */
+      .assistant-avatar-svg [data-pupil] {
+        animation: thinkingGaze 3.2s ease-in-out infinite;
+      }
+    }
 
-  .avatar-canvas .assistant-avatar-svg [data-eyebrow='right'] {
-    transform: translateY(var(--brow-right-y)) rotate(var(--brow-right-rotate));
-    transform-origin: center;
-    transform-box: fill-box;
-    transition: transform 220ms ease-out;
-  }
+    &[data-mood="speaking"] {
+      --brow-left-y: -0.5px;
+      --brow-right-y: -0.5px;
+      --brow-left-rotate: -3deg;
+      --brow-right-rotate: 3deg;
+      --eye-scale: 1.05;
 
-  .avatar-canvas[data-mood='listening'] {
-    --brow-left-y: -2px;
-    --brow-right-y: -2px;
-    --brow-left-rotate: -6deg;
-    --brow-right-rotate: 6deg;
-    --eye-scale: 1.12;
-    --pupil-scale: 1.12;
-  }
+      .assistant-avatar-svg {
+        /* Upper lip moves up when talking */
+        & [data-mouth-upper] {
+          animation: mouthUpperTalk 0.32s ease-in-out infinite;
+          transform-origin: center bottom;
+          transform-box: fill-box;
+        }
 
-  .avatar-canvas[data-mood='thinking'] {
-    --brow-left-y: -1px;
-    --brow-right-y: 1px;
-    --brow-left-rotate: -2deg;
-    --brow-right-rotate: 8deg;
-    --eye-scale: 0.9;
-    --eye-shift-y: -1.5px;
-    --pupil-scale: 0.95;
+        /* Lower lip moves down when talking */
+        & [data-mouth-lower] {
+          animation: mouthLowerTalk 0.32s ease-in-out infinite;
+          transform-origin: center top;
+          transform-box: fill-box;
+        }
 
-    /* Subtle thinking animation - eyes drift slightly */
-    .assistant-avatar-svg [data-pupil] {
-      animation: thinkingGaze 3.2s ease-in-out infinite;
+        /* Mouth interior grows/shrinks */
+        & [data-mouth-interior] {
+          animation: mouthInteriorTalk 0.32s ease-in-out infinite;
+        }
+      }
+    }
+
+    &[data-mood="concerned"] {
+      --brow-left-y: 1.5px;
+      --brow-right-y: 1.5px;
+      --brow-left-rotate: 10deg;
+      --brow-right-rotate: -10deg;
+      --eye-scale: 0.85;
+      --eye-shift-y: 1px;
+      --pupil-scale: 0.9;
+    }
+
+    &:hover {
+      --eye-scale-y: 1.28;
+      --pupil-scale-y: 1.2;
     }
   }
 
   @keyframes thinkingGaze {
-    0%, 100% {
-      transform: translate(var(--pupil-x), var(--pupil-y)) scale(var(--pupil-scale), var(--pupil-scale-y));
+    0%,
+    100% {
+      transform: translate(var(--pupil-x), var(--pupil-y))
+        scale(var(--pupil-scale), var(--pupil-scale-y));
     }
     30% {
-      transform: translate(calc(var(--pupil-x) + 0.8px), calc(var(--pupil-y) - 0.4px)) scale(var(--pupil-scale), var(--pupil-scale-y));
+      transform: translate(
+          calc(var(--pupil-x) + 0.8px),
+          calc(var(--pupil-y) - 0.4px)
+        )
+        scale(var(--pupil-scale), var(--pupil-scale-y));
     }
     70% {
-      transform: translate(calc(var(--pupil-x) - 0.4px), calc(var(--pupil-y) - 0.2px)) scale(var(--pupil-scale), var(--pupil-scale-y));
-    }
-  }
-
-  .avatar-canvas[data-mood='speaking'] {
-    --brow-left-y: -0.5px;
-    --brow-right-y: -0.5px;
-    --brow-left-rotate: -3deg;
-    --brow-right-rotate: 3deg;
-    --eye-scale: 1.05;
-
-    /* Upper lip moves up when talking */
-    .assistant-avatar-svg [data-mouth-upper] {
-      animation: mouthUpperTalk 0.32s ease-in-out infinite;
-      transform-origin: center bottom;
-      transform-box: fill-box;
-    }
-
-    /* Lower lip moves down when talking */
-    .assistant-avatar-svg [data-mouth-lower] {
-      animation: mouthLowerTalk 0.32s ease-in-out infinite;
-      transform-origin: center top;
-      transform-box: fill-box;
-    }
-
-    /* Mouth interior grows/shrinks */
-    .assistant-avatar-svg [data-mouth-interior] {
-      animation: mouthInteriorTalk 0.32s ease-in-out infinite;
+      transform: translate(
+          calc(var(--pupil-x) - 0.4px),
+          calc(var(--pupil-y) - 0.2px)
+        )
+        scale(var(--pupil-scale), var(--pupil-scale-y));
     }
   }
 
   @keyframes mouthUpperTalk {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
     50% {
@@ -135,7 +166,8 @@
   }
 
   @keyframes mouthLowerTalk {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
     50% {
@@ -144,7 +176,8 @@
   }
 
   @keyframes mouthInteriorTalk {
-    0%, 100% {
+    0%,
+    100% {
       ry: 2;
       opacity: 0.6;
     }
@@ -154,57 +187,41 @@
     }
   }
 
-  .avatar-canvas[data-mood='concerned'] {
-    --brow-left-y: 1.5px;
-    --brow-right-y: 1.5px;
-    --brow-left-rotate: 10deg;
-    --brow-right-rotate: -10deg;
-    --eye-scale: 0.85;
-    --eye-shift-y: 1px;
-    --pupil-scale: 0.9;
-  }
-
-  .avatar-canvas:hover {
-    --eye-scale-y: 1.28;
-    --pupil-scale-y: 1.2;
-  }
-
   .status-indicator {
-    @apply text-xs px-3 py-1 rounded text-terminal-primary;
-    @apply border;
-    background: var(--color-primary-20);
-    border-color: var(--color-primary-40);
-    animation: pulse 2s ease-in-out infinite;
+    @apply text-xs px-3 py-1 rounded border bg-primary-20 border-primary-40 animate-[pulse_2s_ease-in-out_infinite];
 
-    &[data-mood='listening'] {
-      @apply text-terminal-cyan;
-      background: var(--color-cyan-20);
-      border-color: var(--color-cyan-40);
+    &[data-mood="listening"] {
+      @apply text-terminal-cyan bg-cyan-20 border-cyan-40;
     }
 
-    &[data-mood='thinking'] {
-      @apply text-terminal-amber;
-      background: var(--color-amber-20);
-      border-color: var(--color-amber-40);
+    &[data-mood="thinking"] {
+      @apply text-terminal-amber bg-amber-20 border-amber-40;
     }
 
-    &[data-mood='speaking'] {
-      @apply text-terminal-emerald;
-      background: var(--color-emerald-20);
-      border-color: var(--color-emerald-40);
+    &[data-mood="speaking"] {
+      @apply text-terminal-emerald bg-emerald-20 border-emerald-40;
     }
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .avatar-canvas .assistant-avatar-svg [data-mouth-upper],
-    .avatar-canvas .assistant-avatar-svg [data-mouth-lower],
-    .avatar-canvas .assistant-avatar-svg [data-mouth-interior],
-    .avatar-canvas .assistant-avatar-svg [data-pupil] {
+    .avatar-canvas
+      .assistant-avatar-svg
+      :is(
+        [data-mouth-upper],
+        [data-mouth-lower],
+        [data-mouth-interior],
+        [data-pupil]
+      ) {
       animation: none !important;
     }
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Pipeline } from './pipeline.js';
 import { createMockOrchestrator, createMockRunner } from './test-helpers/pipeline-mocks.js';
 
@@ -395,6 +395,11 @@ describe('Pipeline', () => {
       expect(result).toBe(true);
     });
 
+    it('should return true when trigger appears in intent suffix but not in user input', () => {
+      const result = (pipeline as any).hasToolTrigger('Please run a background job', 'process', 'tool.process: list processes');
+      expect(result).toBe(true);
+    });
+
     it('should return true for tool.search intent', () => {
       const result = (pipeline as any).isToolIntent('tool.search');
       expect(result).toBe(true);
@@ -420,81 +425,6 @@ describe('Pipeline', () => {
     it('should return null for unknown tool', () => {
       const result = (pipeline as any).resolveToolName('tool.unknownTool');
       expect(result).toBeNull();
-    });
-  });
-
-  describe('meetsToolConfidence', () => {
-    it('should return true for confidence >= 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.6);
-      expect(result).toBe(true);
-    });
-
-    it('should return true for confidence > 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.9);
-      expect(result).toBe(true);
-    });
-
-    it('should return false for confidence < 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.59);
-      expect(result).toBe(false);
-    });
-
-    it('should return true for confidence = 1', () => {
-      const result = (pipeline as any).meetsToolConfidence(1);
-      expect(result).toBe(true);
-    });
-
-    it('should return false for confidence = 0', () => {
-      const result = (pipeline as any).meetsToolConfidence(0);
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('runScoringEvaluation', () => {
-    it('skips scoring when the text is blank', async () => {
-      mockRunner.executeContract = vi.fn();
-      const result = await (pipeline as any).runScoringEvaluation('stage', '   ');
-      expect(result).toEqual({ attempts: 0 });
-      expect(mockRunner.executeContract).not.toHaveBeenCalled();
-    });
-
-    it('returns evaluation when runner succeeds', async () => {
-      const evaluationPayload = { clarity: 8, correctness: 9, usefulness: 7 };
-      mockRunner.executeContract = vi.fn().mockResolvedValue({
-        ok: true,
-        value: evaluationPayload,
-        attempts: 1,
-        history: [],
-      });
-      const result = await (pipeline as any).runScoringEvaluation('stage', 'Evaluate this text');
-      expect(mockOrchestrator.buildScoringPrompt).toHaveBeenCalledWith('Evaluate this text', undefined, undefined, undefined);
-      expect(result).toEqual({ evaluation: evaluationPayload, attempts: 1, alert: undefined });
-    });
-
-    it('returns attempts when runner fails to validate output', async () => {
-      mockRunner.executeContract = vi.fn().mockResolvedValue({
-        ok: false,
-        attempts: 2,
-        history: [],
-      });
-      const result = await (pipeline as any).runScoringEvaluation('stage', 'Another text');
-      expect(result).toEqual({ attempts: 2, alert: 'scoring_failed' });
-    });
-
-    it('marks low scores when a criterion is under threshold', async () => {
-      const evaluationPayload = { clarity: 2, correctness: 6, usefulness: 5 };
-      mockRunner.executeContract = vi.fn().mockResolvedValue({
-        ok: true,
-        value: evaluationPayload,
-        attempts: 1,
-        history: [],
-      });
-      const result = await (pipeline as any).runScoringEvaluation('stage', 'Check low score');
-      expect(result).toEqual({
-        evaluation: evaluationPayload,
-        attempts: 1,
-        alert: 'low_scores',
-      });
     });
   });
 });

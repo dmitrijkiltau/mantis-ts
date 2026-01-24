@@ -9,20 +9,11 @@ import {
   validateToolArguments,
 } from './contracts/tool.argument.extraction.js';
 import {
-  type ToolArgumentVerificationResult,
-  validateToolArgumentVerification,
-} from './contracts/tool.argument.verification.js';
-import {
-  type ScoringCriteria,
-  validateScoring,
-} from './contracts/scoring.evaluation.js';
-import {
   ANSWER_MODE_INSTRUCTIONS,
   validateAnswer,
+  getAnswerValidator,
   type AnswerMode,
 } from './contracts/answer.js';
-import { validateConversationalAnswer } from './contracts/conversational.answer.js';
-import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
 import { validateImageRecognition } from './contracts/image.recognition.js';
 import {
@@ -75,6 +66,7 @@ export class Orchestrator {
     contractName: ContractName,
     context: Record<string, string> = {},
     contextSnapshot?: ContextSnapshot,
+    overrideUserPrompt?: string,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
     const mode = contract.MODE ?? 'chat';
@@ -102,8 +94,9 @@ export class Orchestrator {
     const systemPrompt = contract.SYSTEM_PROMPT
       ? renderTemplate(contract.SYSTEM_PROMPT, promptContext)
       : '';
-    const userPrompt = contract.USER_PROMPT
-      ? renderTemplate(contract.USER_PROMPT, promptContext)
+    const userPromptTemplate = overrideUserPrompt ?? contract.USER_PROMPT;
+    const userPrompt = userPromptTemplate
+      ? renderTemplate(userPromptTemplate, promptContext)
       : undefined;
 
     return {
@@ -195,10 +188,10 @@ export class Orchestrator {
     }
 
     lines.push(
-      `- ${GENERAL_ANSWER_INTENT}: (use only when NO tool applies) general knowledge, coding help, and complex reasoning`,
+      `- ${GENERAL_ANSWER_INTENT}: Select when no tool applies; for general knowledge (date, time, weekday, etc.), coding help, and complex reasoning.`,
     );
     lines.push(
-      `- ${CONVERSATION_INTENT}: small talk, greetings, and thanks only`,
+      `- ${CONVERSATION_INTENT}: Select for small talk, greetings, and thanks only.`,
     );
 
     const formatted = lines.join('\n');
@@ -286,149 +279,40 @@ export class Orchestrator {
   }
 
   /**
-   * Builds a prompt to verify extracted tool arguments against user intent.
-   */
-  public buildToolArgumentVerificationPrompt(
-    toolName: string,
-    description: string,
-    schema: ToolSchema,
-    userInput: string,
-    extractedArgs: Record<string, unknown>,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('TOOL_ARGUMENT_VERIFICATION', {
-      TOOL_NAME: toolName,
-      TOOL_DESCRIPTION: description,
-      TOOL_SCHEMA: this.formatToolSchema(schema),
-      USER_INPUT: this.normalize(userInput),
-      EXTRACTED_ARGS: this.formatToolArguments(extractedArgs),
-    }, contextSnapshot);
-  }
-
-  private formatScoringSchema(criteria: ScoringCriteria): string {
-    const schema: Record<string, string> = {};
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      schema[criterion.name] = 'number';
-    }
-    return JSON.stringify(schema, null, 2);
-  }
-
-  private buildScoringTask(criteria: ScoringCriteria): string {
-    if (criteria.length === 0) {
-      return (
-        'Evaluate the provided text according to the given criteria. Use USER_GOAL and REFERENCE_CONTEXT '
-        + 'to assess relevance, correctness, and usefulness. Each criterion must be scored independently.'
-      );
-    }
-
-    const names: string[] = [];
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      names.push(criterion.name);
-    }
-    const joinedNames = names.join(', ');
-    return (
-      `Evaluate the provided text according to the following criteria: ${joinedNames}. `
-      + 'Use USER_GOAL and REFERENCE_CONTEXT to assess each criterion. Each criterion must be scored independently.'
-    );
-  }
-
-  private formatCriteriaDefinitions(criteria: ScoringCriteria): string {
-    if (criteria.length === 0) {
-      return '- Not specified.';
-    }
-
-    const definitions: string[] = [];
-    for (let index = 0; index < criteria.length; index += 1) {
-      const criterion = criteria[index];
-      if (!criterion) {
-        continue;
-      }
-      definitions.push(`- ${criterion.name}: ${criterion.definition}`);
-    }
-    return definitions.join('\n');
-  }
-
-  public buildScoringPrompt(
-    text: string,
-    userGoal?: string,
-    referenceContext?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    const contract = this.contractRegistry.SCORING_EVALUATION;
-    const criteria = (contract.CRITERIA ?? []) as ScoringCriteria;
-    return this.buildPrompt('SCORING_EVALUATION', {
-      CRITERIA_SCHEMA: this.formatScoringSchema(criteria),
-      CRITERIA_TASK: this.buildScoringTask(criteria),
-      CRITERIA_DEFINITIONS: this.formatCriteriaDefinitions(criteria),
-      TEXT: this.normalize(text),
-      USER_GOAL: userGoal?.trim() || 'Not provided.',
-      REFERENCE_CONTEXT: referenceContext?.trim() || 'Not provided.',
-    }, contextSnapshot);
-  }
-
-  /**
    * Builds a unified answer prompt with mode support.
    * @param mode - 'strict' for concise factual answers, 'normal' for natural responses
+   *               'conversational' for short dialogue
+   *               'tool-formatting' to format raw tool output into a concise response
    */
   public buildAnswerPrompt(
-    question: string,
+    questionOrResponse: string,
     mode: AnswerMode = 'strict',
     toneInstructions?: string,
-    language?: { language: string; name: string },
+    language?: string | { language: string; name: string },
     personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
+    formattingOptions?: { requestContext?: string; toolName?: string; response?: string },
   ): ContractPrompt {
-    return this.buildPrompt('ANSWER', {
-      QUESTION: this.normalize(question),
+    const context: Record<string, string> = {
+      QUESTION: this.normalize(questionOrResponse),
       MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
+      LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
-    }, contextSnapshot);
+    };
+
+    if (mode === 'tool-formatting') {
+      context.RESPONSE = this.normalize(formattingOptions?.response ?? questionOrResponse);
+      context.REQUEST_CONTEXT = formattingOptions?.requestContext ? this.normalize(formattingOptions.requestContext) : 'Not provided.';
+      context.TOOL_NAME = formattingOptions?.toolName ?? 'Not specified';
+      const overrideUserPrompt = `User request:\n{{REQUEST_CONTEXT}}\n\nTool: {{TOOL_NAME}}\n\nRaw result to format as a concise response:\n{{RESPONSE}}`;
+      return this.buildPrompt('ANSWER', context, contextSnapshot, overrideUserPrompt);
+    }
+
+    return this.buildPrompt('ANSWER', context, contextSnapshot);
   }
 
-  /**
-   * Builds a prompt for short conversational replies.
-   */
-  public buildConversationalAnswerPrompt(
-    userInput: string,
-    toneInstructions?: string,
-    language?: { language: string; name: string },
-    personalityDescription?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('CONVERSATIONAL_ANSWER', {
-      USER_INPUT: this.normalize(userInput),
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
-      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
-    }, contextSnapshot);
-  }
 
-  public buildResponseFormattingPrompt(
-    response: string,
-    language: { language: string; name: string },
-    toneInstructions?: string,
-    requestContext?: string,
-    toolName?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('RESPONSE_FORMATTING', {
-      RESPONSE: this.normalize(response),
-      LANGUAGE: language.name,
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      REQUEST_CONTEXT: requestContext ? this.normalize(requestContext) : 'Not provided.',
-      TOOL_NAME: toolName ?? 'Not specified',
-    }, contextSnapshot);
-  }
 
   /**
    * Builds a prompt for analyzing attached image(s).
@@ -437,7 +321,7 @@ export class Orchestrator {
     userInput: string,
     imageCount: number,
     toneInstructions?: string,
-    language?: { language: string; name: string },
+    language?: string | { language: string; name: string },
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const normalized = this.normalize(userInput);
@@ -445,7 +329,7 @@ export class Orchestrator {
       USER_INPUT: normalized || 'No additional question provided.',
       IMAGE_COUNT: String(imageCount),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
+      LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
     }, contextSnapshot);
   }
 
@@ -458,17 +342,36 @@ export class Orchestrator {
     options?: {
       userInput?: string;
       response?: string;
-      language?: { language: string; name: string };
+      language?: string | { language: string; name: string };
       imageCount?: number;
       verifierNotes?: string;
       extractedArgs?: Record<string, unknown>;
       toolName?: string;
       toolDescription?: string;
       toolSchema?: ToolSchema;
+      requestContext?: string;
       contextSnapshot?: ContextSnapshot;
     },
   ): ContractPrompt {
-    const opts = options ?? {};
+    const opts = options ?? {} as any;
+
+    // Backwards-compatible aliases: allow callers to request legacy keys
+    if (contractName === ('CONVERSATIONAL_ANSWER' as ContractName)) {
+      return this.buildAnswerPrompt(opts.userInput ?? 'Hi there', 'conversational', undefined, opts.language, undefined, opts.contextSnapshot);
+    }
+
+    if (contractName === ('RESPONSE_FORMATTING' as ContractName)) {
+      return this.buildAnswerPrompt(
+        opts.response ?? 'Here is a response',
+        'tool-formatting',
+        undefined,
+        opts.language ?? 'en',
+        undefined,
+        opts.contextSnapshot,
+        { requestContext: opts.requestContext ?? 'Not provided.', toolName: opts.toolName ?? 'Not specified', response: opts.response ?? 'Here is a response' },
+      );
+    }
+
     switch (contractName) {
       case 'INTENT_CLASSIFICATION':
         return this.buildIntentClassificationPrompt(opts.userInput ?? 'Show me README.md', opts.contextSnapshot);
@@ -480,21 +383,8 @@ export class Orchestrator {
         const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
         return this.buildToolArgumentPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', opts.verifierNotes, opts.contextSnapshot);
       }
-      case 'TOOL_ARGUMENT_VERIFICATION': {
-        const tool = (TOOLS as any)[opts.toolName ?? 'filesystem'];
-        const desc = opts.toolDescription ?? tool?.description ?? '';
-        const schema = (opts.toolSchema as ToolSchema) ?? tool?.schema ?? {};
-        const extracted = opts.extractedArgs ?? { action: 'read', path: './README.md', limit: null, maxBytes: null };
-        return this.buildToolArgumentVerificationPrompt(opts.toolName ?? 'filesystem', desc, schema, opts.userInput ?? 'Read ./README.md', extracted, opts.contextSnapshot);
-      }
-      case 'SCORING_EVALUATION':
-        return this.buildScoringPrompt(opts.response ?? 'Sample output', opts.userInput ?? 'Sample goal', opts.response ?? 'Sample context', opts.contextSnapshot);
       case 'ANSWER':
         return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
-      case 'CONVERSATIONAL_ANSWER':
-        return this.buildConversationalAnswerPrompt(opts.userInput ?? 'Hi there', undefined, opts.language, undefined, opts.contextSnapshot);
-      case 'RESPONSE_FORMATTING':
-        return this.buildResponseFormattingPrompt(opts.response ?? 'Here is a response', opts.language ?? { language: 'en', name: 'English' }, undefined, undefined, opts.toolName, opts.contextSnapshot);
       case 'IMAGE_RECOGNITION':
         return this.buildImageRecognitionPrompt(opts.userInput ?? 'Describe the image', opts.imageCount ?? 1, undefined, opts.language, opts.contextSnapshot);
       default:
@@ -521,21 +411,6 @@ export class Orchestrator {
     return validateToolArguments(schema)(raw);
   }
 
-  /**
-   * Validates tool-argument verification output.
-   */
-  public validateToolArgumentVerification(
-    raw: string,
-  ): ValidationResult<ToolArgumentVerificationResult> {
-    return validateToolArgumentVerification(raw);
-  }
-
-  public validateScoring(
-    raw: string,
-  ): ValidationResult<Record<string, number>> {
-    return validateScoring(raw);
-  }
-
   public validateLanguageDetection(
     raw: string,
   ): ValidationResult<string> {
@@ -546,29 +421,11 @@ export class Orchestrator {
     return validateAnswer(raw);
   }
 
-  public validateConversationalAnswer(raw: string): ValidationResult<string> {
-    return validateConversationalAnswer(raw);
-  }
-
-  public validateResponseFormatting(
-    raw: string,
-  ): ValidationResult<string> {
-    return validateResponseFormatting(raw);
+  public validateAnswerMode(raw: string, mode: AnswerMode): ValidationResult<string> {
+    return getAnswerValidator(mode)(raw);
   }
 
   public validateImageRecognition(raw: string): ValidationResult<string> {
     return validateImageRecognition(raw);
   }
-
-  /**
-   * Formats tool arguments for deterministic prompt inclusion.
-   */
-  private formatToolArguments(args: Record<string, unknown>): string {
-    try {
-      return JSON.stringify(args, null, 2);
-    } catch {
-      return String(args);
-    }
-  }
-
 }
