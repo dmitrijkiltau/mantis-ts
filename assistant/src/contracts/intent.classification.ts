@@ -9,15 +9,17 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   EXPECTS_JSON: false,
   PROMPT: `You are executing a single, isolated contract.
 
-CONTEXT:
-{{CONTEXT_BLOCK}}
-
 TASK:
 Return the single most appropriate intent name for the input text.
 
 RULES:
-- Return only the intent name for the input text.
+- The intent name MUST be one of the allowed intents listed below.
+- Return ONLY the intent name as a BARE STRING with no formatting, quotes, or punctuation.
+- If the input is ambiguous or does not clearly match any allowed intent, return "answer.general".
 - Use the CONTEXT block to resolve pronouns or follow-up references when available and clearly intended.
+
+CONTEXT:
+{{CONTEXT_BLOCK}}
 
 ALLOWED INTENTS:
 {{TOOL_REFERENCE}}

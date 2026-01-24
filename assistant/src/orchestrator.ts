@@ -305,7 +305,7 @@ export class Orchestrator {
       context.RESPONSE = this.normalize(formattingOptions?.response ?? questionOrResponse);
       context.REQUEST_CONTEXT = formattingOptions?.requestContext ? this.normalize(formattingOptions.requestContext) : 'Not provided.';
       context.TOOL_NAME = formattingOptions?.toolName ?? 'Not specified';
-      const overrideUserPrompt = `User request:\n{{REQUEST_CONTEXT}}\n\nTool: {{TOOL_NAME}}\n\nRaw result to format as a concise response:\n{{RESPONSE}}`;
+      const overrideUserPrompt = `User request:\n{{REQUEST_CONTEXT}}\n\nTool: {{TOOL_NAME}}\n\nRaw result:\n{{RESPONSE}}`;
       return this.buildPrompt('ANSWER', context, contextSnapshot, overrideUserPrompt);
     }
 

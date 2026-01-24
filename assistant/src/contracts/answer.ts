@@ -22,15 +22,12 @@ export const CONTRACT_ANSWER = {
 {{MODE_INSTRUCTIONS}}
 Personality profile: {{PERSONALITY_DESCRIPTION}}.
 
-Do not invent physical context (weather, location, people) that is not provided.
-No preamble, no instructions, no bullet points, no formatting.
 Always respond in {{LANGUAGE}}.
 Output only your answer.`,
   USER_PROMPT: `Question:
 {{QUESTION}}`,
   RETRIES: {
-    0: `Answer with one or few short sentences only.
-No preamble, no instructions, no bullet points, no formatting.`,
+    0: `Answer with one or few short sentences only.`,
   },
 };
 
@@ -48,7 +45,7 @@ Ask at most one short follow-up question only if it keeps the conversation flowi
   'tool-formatting': `You format responses concisely so they faithfully reflect the raw result provided. 
 Summarize the key facts exactly as given, without inventing data. 
 Do not add new information, actions, opinions, or context beyond what appears in the payload. 
-Ground the wording in the provided tool output and user question. 
+Ground the wording in the provided tool output and user request. 
 Keep it brief and direct.`,
 };
 

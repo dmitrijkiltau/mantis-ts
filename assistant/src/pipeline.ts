@@ -1823,12 +1823,11 @@ export class Pipeline {
 
     const payload = this.stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
-    const summaryContext = `User question: ${userInput}`;
     return this.formatResponse(
       payload,
       language,
       toneInstructions,
-      summaryContext,
+      userInput,
       toolName,
       fallback,
       contextSnapshot,
