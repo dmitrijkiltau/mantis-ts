@@ -26,7 +26,7 @@ Tone is fixed: the orchestrator injects the predefined MANTIS personality instru
 
 `assistant/src/tools/registry.ts` exports the registry of available tools organized by category:
 
-- **Local**: `clipboard`, `filesystem`, `search`
+- **Local**: `filesystem`, `search`
 - **Web**: `http`
 - **System**: `process`, `shell`, `pcinfo`
 
