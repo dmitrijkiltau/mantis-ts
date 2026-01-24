@@ -395,6 +395,11 @@ describe('Pipeline', () => {
       expect(result).toBe(true);
     });
 
+    it('should return true when trigger appears in intent suffix but not in user input', () => {
+      const result = (pipeline as any).hasToolTrigger('Please run a background job', 'process', 'tool.process: list processes');
+      expect(result).toBe(true);
+    });
+
     it('should return true for tool.search intent', () => {
       const result = (pipeline as any).isToolIntent('tool.search');
       expect(result).toBe(true);
@@ -422,33 +427,4 @@ describe('Pipeline', () => {
       expect(result).toBeNull();
     });
   });
-
-  describe('meetsToolConfidence', () => {
-    it('should return true for confidence >= 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.6);
-      expect(result).toBe(true);
-    });
-
-    it('should return true for confidence > 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.9);
-      expect(result).toBe(true);
-    });
-
-    it('should return false for confidence < 0.6', () => {
-      const result = (pipeline as any).meetsToolConfidence(0.59);
-      expect(result).toBe(false);
-    });
-
-    it('should return true for confidence = 1', () => {
-      const result = (pipeline as any).meetsToolConfidence(1);
-      expect(result).toBe(true);
-    });
-
-    it('should return false for confidence = 0', () => {
-      const result = (pipeline as any).meetsToolConfidence(0);
-      expect(result).toBe(false);
-    });
-  });
-
-
 });

@@ -25,9 +25,9 @@ These contracts form the decision pipeline and are always active:
 1. **INTENT_CLASSIFICATION** 
    - **Purpose**: Routes user input to tool or answer pipeline
    - **Input**: User message + tool registry
-   - **Output**: Intent string (e.g., `tool.filesystem`, `answer.general`) with confidence (0-1)
-   - **Retry**: Up to 2 attempts
-   - **Failure**: Defaults to `answer.general` with confidence 0
+- **Output**: Intent string (e.g., `tool.filesystem`, `answer.general`)
+  - **Retry**: Up to 2 attempts
+  - **Failure**: Defaults to `answer.general`
 
 2. **TOOL_ARGUMENT_EXTRACTION** 
    - **Purpose**: Extracts structured arguments for tool execution
@@ -98,7 +98,7 @@ The pipeline uses schema validation and explicit clarification rules to ensure t
 
 - **Schema validation**: Extracted arguments are validated against a tool's schema and required fields are identified.
 - **Required-field overrides**: For tools that can reasonably default common fields (for example `filesystem.path` defaulting to the current working directory), the pipeline tracks which fields may be auto-filled from context.
-- **Clarification**: If required fields are missing and the intent confidence is high, the pipeline asks a concise clarification question. Otherwise it falls back to a non-tool answer.
+- **Clarification**: If required fields are missing and a tool intent is clearly indicated, the pipeline asks a concise clarification question. Otherwise it falls back to a non-tool answer.
 
 This keeps tool execution deterministic while avoiding a separate verification contract.
 
@@ -137,7 +137,7 @@ User Input (with optional images)
    v
 INTENT_CLASSIFICATION
    |
-   ├─ tool.* intent (confidence ≥ 0.6)
+   ├─ tool.* intent (trigger checks applied)
    |  |
    |  v
    |  TOOL_ARGUMENT_EXTRACTION
@@ -172,7 +172,7 @@ Validators remain mandatory regardless of mode and are the ultimate gatekeeper f
 
 | Contract                   | Mode | Rationale                                                              |
 |----------------------------|------|------------------------------------------------------------------------|
-| INTENT_CLASSIFICATION      | raw  | Strict JSON output with compact intent + confidence                    |
+| INTENT_CLASSIFICATION      | raw  | Strict raw output returning the chosen intent                           |
 | LANGUAGE_DETECTION         | raw  | Single-token ISO code output                                           |
 | TOOL_ARGUMENT_EXTRACTION   | raw  | Schema-shaped JSON requires strict, tool-focused prompting             |
 
@@ -192,7 +192,7 @@ The pipeline derives allowed intents from the tool registry (`assistant/src/tool
 - Answer intent: `answer.general`
 - Conversational intent: `conversational.smalltalk`
 
-Tool intents require minimum confidence (0.6). When confidence is moderate, explicit trigger guards verify intent. Very high confidence (≥ 0.8) bypasses trigger guards to avoid blocking non-English or terse requests.
+Tool intents require matching triggers and selection preferences. Explicit trigger guards verify intent when applicable; trigger matching is always enforced before executing tools.
 
 ### Direct Tool Commands
 
@@ -205,7 +205,7 @@ Direct commands skip intent classification, validate arguments against schemas, 
 
 ### Tool Execution Path
 
-When a tool intent is detected (confidence ≥ 0.6):
+When a tool intent is detected:
 
 1. **Schema Check**: If tool schema is empty, execute immediately with `{}`
 2. **Argument Extraction**: Use `TOOL_ARGUMENT_EXTRACTION` to parse structured arguments
@@ -218,7 +218,7 @@ When a tool intent is detected (confidence ≥ 0.6):
 
 ### Answer Path
 
-When `answer.general` intent is detected or confidence is low:
+When `answer.general` intent is detected or no tool intent is selected:
 
 1. **Mode Selection**: 
    - `strict`: Factual queries (dates, calculations, technical definitions)
@@ -278,7 +278,7 @@ Verification prompts distinguish error types:
 
 Each contract has an associated validator that parses and validates LLM output:
 
-- `validateIntentClassification(output)` - Parses intent and confidence
+- `validateIntentClassification(output)` - Parses intent string
 - `validateLanguageDetection(output)` - Parses ISO 639-1 language code
 - `validateToolArguments(output, schema)` - Validates JSON structure against schema
 - `validateToolVerification(output)` - Parses verification decision
@@ -372,9 +372,7 @@ Language detection runs in parallel with tool execution (Promise.all) to reduce 
 
 ### Tool Intent Guards
 
-Tool intents use explicit trigger guards when confidence is moderate:
-- Required when confidence is 0.6 - 0.8
-- Bypassed when confidence is very high (≥ 0.8)
+Tool intents use explicit trigger guards to verify intent when trigger keywords are ambiguous or absent.
 - Avoids false positives for non-English or terse requests
 
 ### Scoring Thresholds

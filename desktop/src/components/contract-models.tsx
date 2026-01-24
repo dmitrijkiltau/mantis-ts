@@ -52,7 +52,6 @@ type ContractModuleConfig = {
 type ContractTelemetry = {
   lastExec: string;
   avgLatency: string;
-  confidenceAvg: string;
 };
 
 type SubsystemModule = ContractModuleConfig & {
@@ -167,7 +166,6 @@ const CONTRACT_MODULES = new Map<ContractKey, ContractModuleConfig>([
 const DEFAULT_TELEMETRY: ContractTelemetry = {
   lastExec: '--',
   avgLatency: '--',
-  confidenceAvg: '--',
 };
 
 /**
@@ -183,15 +181,6 @@ const formatLatency = (value: number | null | undefined): string => {
   return `${(value / 1000).toFixed(2)}s`;
 };
 
-/**
- * Formats the confidence average value.
- */
-const formatConfidence = (value: number | null | undefined): string => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return '--';
-  }
-  return value.toFixed(2);
-};
 
 /**
  * Formats the last execution timestamp as a relative time.
@@ -228,7 +217,6 @@ const resolveTelemetry = (
   return {
     lastExec: formatLastExec(telemetry.lastExecAt, now),
     avgLatency: formatLatency(telemetry.averageLatencyMs),
-    confidenceAvg: formatConfidence(telemetry.confidenceAverage),
   };
 };
 
@@ -576,7 +564,6 @@ export const ContractModels: Component = () => {
                       <div class="subsystem-module-telemetry">
                         <span>Last exec: {module.telemetry.lastExec}</span>
                         <span>Avg RT: {module.telemetry.avgLatency}</span>
-                        <span>Confidence avg: {module.telemetry.confidenceAvg}</span>
                       </div>
                     </div>
                   );

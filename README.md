@@ -59,7 +59,7 @@ Auxiliary functionality that never affects routing:
 ### Design Principles
 
 - **One contract = one responsibility**: No overlap or ambiguity
-- **Clarification on missing fields**: When required tool arguments are missing, the pipeline will ask a concise clarification question when confidence is high; otherwise it falls back to a non-tool answer
+- **Clarification on missing fields**: When required tool arguments are missing, the pipeline will ask a concise clarification question when a tool intent is indicated and trigger checks permit; otherwise it falls back to a non-tool answer
 - **Answer outputs are final**: Not post-processed, formatted, or scored
 - **Scoring is off-path**: Quality metrics logged but never affect routing
 ## Pipeline
@@ -69,7 +69,7 @@ Auxiliary functionality that never affects routing:
 ### Key Features
 
 - **Direct tool commands**: Recognizes single-line commands like `read <path>`, `ps`, `fetch <url>` and bypasses contracts for efficiency
-- **Tool intent guards**: Enforces confidence thresholds (0.6 minimum) and trigger guards to avoid false positives
+- **Tool intent guards**: Enforces trigger guards and selection preferences to avoid false positives
 - **Skip heuristics**: Skips tool execution if >50% of required arguments are null
 - **Parallel execution**: Runs language detection in parallel with tool execution to reduce latency
 - **Final decisions**: Verification returns execute/clarify/abort with no retry loop; answer outputs are never formatted or scored

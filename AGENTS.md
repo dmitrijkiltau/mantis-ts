@@ -35,12 +35,13 @@ Implement explicit error handling. Use validators to enforce contract compliance
 
 Write unit tests for all critical components, especially for the Orchestrator and Validators. Ensure that edge cases are covered.
 
-Test scripts:
+Type checking can be performed using:
 ```bash
-# Run type-checking
 npm run typecheck
+```
 
-# Run tests
+Tests can be run using (only for contract and pipeline changes):
+```bash
 npm run test
 ```
 

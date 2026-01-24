@@ -38,7 +38,6 @@ export type ContractExecutionTelemetry = {
   durationMs: number;
   attempts: number;
   ok: boolean;
-  confidence?: number;
   timestamp: number;
 };
 
@@ -138,20 +137,6 @@ export class Runner {
   }
 
   /**
-   * Extracts a confidence value from known contract outputs.
-   */
-  private extractConfidence(value: unknown): number | undefined {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return undefined;
-    }
-    const candidate = (value as { confidence?: unknown }).confidence;
-    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
-      return undefined;
-    }
-    return candidate;
-  }
-
-  /**
    * Emits telemetry for a completed contract execution.
    */
   private recordTelemetry(
@@ -160,7 +145,7 @@ export class Runner {
     durationMs: number,
     attempts: number,
     ok: boolean,
-    value?: unknown,
+    _value?: unknown,
   ): void {
     if (!this.telemetrySink) {
       return;
@@ -173,7 +158,6 @@ export class Runner {
       durationMs,
       attempts,
       ok,
-      confidence: this.extractConfidence(value),
       timestamp: Date.now(),
     });
   }

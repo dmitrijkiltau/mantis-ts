@@ -14,9 +14,6 @@ import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
 import {
-  MIN_CLARIFY_INTENT_CONFIDENCE,
-  MIN_TOOL_CONFIDENCE,
-  MIN_TOOL_TRIGGER_CONFIDENCE,
   REQUIRED_NULL_RATIO_THRESHOLD,
   TOOL_INTENT_PREFIX,
 } from './pipeline/config.js';
@@ -36,7 +33,6 @@ type PipelineRunOptions = {
   allowLowScoreRetry?: boolean;
   signal?: AbortSignal;
 };
-
 
 /**
  * Helper to measure execution duration in milliseconds.
@@ -74,7 +70,7 @@ export type PipelineResult =
       ok: true;
       kind: 'strict_answer';
       value: string;
-      intent?: { intent: string; confidence: number };
+      intent?: string;
       language: DetectedLanguage;
       attempts: number;
     }
@@ -85,7 +81,7 @@ export type PipelineResult =
       args: Record<string, unknown>;
       result: unknown;
       summary?: string;
-      intent: { intent: string; confidence: number };
+      intent: string;
       language: DetectedLanguage;
       attempts: number;
     }
@@ -124,7 +120,6 @@ type PipelineSummaryStage =
   | 'direct_tool'
   | 'intent_failed'
   | 'non_tool_intent'
-  | 'low_confidence'
   | 'tool_not_found'
   | 'argument_extraction_failed'
   | 'null_tool_arguments';
@@ -133,7 +128,6 @@ type PipelineSummaryExtras = {
   reason?: string;
   tool?: ToolName;
   intent?: string;
-  intentConfidence?: number;
   imageCount?: number;
   error?: PipelineError;
 };
@@ -253,12 +247,10 @@ export class Pipeline {
       });
     }
 
-    const intent = intentResult.value;
-    Logger.debug('pipeline', `Intent classified: ${intent.intent}`, {
-      confidence: intent.confidence,
-    });
+    const intent = intentResult.value as string;
+    Logger.debug('pipeline', `Intent classified: ${intent}`);
 
-    if (!this.isToolIntent(intent.intent)) {
+    if (!this.isToolIntent(intent)) {
       Logger.debug('pipeline', 'Non-tool intent selected, using non-tool answer');
       const result = await this.runNonToolAnswer(
         userInput,
@@ -270,29 +262,11 @@ export class Pipeline {
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'non_tool_intent',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
-      });
-    }
-
-    if (!this.meetsToolConfidence(intent.confidence)) {
-      Logger.debug('pipeline', 'Tool intent below confidence threshold, using strict answer');
-      const result = await this.runNonToolAnswer(
-        userInput,
         intent,
-        intentResult.attempts,
-        toneInstructions,
-        personalityDescription,
-        contextSnapshot,
-      );
-      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-        reason: 'low_confidence',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
       });
     }
 
-    const toolName = this.resolveToolName(intent.intent);
+    const toolName = this.resolveToolName(intent);
     if (!toolName) {
       Logger.debug('pipeline', 'No matching tool for intent, using strict answer');
       const result = await this.runNonToolAnswer(
@@ -305,35 +279,26 @@ export class Pipeline {
       );
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'tool_not_found',
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
-    if (!this.hasToolTrigger(userInput, toolName)) {
-      if (intent.confidence < MIN_TOOL_TRIGGER_CONFIDENCE) {
-        Logger.debug('pipeline', 'Tool intent missing trigger keywords, using strict answer', {
-          tool: toolName,
-        });
-        const result = await this.runNonToolAnswer(
-          userInput,
-          intent,
-          intentResult.attempts,
-          toneInstructions,
-          personalityDescription,
-          contextSnapshot,
-        );
-        return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
-          reason: 'tool_trigger_missing',
-          tool: toolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
-        });
-      }
-
-      Logger.debug('pipeline', 'Tool trigger missing but confidence is high, proceeding', {
+    if (!this.hasToolTrigger(userInput, toolName, intent)) {
+      Logger.debug('pipeline', 'Tool trigger missing, using strict answer', {
         tool: toolName,
-        intentConfidence: intent.confidence,
+      });
+      const result = await this.runNonToolAnswer(
+        userInput,
+        intent,
+        intentResult.attempts,
+        toneInstructions,
+        personalityDescription,
+        contextSnapshot,
+      );
+      return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
+        reason: 'tool_trigger_missing',
+        tool: toolName,
+        intent,
       });
     }
 
@@ -385,8 +350,7 @@ export class Pipeline {
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'argument_extraction_failed',
           tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
+          intent,
         });
       }
       toolArgs = toolArgResult.value as Record<string, unknown>;
@@ -412,11 +376,10 @@ export class Pipeline {
     if (requiredMissing.length > 0) {
       const missingVerification = {
         decision: 'clarify',
-        confidence: 1,
         reason: 'required_fields_missing',
         missingFields: requiredMissing,
       };
-      if (this.shouldClarifyToolArguments(intent.confidence, missingVerification)) {
+      if (this.shouldClarifyToolArguments(missingVerification)) {
         const result = await this.runToolClarification(
           userInput,
           activeToolName,
@@ -429,14 +392,13 @@ export class Pipeline {
         return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
           reason: 'tool_clarify',
           tool: activeToolName,
-          intent: intent.intent,
-          intentConfidence: intent.confidence,
+          intent,
         });
       }
 
       Logger.debug(
         'pipeline',
-        `Required args missing for ${activeToolName} but confidence too low, falling back to strict answer`,
+        `Required args missing for ${activeToolName}, falling back to strict answer`,
       );
       const result = await this.runNonToolAnswer(
         userInput,
@@ -449,8 +411,7 @@ export class Pipeline {
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'argument_verification_clarify_denied',
         tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
@@ -470,8 +431,7 @@ export class Pipeline {
       return this.completePipeline(result, 'strict_answer', pipelineStartMs, {
         reason: 'null_tool_arguments',
         tool: activeToolName,
-        intent: intent.intent,
-        intentConfidence: intent.confidence,
+        intent,
       });
     }
 
@@ -528,16 +488,13 @@ export class Pipeline {
       result.kind === 'strict_answer' &&
       result.intent
     ) {
-      summary.intent = result.intent.intent;
-      summary.intentConfidence = result.intent.confidence;
+      summary.intent = result.intent;
     }
 
     if (result.kind === 'tool') {
       summary.tool = summary.tool ?? result.tool;
       summary.args = result.args;
     }
-
-
 
     if (result.kind === 'error' && result.error) {
       summary.error = summary.error ?? result.error;
@@ -702,7 +659,7 @@ export class Pipeline {
           args: directMatch.args,
           result: formattedResult,
           summary,
-          intent: { intent: `tool.${directMatch.tool}`, confidence: 1 },
+          intent: `tool.${directMatch.tool}`,
           language: LANGUAGE_FALLBACK,
           attempts: 0,
         },
@@ -820,8 +777,6 @@ export class Pipeline {
       args: {
         action,
         path,
-        limit: null,
-        maxBytes: null,
       },
       reason: `direct_${action}_filesystem`,
     };
@@ -988,37 +943,31 @@ export class Pipeline {
     return intent.startsWith(TOOL_INTENT_PREFIX);
   }
 
-  private hasToolTrigger(userInput: string, toolName: ToolName): boolean {
+  private hasToolTrigger(userInput: string, toolName: ToolName, intent?: string): boolean {
     const triggers = TOOL_TRIGGERS[toolName];
     if (!triggers || triggers.length === 0) {
       return true;
     }
 
-    const normalized = userInput.toLowerCase();
+    const normalizedInput = userInput.toLowerCase();
+    const normalizedIntent = (intent ?? '').toLowerCase();
+
     for (let index = 0; index < triggers.length; index += 1) {
       const trigger = triggers[index];
-      if (trigger && normalized.includes(trigger)) {
+      if (!trigger) {
+        continue;
+      }
+      if (normalizedInput.includes(trigger) || normalizedIntent.includes(trigger)) {
         return true;
       }
     }
     return false;
   }
 
-  private meetsToolConfidence(confidence: number): boolean {
-    return confidence >= MIN_TOOL_CONFIDENCE;
-  }
-
-  /**
-   * Allows clarification only when tool intent confidence is very high.
-   */
   private shouldClarifyToolArguments(
-    intentConfidence: number,
     verification: any,
   ): boolean {
-    return (
-      verification.decision === 'clarify' &&
-      intentConfidence >= MIN_CLARIFY_INTENT_CONFIDENCE
-    );
+    return verification.decision === 'clarify';
   }
 
   private validateToolArgsSchema(
@@ -1058,7 +1007,6 @@ export class Pipeline {
       ok: false,
       result: {
         decision: 'clarify',
-        confidence: 1,
         reason,
         missingFields: missingFields.size > 0 ? Array.from(missingFields) : undefined,
       },
@@ -1157,7 +1105,7 @@ export class Pipeline {
     userInput: string,
     toolName: ToolName,
     missingFields: string[] | undefined,
-    intent: { intent: string; confidence: number },
+    intent: string | undefined,
     attempts: number,
     toneInstructions: string | undefined,
     contextSnapshot?: ContextSnapshot,
@@ -1349,7 +1297,7 @@ export class Pipeline {
    */
   private async runNonToolAnswer(
     userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
+    intent: string | undefined,
     attempts: number,
     toneInstructions: string | undefined,
     personalityDescription: string,
@@ -1360,7 +1308,7 @@ export class Pipeline {
     const attemptOffset = languageResult.ok ? 0 : languageResult.attempts;
     const language = languageResult.language;
 
-    if (intent?.intent === CONVERSATION_INTENT) {
+    if (intent === CONVERSATION_INTENT) {
       return this.runAnswer(
         userInput,
         intent,
@@ -1387,11 +1335,9 @@ export class Pipeline {
     );
   }
 
-
-
   private async runAnswer(
     userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
+    intent: string | undefined,
     attempts: number,
     toneInstructions?: string,
     personalityDescription?: string,
@@ -1915,7 +1861,7 @@ export class Pipeline {
     args: Record<string, unknown>,
     userInput: string,
     toneInstructions: string | undefined,
-    intent: { intent: string; confidence: number },
+    intent: string | undefined,
     baseAttempts: number,
     pipelineStartMs: number,
     contextSnapshot?: ContextSnapshot,
@@ -1991,7 +1937,7 @@ export class Pipeline {
       args,
       result: formattedResult,
       summary,
-      intent,
+      intent: intent as string,
       language,
       attempts: baseAttempts + languageAttemptOffset,
     };

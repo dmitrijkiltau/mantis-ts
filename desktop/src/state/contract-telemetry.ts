@@ -4,15 +4,12 @@ import type { ContractExecutionTelemetry } from '../../../assistant/src/runner';
 export type ContractTelemetrySnapshot = {
   lastExecAt: number | null;
   averageLatencyMs: number | null;
-  confidenceAverage: number | null;
 };
 
 type ContractTelemetryEntry = {
   lastExecAt: number | null;
   latencyTotal: number;
   latencyCount: number;
-  confidenceTotal: number;
-  confidenceCount: number;
 };
 
 export type ContractTelemetryListener = (snapshot: Record<ContractName, ContractTelemetrySnapshot>) => void;
@@ -33,18 +30,11 @@ export class ContractTelemetryStore {
       lastExecAt: null,
       latencyTotal: 0,
       latencyCount: 0,
-      confidenceTotal: 0,
-      confidenceCount: 0,
     };
 
     entry.lastExecAt = event.timestamp;
     entry.latencyTotal += event.durationMs;
     entry.latencyCount += 1;
-
-    if (typeof event.confidence === 'number' && Number.isFinite(event.confidence)) {
-      entry.confidenceTotal += event.confidence;
-      entry.confidenceCount += 1;
-    }
 
     this.entries.set(event.contractName, entry);
     this.notifyListeners();
@@ -60,9 +50,6 @@ export class ContractTelemetryStore {
         lastExecAt: entry.lastExecAt,
         averageLatencyMs: entry.latencyCount > 0
           ? entry.latencyTotal / entry.latencyCount
-          : null,
-        confidenceAverage: entry.confidenceCount > 0
-          ? entry.confidenceTotal / entry.confidenceCount
           : null,
       };
     }

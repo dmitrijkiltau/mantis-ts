@@ -48,8 +48,8 @@ Ask at most one short follow-up question only if it keeps the conversation flowi
   'tool-formatting': `You format responses concisely so they faithfully reflect the raw result provided. 
 Summarize the key facts exactly as given, without inventing data. 
 Do not add new information, actions, opinions, or context beyond what appears in the payload. 
-Ground the wording in the provided tool output and tool name when available. 
-Keep it brief and direct (one sentence preferred).`,
+Ground the wording in the provided tool output and user question. 
+Keep it brief and direct.`,
 };
 
 /**
@@ -57,8 +57,6 @@ Keep it brief and direct (one sentence preferred).`,
  */
 export type AnswerValidationError =
   | 'EMPTY_OUTPUT'
-  | 'MULTILINE_OUTPUT'
-  | 'TOO_LONG'
   | 'META_TEXT_DETECTED'
   | 'MULTIPLE_SENTENCES';
 
@@ -86,8 +84,7 @@ export const getAnswerValidator = (
   }
 
   if (mode === 'conversational') {
-    // Keep a single-line conversational response and collapse whitespace/newlines.
-    const normalized = text.replace(/\r?\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    const normalized = text.trim();
     if (!normalized) {
       return { ok: false, error: 'EMPTY_OUTPUT' };
     }
@@ -103,17 +100,6 @@ export const getAnswerValidator = (
     // Detect meta text like "Here is" which indicates a non-concise wrapper
     if (/^(here is|this is)\b/i.test(normalized)) {
       return { ok: false, error: 'META_TEXT_DETECTED' };
-    }
-
-    // Enforce a short response
-    if (normalized.length > 200) {
-      return { ok: false, error: 'TOO_LONG' };
-    }
-
-    // Prefer a single sentence; penalize multiple sentences
-    const sentences = normalized.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean);
-    if (sentences.length > 1) {
-      return { ok: false, error: 'MULTIPLE_SENTENCES' };
     }
 
     return { ok: true, value: normalized };
