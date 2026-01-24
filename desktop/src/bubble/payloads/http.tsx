@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js';
-import type { HttpResponseResult } from '../../../../assistant/src/tools/web/http-core';
+import type { HttpResponseResult } from '../../../../assistant/src/tools/web/http';
 import { renderCodeBlock } from '../markdown';
 import { renderHttpJsonPreview } from '../json-viewer';
 import { deriveLanguageFromContentType, formatBytes, formatHtmlContent } from '../shared';
