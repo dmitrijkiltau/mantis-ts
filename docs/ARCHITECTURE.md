@@ -326,7 +326,7 @@ The `assistant/src/tools/registry.ts` exports available tools organized by categ
 ### Local Tools
 
 - **clipboard**: Read from and write to system clipboard
-- **filesystem**: Read files and list directories with size and truncation limits
+- **filesystem**: Read files and list directories
 - **search**: Recursively search for files and directories by name pattern
 
 ### Web Tools
