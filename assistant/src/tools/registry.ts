@@ -1,5 +1,4 @@
 import type { ToolDefinitionBase } from './definition.js';
-import { CLIPBOARD_TOOL } from './local/clipboard.js';
 import { FILESYSTEM_TOOL } from './local/filesystem.js';
 import { SEARCH_TOOL } from './local/search.js';
 import { HTTP_TOOL } from './web/http.js';
@@ -16,10 +15,6 @@ type ToolMetadata = {
  * Registry of available tools keyed by name.
  */
 const TOOL_METADATA = {
-  clipboard: {
-    definition: CLIPBOARD_TOOL,
-    triggers: ['clipboard', 'copy', 'paste'],
-  },
   filesystem: {
     definition: FILESYSTEM_TOOL,
     triggers: ['file', 'files', 'folder', 'directory', 'path', 'read', 'list', 'open'],

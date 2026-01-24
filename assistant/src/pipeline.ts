@@ -1122,15 +1122,6 @@ export class Pipeline {
       }
     }
 
-    if (toolName === 'clipboard') {
-      if (hasField('action')) {
-        return 'Do you want to copy to the clipboard or paste from it?';
-      }
-      if (hasField('content')) {
-        return 'What content should I copy to the clipboard?';
-      }
-    }
-
     if (toolName === 'process') {
       if (hasField('action')) {
         return 'Should I list running processes?';
