@@ -42,8 +42,7 @@ These contracts form the decision pipeline and are always active:
 
 - **Intent Classification**: Routes user input to appropriate tool or answer path
 - **Tool Argument Extraction**: Extracts structured arguments for tool execution
-- **Answer**: Unified knowledge answer contract with mode support (strict/normal)
-- **Conversational Answer**: Handles small talk and greetings (isolated, no fallback)
+- **Answer**: Unified knowledge answer contract with mode support (strict/normal/conversational/tool-formatting)
 
 ### Modality Contracts (1)
 
@@ -56,7 +55,6 @@ Triggered situationally based on input modality:
 Auxiliary functionality that never affects routing:
 
 - **Language Detection**: Detects user's language (telemetry only)
-- **Response Formatting**: Formats tool output only (best-effort, not used for text answers)
 
 ### Design Principles
 

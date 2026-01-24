@@ -5,8 +5,7 @@ import contractIntentClassificationSource from '../../../assistant/src/contracts
 import contractLanguageDetectionSource from '../../../assistant/src/contracts/language.detection.ts?raw';
 import contractToolArgumentExtractionSource from '../../../assistant/src/contracts/tool.argument.extraction.ts?raw';
 import contractAnswerSource from '../../../assistant/src/contracts/answer.ts?raw';
-import contractConversationalAnswerSource from '../../../assistant/src/contracts/conversational.answer.ts?raw';
-import contractResponseFormattingSource from '../../../assistant/src/contracts/response.formatting.ts?raw';
+
 import contractImageRecognitionSource from '../../../assistant/src/contracts/image.recognition.ts?raw';
 import { renderMarkdown } from '../bubble/markdown';
 import { ToolOutputContent } from '../bubble/tool-output';
@@ -152,26 +151,7 @@ const CONTRACT_MODULES = new Map<ContractKey, ContractModuleConfig>([
       priority: 5,
     },
   ],
-  [
-    'CONVERSATIONAL_ANSWER',
-    {
-      title: 'DIALOG LAYER',
-      group: 'INTERACTION',
-      role: 'NATURAL OUTPUT',
-      state: 'ACTIVE',
-      priority: 5,
-    },
-  ],
-  [
-    'RESPONSE_FORMATTING',
-    {
-      title: 'FORMATTER',
-      group: 'INTERACTION',
-      role: 'OUTPUT SHAPING',
-      state: 'STANDBY',
-      priority: 3,
-    },
-  ],
+
   [
     'IMAGE_RECOGNITION',
     {
@@ -281,20 +261,7 @@ const CONTRACT_SOURCE_MAP = new Map<ContractKey, ContractSource>([
       content: contractAnswerSource,
     },
   ],
-  [
-    'CONVERSATIONAL_ANSWER',
-    {
-      path: 'assistant/src/contracts/conversational.answer.ts',
-      content: contractConversationalAnswerSource,
-    },
-  ],
-  [
-    'RESPONSE_FORMATTING',
-    {
-      path: 'assistant/src/contracts/response.formatting.ts',
-      content: contractResponseFormattingSource,
-    },
-  ],
+
   [
     'IMAGE_RECOGNITION',
     {

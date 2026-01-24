@@ -47,7 +47,7 @@ These contracts form the decision pipeline and are always active:
    - **Failure**: Returns "I don't know" message
    - **Output is final**: No formatting or external evaluation applied
 
-4. **CONVERSATIONAL_ANSWER** 
+4. **ANSWER (mode: conversational)** 
    - **Purpose**: Handles greetings, small talk, and social interactions
    - **Input**: User message
    - **Output**: Friendly conversational response
@@ -79,7 +79,7 @@ These contracts provide auxiliary functionality and never affect routing decisio
    - **Failure**: Defaults to `unknown`
    - **Usage**: Telemetry only; runs in parallel with tool execution to reduce latency
 
-8. **RESPONSE_FORMATTING** 
+8. **ANSWER (mode: tool-formatting)** 
    - **Purpose**: Formats tool outputs into concise natural language
    - **Input**: Tool output + detected language
    - **Output**: 1-2 sentence natural language summary
@@ -254,8 +254,8 @@ Key methods for generating contract prompts:
 - `buildIntentClassificationPrompt(tools, userInput)` - Routing prompt with tool registry
 - `buildToolArgumentPrompt(tool, userInput)` - Extraction prompt with tool schema
 - `buildAnswerPrompt(question, mode)` - Answer prompt with mode-specific instructions
-- `buildConversationalAnswerPrompt(input)` - Conversational response prompt
-- `buildResponseFormattingPrompt(toolOutput, language)` - Formatting prompt
+- `buildAnswerPrompt(input, 'conversational')` - Conversational response prompt
+- `buildAnswerPrompt(toolOutput, 'tool-formatting', undefined, language, undefined, undefined, { requestContext, toolName, response: toolOutput })` - Formatting prompt
 
 
 ### Prompt Conventions

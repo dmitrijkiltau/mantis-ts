@@ -2,8 +2,6 @@ import { CONTRACT_INTENT_CLASSIFICATION } from './intent.classification.js';
 import { CONTRACT_LANGUAGE_DETECTION } from './language.detection.js';
 import { CONTRACT_TOOL_ARGUMENT_EXTRACTION } from './tool.argument.extraction.js';
 import { CONTRACT_ANSWER } from './answer.js';
-import { CONTRACT_CONVERSATIONAL_ANSWER } from './conversational.answer.js';
-import { CONTRACT_RESPONSE_FORMATTING } from './response.formatting.js';
 import { CONTRACT_IMAGE_RECOGNITION } from './image.recognition.js';
 
 /**
@@ -27,8 +25,6 @@ export const CONTRACTS = {
   LANGUAGE_DETECTION: CONTRACT_LANGUAGE_DETECTION,
   TOOL_ARGUMENT_EXTRACTION: CONTRACT_TOOL_ARGUMENT_EXTRACTION,
   ANSWER: CONTRACT_ANSWER,
-  CONVERSATIONAL_ANSWER: CONTRACT_CONVERSATIONAL_ANSWER,
-  RESPONSE_FORMATTING: CONTRACT_RESPONSE_FORMATTING,
   IMAGE_RECOGNITION: CONTRACT_IMAGE_RECOGNITION,
 } as const;
 

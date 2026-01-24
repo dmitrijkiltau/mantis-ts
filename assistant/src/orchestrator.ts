@@ -11,10 +11,9 @@ import {
 import {
   ANSWER_MODE_INSTRUCTIONS,
   validateAnswer,
+  getAnswerValidator,
   type AnswerMode,
 } from './contracts/answer.js';
-import { validateConversationalAnswer } from './contracts/conversational.answer.js';
-import { validateResponseFormatting } from './contracts/response.formatting.js';
 import { validateLanguageDetection } from './contracts/language.detection.js';
 import { validateImageRecognition } from './contracts/image.recognition.js';
 import {
@@ -67,6 +66,7 @@ export class Orchestrator {
     contractName: ContractName,
     context: Record<string, string> = {},
     contextSnapshot?: ContextSnapshot,
+    overrideUserPrompt?: string,
   ): ContractPrompt {
     const contract = this.getContractEntry(contractName);
     const mode = contract.MODE ?? 'chat';
@@ -94,8 +94,9 @@ export class Orchestrator {
     const systemPrompt = contract.SYSTEM_PROMPT
       ? renderTemplate(contract.SYSTEM_PROMPT, promptContext)
       : '';
-    const userPrompt = contract.USER_PROMPT
-      ? renderTemplate(contract.USER_PROMPT, promptContext)
+    const userPromptTemplate = overrideUserPrompt ?? contract.USER_PROMPT;
+    const userPrompt = userPromptTemplate
+      ? renderTemplate(userPromptTemplate, promptContext)
       : undefined;
 
     return {
@@ -280,58 +281,38 @@ export class Orchestrator {
   /**
    * Builds a unified answer prompt with mode support.
    * @param mode - 'strict' for concise factual answers, 'normal' for natural responses
+   *               'conversational' for short dialogue
+   *               'tool-formatting' to format raw tool output into a concise response
    */
   public buildAnswerPrompt(
-    question: string,
+    questionOrResponse: string,
     mode: AnswerMode = 'strict',
     toneInstructions?: string,
     language?: { language: string; name: string },
     personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
+    formattingOptions?: { requestContext?: string; toolName?: string; response?: string },
   ): ContractPrompt {
-    return this.buildPrompt('ANSWER', {
-      QUESTION: this.normalize(question),
+    const context: Record<string, string> = {
+      QUESTION: this.normalize(questionOrResponse),
       MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
       LANGUAGE: language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
-    }, contextSnapshot);
+    };
+
+    if (mode === 'tool-formatting') {
+      context.RESPONSE = this.normalize(formattingOptions?.response ?? questionOrResponse);
+      context.REQUEST_CONTEXT = formattingOptions?.requestContext ? this.normalize(formattingOptions.requestContext) : 'Not provided.';
+      context.TOOL_NAME = formattingOptions?.toolName ?? 'Not specified';
+      const overrideUserPrompt = `User request:\n{{REQUEST_CONTEXT}}\n\nTool: {{TOOL_NAME}}\n\nRaw result to format as a concise response:\n{{RESPONSE}}`;
+      return this.buildPrompt('ANSWER', context, contextSnapshot, overrideUserPrompt);
+    }
+
+    return this.buildPrompt('ANSWER', context, contextSnapshot);
   }
 
-  /**
-   * Builds a prompt for short conversational replies.
-   */
-  public buildConversationalAnswerPrompt(
-    userInput: string,
-    toneInstructions?: string,
-    language?: { language: string; name: string },
-    personalityDescription?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('CONVERSATIONAL_ANSWER', {
-      USER_INPUT: this.normalize(userInput),
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
-      PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
-    }, contextSnapshot);
-  }
 
-  public buildResponseFormattingPrompt(
-    response: string,
-    language: { language: string; name: string },
-    toneInstructions?: string,
-    requestContext?: string,
-    toolName?: string,
-    contextSnapshot?: ContextSnapshot,
-  ): ContractPrompt {
-    return this.buildPrompt('RESPONSE_FORMATTING', {
-      RESPONSE: this.normalize(response),
-      LANGUAGE: language.name,
-      TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      REQUEST_CONTEXT: requestContext ? this.normalize(requestContext) : 'Not provided.',
-      TOOL_NAME: toolName ?? 'Not specified',
-    }, contextSnapshot);
-  }
 
   /**
    * Builds a prompt for analyzing attached image(s).
@@ -368,10 +349,29 @@ export class Orchestrator {
       toolName?: string;
       toolDescription?: string;
       toolSchema?: ToolSchema;
+      requestContext?: string;
       contextSnapshot?: ContextSnapshot;
     },
   ): ContractPrompt {
-    const opts = options ?? {};
+    const opts = options ?? {} as any;
+
+    // Backwards-compatible aliases: allow callers to request legacy keys
+    if (contractName === ('CONVERSATIONAL_ANSWER' as ContractName)) {
+      return this.buildAnswerPrompt(opts.userInput ?? 'Hi there', 'conversational', undefined, opts.language, undefined, opts.contextSnapshot);
+    }
+
+    if (contractName === ('RESPONSE_FORMATTING' as ContractName)) {
+      return this.buildAnswerPrompt(
+        opts.response ?? 'Here is a response',
+        'tool-formatting',
+        undefined,
+        opts.language ?? { language: 'en', name: 'English' },
+        undefined,
+        opts.contextSnapshot,
+        { requestContext: opts.requestContext ?? 'Not provided.', toolName: opts.toolName ?? 'Not specified', response: opts.response ?? 'Here is a response' },
+      );
+    }
+
     switch (contractName) {
       case 'INTENT_CLASSIFICATION':
         return this.buildIntentClassificationPrompt(opts.userInput ?? 'Show me README.md', opts.contextSnapshot);
@@ -385,10 +385,6 @@ export class Orchestrator {
       }
       case 'ANSWER':
         return this.buildAnswerPrompt(opts.userInput ?? 'What is MANTIS?', 'strict', undefined, opts.language, undefined, opts.contextSnapshot);
-      case 'CONVERSATIONAL_ANSWER':
-        return this.buildConversationalAnswerPrompt(opts.userInput ?? 'Hi there', undefined, opts.language, undefined, opts.contextSnapshot);
-      case 'RESPONSE_FORMATTING':
-        return this.buildResponseFormattingPrompt(opts.response ?? 'Here is a response', opts.language ?? { language: 'en', name: 'English' }, undefined, undefined, opts.toolName, opts.contextSnapshot);
       case 'IMAGE_RECOGNITION':
         return this.buildImageRecognitionPrompt(opts.userInput ?? 'Describe the image', opts.imageCount ?? 1, undefined, opts.language, opts.contextSnapshot);
       default:
@@ -425,14 +421,8 @@ export class Orchestrator {
     return validateAnswer(raw);
   }
 
-  public validateConversationalAnswer(raw: string): ValidationResult<string> {
-    return validateConversationalAnswer(raw);
-  }
-
-  public validateResponseFormatting(
-    raw: string,
-  ): ValidationResult<string> {
-    return validateResponseFormatting(raw);
+  public validateAnswerMode(raw: string, mode: AnswerMode): ValidationResult<string> {
+    return getAnswerValidator(mode)(raw);
   }
 
   public validateImageRecognition(raw: string): ValidationResult<string> {

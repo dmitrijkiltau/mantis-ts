@@ -9,6 +9,7 @@ import {
   TOOL_TRIGGERS,
   type ToolName,
 } from './tools/registry.js';
+import type { AnswerMode } from './contracts/answer.js';
 import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import { DEFAULT_PERSONALITY } from './personality.js';
@@ -1360,7 +1361,7 @@ export class Pipeline {
     const language = languageResult.language;
 
     if (intent?.intent === CONVERSATION_INTENT) {
-      return this.runConversationalAnswer(
+      return this.runAnswer(
         userInput,
         intent,
         attempts + attemptOffset,
@@ -1368,6 +1369,8 @@ export class Pipeline {
         personalityDescription,
         language,
         contextSnapshot,
+        undefined,
+        'conversational',
       );
     }
 
@@ -1384,54 +1387,7 @@ export class Pipeline {
     );
   }
 
-  /**
-   * Runs the conversational answer contract for simple dialogue.
-   */
-  private async runConversationalAnswer(
-    userInput: string,
-    intent: { intent: string; confidence: number } | undefined,
-    attempts: number,
-    toneInstructions: string | undefined,
-    personalityDescription: string,
-    language: DetectedLanguage,
-    contextSnapshot?: ContextSnapshot,
-  ): Promise<PipelineResult> {
-    Logger.debug('pipeline', 'Running conversational answer contract');
-    const prompt = this.orchestrator.buildConversationalAnswerPrompt(
-      userInput,
-      toneInstructions,
-      language,
-      personalityDescription,
-      contextSnapshot,
-    );
-    const result = await this.runner.executeContract(
-      'CONVERSATIONAL_ANSWER',
-      prompt,
-      (raw) => this.orchestrator.validateConversationalAnswer(raw),
-      this.getRunnerOptions(),
-    );
 
-    if (!result.ok) {
-      Logger.error('pipeline', 'Conversational answer contract failed');
-      return {
-        ok: false,
-        kind: 'error',
-        stage: 'strict_answer',
-        attempts: attempts + result.attempts,
-      };
-    }
-
-    Logger.debug('pipeline', 'Conversational answer generated successfully');
-    // Conversational answers are isolated - no scoring, no post-processing
-    return {
-      ok: true,
-      kind: 'strict_answer',
-      value: result.value,
-      intent,
-      language,
-      attempts: attempts + result.attempts,
-    };
-  }
 
   private async runAnswer(
     userInput: string,
@@ -1442,7 +1398,7 @@ export class Pipeline {
     language?: DetectedLanguage,
     contextSnapshot?: ContextSnapshot,
     toolSuggestion?: string,
-    mode: 'strict' | 'normal' = 'strict',
+    mode: AnswerMode = 'strict',
   ): Promise<PipelineResult> {
     Logger.debug('pipeline', `Running answer contract (mode: ${mode})`);
     const prompt = this.orchestrator.buildAnswerPrompt(
@@ -1456,7 +1412,7 @@ export class Pipeline {
     const result = await this.runner.executeContract(
       'ANSWER',
       prompt,
-      (raw) => this.orchestrator.validateAnswer(raw),
+      (raw) => this.orchestrator.validateAnswerMode(raw, mode),
       this.getRunnerOptions(),
     );
 
@@ -1503,18 +1459,19 @@ export class Pipeline {
     const stageStartMs = Date.now();
     const fallback = fallbackText ?? text;
     try {
-      const prompt = this.orchestrator.buildResponseFormattingPrompt(
+      const prompt = this.orchestrator.buildAnswerPrompt(
         text,
-        language,
+        'tool-formatting',
         toneInstructions,
-        requestContext,
-        toolLabel,
+        language,
+        undefined,
         contextSnapshot,
+        { requestContext, toolName: toolLabel, response: text },
       );
       const result = await this.runner.executeContract(
-        'RESPONSE_FORMATTING',
+        'ANSWER',
         prompt,
-        (raw) => this.orchestrator.validateResponseFormatting(raw),
+        (raw) => this.orchestrator.validateAnswerMode(raw, 'tool-formatting'),
         this.getRunnerOptions(),
       );
 

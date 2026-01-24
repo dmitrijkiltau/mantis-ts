@@ -11,15 +11,12 @@ export const createMockOrchestrator = (): Orchestrator => {
     buildLanguageDetectionPrompt: vi.fn(),
     buildToolArgumentPrompt: vi.fn(),
     buildAnswerPrompt: vi.fn(),
-    buildConversationalAnswerPrompt: vi.fn(),
-    buildResponseFormattingPrompt: vi.fn(),
     buildImageRecognitionPrompt: vi.fn(),
     validateIntentClassification: vi.fn(),
     validateLanguageDetection: vi.fn(),
     validateToolArguments: vi.fn(),
     validateAnswer: vi.fn(),
-    validateConversationalAnswer: vi.fn(),
-    validateResponseFormatting: vi.fn(),
+    validateAnswerMode: vi.fn(),
     validateImageRecognition: vi.fn(),
   };
 
