@@ -19,8 +19,7 @@
 
     /* CRT scanlines overlay */
     &::before {
-      content: "";
-      @apply pointer-events-none fixed inset-0 z-0 opacity-5;
+      @apply content-[''] pointer-events-none fixed inset-0 z-0 opacity-5;
       background-image: repeating-linear-gradient(
         0deg,
         transparent,
@@ -33,8 +32,7 @@
 
     /* Subtle screen flicker for authentic CRT feel */
     &::after {
-      content: "";
-      @apply pointer-events-none fixed inset-0 z-0;
+      @apply content-[''] pointer-events-none fixed inset-0 z-0;
       background: transparent;
       animation: crt-flicker 0.15s infinite;
       opacity: 0;
