@@ -5,6 +5,7 @@
     margin: 0 auto;
   }
 
+  .section-header,
   .tool-panel-header {
     @apply flex items-start justify-between gap-4 flex-wrap;
   }
@@ -15,7 +16,7 @@
   }
 
   .tool-panel-subtitle {
-    @apply text-[11px] uppercase tracking-[0.3em] text-primary-70;
+    @apply text-[11px] tracking-wide text-primary-70;
   }
 
   .tool-grid {

@@ -203,8 +203,9 @@
     @apply flex flex-col gap-3;
   }
 
+  .section-header,
   .subsystem-group-header {
-    @apply flex flex-col gap-1;
+    @apply flex items-start justify-between gap-4 flex-wrap;
   }
 
   .subsystem-group-title {

@@ -500,8 +500,10 @@ export const ContractModels: Component = () => {
           subsystemGroups().map((group) => (
             <div class="subsystem-group">
               <div class="subsystem-group-header">
-                <div class="subsystem-group-title">{group.label}</div>
-                <div class="subsystem-group-subtitle">{group.description}</div>
+                <div>
+                  <div class="subsystem-group-title">{group.label}</div>
+                  <div class="subsystem-group-subtitle">{group.description}</div>
+                </div>
               </div>
               <div class="subsystem-module-grid">
                 {group.modules.map((module) => {
