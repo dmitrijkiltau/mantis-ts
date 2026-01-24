@@ -122,9 +122,7 @@ export class Runner {
     history: AttemptRecord<T, E>[],
     retention: HistoryRetention,
   ): AttemptRecord<T, E>[] {
-    if (retention === 'none') {
-      return [];
-    }
+    if (retention === 'none') return [];
 
     if (retention === 'minimal') {
       // Keep validation results but discard large raw responses
@@ -145,11 +143,8 @@ export class Runner {
     durationMs: number,
     attempts: number,
     ok: boolean,
-    _value?: unknown,
   ): void {
-    if (!this.telemetrySink) {
-      return;
-    }
+    if (!this.telemetrySink) return;
 
     this.telemetrySink({
       contractName,
@@ -219,7 +214,6 @@ export class Runner {
           totalDurationMs,
           attempt + 1,
           true,
-          validation.value,
         );
         const retention: HistoryRetention = options?.historyRetention ?? 'minimal';
         return {
@@ -252,37 +246,32 @@ export class Runner {
     return { ok: false, attempts: history.length, history: this.filterHistory(history, retention) };
   }
 
+  /**
+   * Derives the maximum number of attempts for a contract execution.
+   */
   private deriveAttemptsLimit(prompt: ContractPrompt, override?: number): number {
-    if (override !== undefined) {
-      return Math.max(1, override);
-    }
-
-    if (!prompt.retries) {
-      return 1;
-    }
+    if (override !== undefined) return Math.max(1, override);
+    if (!prompt.retries) return 1;
 
     const keys = Object.keys(prompt.retries);
-    if (keys.length === 0) {
-      return 1;
-    }
+    if (keys.length === 0) return 1;
 
     const maxRetryIndex = Math.max(...keys.map((key) => Number(key)));
     return maxRetryIndex + 2;
   }
 
+  /**
+   * Applies retry instructions to the prompt based on the attempt number.
+   */
   private applyRetryInstruction(
     prompt: ContractPrompt,
     contractName: ContractName,
     attempt: number,
   ): ContractPrompt {
-    if (attempt === 0) {
-      return prompt;
-    }
+    if (attempt === 0) return prompt;
 
     const retryInstruction = this.orchestrator.getRetryInstruction(contractName, attempt - 1);
-    if (!retryInstruction) {
-      return prompt;
-    }
+    if (!retryInstruction) return prompt;
 
     if (prompt.mode === 'raw') {
       const rawPrompt = this.buildRawPrompt(prompt);
@@ -305,23 +294,16 @@ export class Runner {
     };
   }
 
+  /**
+   * Builds the raw prompt string for 'raw' mode contracts.
+   */
   private buildRawPrompt(prompt: ContractPrompt): string | undefined {
-    if (prompt.mode !== 'raw') {
-      return undefined;
-    }
-
-    if (prompt.rawPrompt) {
-      return prompt.rawPrompt;
-    }
+    if (prompt.mode !== 'raw') return undefined;
+    if (prompt.rawPrompt) return prompt.rawPrompt;
 
     const parts: string[] = [];
-    if (prompt.systemPrompt) {
-      parts.push(prompt.systemPrompt);
-    }
-    if (prompt.userPrompt) {
-      parts.push(prompt.userPrompt);
-    }
-
+    if (prompt.systemPrompt) parts.push(prompt.systemPrompt);
+    if (prompt.userPrompt) parts.push(prompt.userPrompt);
     return parts.join('\n\n');
   }
 }
