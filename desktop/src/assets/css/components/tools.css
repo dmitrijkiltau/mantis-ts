@@ -10,7 +10,7 @@
   }
 
   .tool-panel-title {
-    @apply text-sm font-bold tracking-widest text-terminal-primary;
+    @apply text-sm font-bold tracking-widest
     text-shadow: var(--shadow-text-primary-soft);
   }
 
@@ -53,7 +53,7 @@
   }
 
   .tool-name {
-    @apply text-sm font-bold tracking-wider text-terminal-primary;
+    @apply text-sm font-bold tracking-wider;
   }
 
   .tool-status {
@@ -94,7 +94,7 @@
   }
 
   .tool-meta-value {
-    @apply font-mono text-terminal-primary;
+    @apply font-mono;
   }
 
   .tool-meta-value[data-risk='LOW'] {
@@ -156,7 +156,7 @@
   }
 
   .tool-capability-item {
-    @apply pl-4 text-xs font-mono uppercase tracking-wider text-terminal-primary relative;
+    @apply pl-4 text-xs font-mono uppercase tracking-wider relative;
 
     &::before {
       content: "-";
@@ -188,7 +188,7 @@
   }
 
   .tool-argument-required {
-    @apply text-[10px] font-bold uppercase tracking-widest text-terminal-primary;
+    @apply text-[10px] font-bold uppercase tracking-widest;
   }
 
   .tool-argument-required[data-required='optional'] {
@@ -275,7 +275,7 @@
   }
 
   .switch {
-    @apply inline-flex items-center gap-2 text-sm text-terminal-primary;
+    @apply inline-flex items-center gap-2 text-sm;
   }
 
   .tool-results {
@@ -366,7 +366,7 @@
   }
 
   .process-name {
-    @apply text-sm font-bold text-terminal-primary;
+    @apply text-sm font-bold;
   }
 
   .process-stats {
@@ -383,7 +383,7 @@
   }
 
   .process-stat-value {
-    @apply text-xs font-mono text-terminal-primary;
+    @apply text-xs font-mono;
   }
 
   .process-cpu-bar {

@@ -43,9 +43,7 @@
 
   /* Phosphor text glow effect for terminal aesthetic */
   .phosphor-text {
-    text-shadow: 
-      0 0 2px var(--color-terminal-primary),
-      0 0 4px rgba(0, 255, 136, 0.5);
+    text-shadow: 0 0 2px var(--color-terminal-primary), 0 0 4px rgba(0, 255, 136, 0.5);
     filter: blur(var(--phosphor-blur));
   }
 
@@ -137,7 +135,7 @@
   /* Pip-Boy style status indicator */
   .pip-status {
     @apply inline-flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold tracking-wider;
-    @apply border border-primary-40 bg-primary-10 text-terminal-primary;
+    @apply border border-primary-40 bg-primary-10;
     box-shadow: var(--shadow-glow-primary-soft);
 
     &::before {
@@ -212,7 +210,7 @@
   /* Retro data readout styling */
   .data-readout {
     @apply font-mono text-xs px-2 py-1 rounded border;
-    @apply bg-bg-black border-primary-30 text-terminal-primary;
+    @apply bg-bg-black border-primary-30;
     text-shadow: var(--shadow-text-primary-soft);
     letter-spacing: var(--tracking-normal);
   }

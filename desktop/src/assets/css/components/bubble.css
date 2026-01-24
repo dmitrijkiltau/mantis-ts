@@ -28,7 +28,7 @@
 
   .bubble-content {
     @apply flex flex-col items-stretch justify-start pr-2 overflow-y-auto;
-    @apply text-base leading-relaxed text-terminal-primary font-mono;
+    @apply text-base leading-relaxed font-mono;
     max-height: min(50vh, 420px);
 
     & p {
@@ -40,7 +40,7 @@
     }
 
     & strong {
-      @apply font-bold text-terminal-primary;
+      @apply font-bold;
     }
 
     & em {
@@ -48,7 +48,7 @@
     }
 
     & a {
-      @apply text-terminal-primary underline transition-colors hover:text-primary-70;
+      @apply underline transition-colors hover:text-primary-70;
     }
 
     .inline-code {
@@ -76,7 +76,7 @@
       .code-block-button {
         @apply inline-flex items-center justify-center gap-1 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold tracking-widest uppercase text-terminal-primary;
+        @apply text-[10px] font-semibold tracking-widest uppercase;
         @apply transition-all duration-150 ease-out cursor-pointer min-w-18 font-mono;
 
         &:focus-visible {
@@ -110,7 +110,7 @@
         white-space: pre;
 
         code {
-          @apply font-mono text-terminal-primary;
+          @apply font-mono;
         }
       }
     }
@@ -152,7 +152,7 @@
       }
 
       .file-preview-path {
-        @apply text-[11px] font-mono text-terminal-primary underline;
+        @apply text-[11px] font-mono underline;
         @apply decoration-primary-40 underline-offset-2 cursor-pointer;
         @apply bg-transparent border-0 p-0 transition-colors duration-150;
 
@@ -210,7 +210,7 @@
         }
 
         .http-meta-value {
-          @apply text-[11px] font-mono text-terminal-primary wrap-break-word;
+          @apply text-[11px] font-mono wrap-break-word;
         }
       }
 
@@ -224,7 +224,7 @@
 
       .http-preview-badge {
         @apply text-[10px] font-bold tracking-widest border px-2 py-0.5;
-        @apply rounded border-primary-40 text-terminal-primary bg-primary-10;
+        @apply rounded border-primary-40 bg-primary-10;
 
         &.warning {
           @apply text-terminal-amber border-amber-40 bg-amber-20;
@@ -257,7 +257,7 @@
       }
 
       .http-json-pretty pre {
-        @apply m-0 text-[12px] leading-snug text-terminal-primary font-mono overflow-x-auto;
+        @apply m-0 text-[12px] leading-snug font-mono overflow-x-auto;
         white-space: pre;
       }
 
@@ -277,7 +277,7 @@
       .http-json-button {
         @apply inline-flex items-center justify-center gap-2 px-3 py-1;
         @apply rounded border border-primary-30 bg-black/30;
-        @apply text-[10px] font-semibold uppercase tracking-widest text-terminal-primary;
+        @apply text-[10px] font-semibold uppercase tracking-widest;
         @apply transition-all duration-150 ease-out cursor-pointer min-w-19.5 font-mono;
 
         &:focus-visible {
@@ -314,10 +314,6 @@
     .tool-output {
       @apply flex flex-col gap-4;
 
-      .tool-output-summary {
-        @apply text-terminal-primary;
-      }
-
       .tool-output-accordion {
         @apply rounded border border-primary-30 bg-bg-terminal shadow-(--shadow-inset-glow);
 
@@ -353,7 +349,7 @@
         }
 
         .tool-output-file-name {
-          @apply text-terminal-primary text-[11px] font-mono;
+          @apply text-[11px] font-mono;
         }
 
         .tool-output-file-path {
@@ -451,7 +447,7 @@
       }
 
       code {
-        @apply font-mono text-terminal-primary;
+        @apply font-mono;
       }
 
       .code-line {
@@ -495,7 +491,7 @@
     }
 
     .pcinfo-title {
-      @apply text-terminal-primary font-semibold;
+      @apply font-semibold;
     }
 
     .pcinfo-row {
@@ -507,7 +503,7 @@
     }
 
     .pcinfo-row-value {
-      @apply text-terminal-primary font-mono;
+      @apply font-mono;
     }
 
     .pcinfo-bar {
@@ -547,7 +543,7 @@
     }
 
     .tool-output-pcinfo-host {
-      @apply text-terminal-primary text-[11px] font-mono;
+      @apply text-[11px] font-mono;
     }
 
     .tool-output-pcinfo-subtitle {
@@ -591,7 +587,7 @@
       }
 
       .markdown-preview-content {
-        @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+        @apply px-4 py-3 text-sm leading-relaxed;
 
         & p {
           @apply my-2 first:mt-0 last:mb-0;
@@ -632,7 +628,7 @@
     }
 
     .file-output-block .markdown-preview-content {
-      @apply px-4 py-3 text-sm text-terminal-primary leading-relaxed;
+      @apply px-4 py-3 text-sm leading-relaxed;
 
       & p {
         @apply my-2 first:mt-0 last:mb-0;
@@ -694,7 +690,7 @@
         }
 
         code {
-          @apply font-mono text-terminal-primary;
+          @apply font-mono;
         }
       }
 
@@ -712,7 +708,7 @@
     }
 
     .json-node {
-      @apply text-terminal-primary font-mono text-[11px] leading-snug;
+      @apply font-mono text-[11px] leading-snug;
 
       & summary {
         @apply list-none flex items-center gap-1 cursor-pointer text-[11px];
@@ -729,7 +725,7 @@
       }
 
       .json-node-key {
-        @apply font-mono text-terminal-primary text-[11px];
+        @apply font-mono text-[11px];
       }
 
       .json-node-type,
@@ -770,7 +766,7 @@
       @apply transition-colors duration-150 cursor-pointer;
 
       &:hover {
-        @apply text-terminal-primary decoration-terminal-primary;
+        @apply decoration-terminal-primary;
       }
 
       &:focus-visible {
@@ -817,7 +813,7 @@
 
       .file-node-badge {
         @apply text-[10px] font-bold uppercase border px-2 py-0.5;
-        @apply rounded border-primary-40 text-terminal-primary bg-primary-10;
+        @apply rounded border-primary-40 bg-primary-10;
 
         &[data-kind="folder"] {
           @apply text-terminal-cyan border-cyan-40 bg-cyan-20;
@@ -833,12 +829,10 @@
       .file-node-info {
         @apply flex flex-col gap-1 flex-1 min-w-0;
 
-        .file-node-name {
-          @apply text-terminal-primary;
-        }
         .file-node-size {
           @apply text-[11px] font-mono text-primary-70 ml-auto self-start whitespace-nowrap;
         }
+
         .file-node-path {
           @apply text-[11px] font-mono text-primary-70 break-all;
         }

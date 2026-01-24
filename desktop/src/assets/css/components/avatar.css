@@ -188,7 +188,7 @@
   }
 
   .status-indicator {
-    @apply text-xs px-3 py-1 rounded text-terminal-primary border bg-primary-20 border-primary-40 animate-[pulse_2s_ease-in-out_infinite];
+    @apply text-xs px-3 py-1 rounded border bg-primary-20 border-primary-40 animate-[pulse_2s_ease-in-out_infinite];
 
     &[data-mood="listening"] {
       @apply text-terminal-cyan bg-cyan-20 border-cyan-40;
