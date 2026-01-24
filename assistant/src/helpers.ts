@@ -1,3 +1,6 @@
+import chalk from 'chalk';
+import type { LogLevel } from './types.js';
+
 /**
  * Converts an array of strings into a markdown unordered list.
  */
@@ -105,3 +108,59 @@ export const renderTemplate = (template: string, context: Record<string, string>
     return raw ?? '';
   });
 };
+
+/**
+ * Helper to measure execution duration in milliseconds.
+ */
+export function measureDurationMs(startMs: number): number {
+  return Math.round((Date.now() - startMs) * 100) / 100;
+}
+
+/**
+ * Create a standard AbortError instance used by the runner.
+ */
+export const createAbortError = (): Error => {
+  const error = new Error('Contract execution aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+/**
+ * Throws an AbortError if the given AbortSignal has been aborted.
+ */
+export const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) throw createAbortError();
+};
+
+/**
+ * Format a log message with colors based on level
+ */
+export function formatLogMessage(
+  level: LogLevel,
+  stage: string,
+  message: string,
+  timestamp: string,
+): string {
+  const timestampFormatted = chalk.gray(timestamp);
+
+  let levelColor: (text: string) => string;
+  switch (level) {
+    case 'debug':
+      levelColor = chalk.blue;
+      break;
+    case 'info':
+      levelColor = chalk.green;
+      break;
+    case 'warn':
+      levelColor = chalk.yellow;
+      break;
+    case 'error':
+      levelColor = chalk.red;
+      break;
+  }
+
+  const stageFormatted = chalk.cyan(`[${stage}]`);
+  const levelFormatted = levelColor(`[${level.toUpperCase()}]`);
+
+  return `${timestampFormatted} ${stageFormatted} ${levelFormatted} ${message}`;
+} 

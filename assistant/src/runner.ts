@@ -13,24 +13,7 @@ import type {
   ContractExecutionResult,
 } from './types.js';
 import { Logger } from './logger.js';
-
-
-/**
- * Helper to measure execution duration in milliseconds.
- */
-function measureDurationMs(startMs: number): number {
-  return Math.round((Date.now() - startMs) * 100) / 100;
-}
-
-const createAbortError = (): Error => {
-  const error = new Error('Contract execution aborted');
-  error.name = 'AbortError';
-  return error;
-};
-
-const throwIfAborted = (signal?: AbortSignal): void => {
-  if (signal?.aborted) throw createAbortError();
-};
+import { measureDurationMs, throwIfAborted } from './helpers.js';
 
 /**
  * Coordinates prompt execution by combining the Orchestrator, validators, and an LLM client.

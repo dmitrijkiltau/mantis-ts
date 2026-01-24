@@ -1,6 +1,16 @@
 import type { ContractMode } from './contracts/definition.js';
 import type { ContractName } from './orchestrator.js';
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  stage: string;
+  message: string;
+  data?: unknown;
+} 
+
 /**
  * Type of the result of validating a contract output.
  */

@@ -4,56 +4,14 @@
  * Optimized for minimal storage overhead with configurable retention.
  */
 
-import chalk from 'chalk';
-
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  stage: string;
-  message: string;
-  data?: unknown;
-}
+import type { LogLevel, LogEntry } from './types.js';
+import { formatLogMessage } from './helpers.js';
 
 const logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const logs: LogEntry[] = [];
 let maxLogs = 1000;
 let minLogLevelIndex = 0; // 0=debug, 1=info, 2=warn, 3=error
 let consoleMinLogLevelIndex = logLevels.indexOf('info');
-
-/**
- * Format a log message with colors based on level
- */
-function formatLogMessage(
-  level: LogLevel,
-  stage: string,
-  message: string,
-  timestamp: string,
-): string {
-  const timestampFormatted = chalk.gray(timestamp);
-
-  let levelColor: (text: string) => string;
-  switch (level) {
-    case 'debug':
-      levelColor = chalk.blue;
-      break;
-    case 'info':
-      levelColor = chalk.green;
-      break;
-    case 'warn':
-      levelColor = chalk.yellow;
-      break;
-    case 'error':
-      levelColor = chalk.red;
-      break;
-  }
-
-  const stageFormatted = chalk.cyan(`[${stage}]`);
-  const levelFormatted = levelColor(`[${level.toUpperCase()}]`);
-
-  return `${timestampFormatted} ${stageFormatted} ${levelFormatted} ${message}`;
-}
 
 /**
  * Log a message at the specified level
