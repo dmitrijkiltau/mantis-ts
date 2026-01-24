@@ -288,7 +288,7 @@ export class Orchestrator {
     questionOrResponse: string,
     mode: AnswerMode = 'strict',
     toneInstructions?: string,
-    language?: { language: string; name: string },
+    language?: string | { language: string; name: string },
     personalityDescription?: string,
     contextSnapshot?: ContextSnapshot,
     formattingOptions?: { requestContext?: string; toolName?: string; response?: string },
@@ -297,7 +297,7 @@ export class Orchestrator {
       QUESTION: this.normalize(questionOrResponse),
       MODE_INSTRUCTIONS: ANSWER_MODE_INSTRUCTIONS[mode],
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
+      LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
       PERSONALITY_DESCRIPTION: personalityDescription?.trim() ?? 'Not specified.',
     };
 
@@ -321,7 +321,7 @@ export class Orchestrator {
     userInput: string,
     imageCount: number,
     toneInstructions?: string,
-    language?: { language: string; name: string },
+    language?: string | { language: string; name: string },
     contextSnapshot?: ContextSnapshot,
   ): ContractPrompt {
     const normalized = this.normalize(userInput);
@@ -329,7 +329,7 @@ export class Orchestrator {
       USER_INPUT: normalized || 'No additional question provided.',
       IMAGE_COUNT: String(imageCount),
       TONE_INSTRUCTIONS: this.formatToneInstructions(toneInstructions),
-      LANGUAGE: language?.name ?? 'Unknown',
+      LANGUAGE: typeof language === 'string' ? language : language?.name ?? 'Unknown',
     }, contextSnapshot);
   }
 
@@ -342,7 +342,7 @@ export class Orchestrator {
     options?: {
       userInput?: string;
       response?: string;
-      language?: { language: string; name: string };
+      language?: string | { language: string; name: string };
       imageCount?: number;
       verifierNotes?: string;
       extractedArgs?: Record<string, unknown>;
@@ -365,7 +365,7 @@ export class Orchestrator {
         opts.response ?? 'Here is a response',
         'tool-formatting',
         undefined,
-        opts.language ?? { language: 'en', name: 'English' },
+        opts.language ?? 'en',
         undefined,
         opts.contextSnapshot,
         { requestContext: opts.requestContext ?? 'Not provided.', toolName: opts.toolName ?? 'Not specified', response: opts.response ?? 'Here is a response' },

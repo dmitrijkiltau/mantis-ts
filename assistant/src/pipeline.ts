@@ -1731,35 +1731,20 @@ export class Pipeline {
   /**
    * Builds a localized pcinfo summary from structured data.
    */
-  private buildPcInfoSummary(result: PcInfoSummary, language: DetectedLanguage): string {
-    const isGerman = language.language.startsWith('de');
-    const labels = isGerman
-      ? {
-          system: 'System',
-          hostname: 'Hostname',
-          uptime: 'Betriebszeit',
-          platform: 'Plattform',
-          cpu: 'CPU',
-          memory: 'RAM',
-          disk: 'Datenträger',
-          usage: 'Auslastung',
-          cores: 'Kerne',
-          threads: 'Threads',
-          free: 'Frei',
-        }
-      : {
-          system: 'System',
-          hostname: 'Hostname',
-          uptime: 'Uptime',
-          platform: 'Platform',
-          cpu: 'CPU',
-          memory: 'RAM',
-          disk: 'Disk',
-          usage: 'Usage',
-          cores: 'cores',
-          threads: 'threads',
-          free: 'Free',
-        };
+  private buildPcInfoSummary(result: PcInfoSummary): string {
+    const labels = {
+      system: 'System',
+      hostname: 'Hostname',
+      uptime: 'Uptime',
+      platform: 'Platform',
+      cpu: 'CPU',
+      memory: 'RAM',
+      disk: 'Disk',
+      usage: 'Usage',
+      cores: 'cores',
+      threads: 'threads',
+      free: 'Free',
+    };
 
     const lines: string[] = [];
 
@@ -1833,7 +1818,7 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
   ): Promise<string> {
     if (toolName === 'pcinfo' && isPcInfoSummary(toolResult)) {
-      return this.buildPcInfoSummary(toolResult, language);
+      return this.buildPcInfoSummary(toolResult);
     }
 
     const payload = this.stringifyToolResult(toolResult);

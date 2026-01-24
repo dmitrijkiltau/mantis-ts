@@ -88,7 +88,7 @@ export class ContextStore {
     if (result.ok) {
       this.snapshot.user = {
         ...this.snapshot.user,
-        language: result.language.language,
+        language: result.language,
       };
     }
 
