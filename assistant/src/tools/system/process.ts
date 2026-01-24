@@ -379,7 +379,7 @@ const listProcesses = async (query: string | null, limit: number): Promise<Proce
  */
 export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = {
   name: 'process',
-  description: 'list processes, filter by name, and resource snapshot on the host system',
+  description: 'Select to list processes, filter by name, and show a resource snapshot of the host system.',
   schema: {
     action: 'string',
     query: 'string|null',

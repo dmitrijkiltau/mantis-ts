@@ -383,7 +383,10 @@ const runShellCommand = async (
  */
 export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
   name: 'shell',
-  description: `run command, capture stdout, and return exit status on host system`,
+  description: `Select to \`run\` the one of the following shell commands: ${[
+    ...WINDOWS_ALLOWLIST,
+    ...POSIX_ALLOWLIST,
+  ].join(', ')}.`,
   schema: {
     action: 'string',
     program: 'string',

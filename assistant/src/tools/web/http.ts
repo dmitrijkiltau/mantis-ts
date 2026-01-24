@@ -222,7 +222,7 @@ const httpArgsSchema = z.object({
 
 export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
   name: 'http',
-  description: 'fetch a url and return response body',
+  description: 'Select to fetch a url (default to https:// without "www") and return the response body.',
   schema: {
     url: 'string',
     body: 'string|null',

@@ -9,32 +9,18 @@ export const CONTRACT_INTENT_CLASSIFICATION = {
   EXPECTS_JSON: false,
   PROMPT: `You are executing a single, isolated contract.
 
-RULES:
-- Output MUST be the single intent name from the allowed list and nothing else.
-- Output MUST be a bare string (no JSON, no markup, no explanation).
-- Do NOT add explanations, comments, or natural language.
-- Do NOT infer missing information.
-- If unsure, follow the fallback rule defined below.
+CONTEXT:
+{{CONTEXT_BLOCK}}
 
 TASK:
 Return the single most appropriate intent name for the input text.
 
-SELECTION RULES:
-- Prefer specific structured tools over generic tools.
-- If the request is about current time, date, or weekday, return "answer.general".
-- Use the CONTEXT block to resolve pronouns or follow-up references when available.
-
-NEGATIVE CONSTRAINTS:
-- Do not invoke "tool.shell" unless no other tool can fulfill the request.
-- Do not choose "answer.general" or any conversational fallback while a tool clearly matches the intent.
-
-CONTEXT:
-{{CONTEXT_BLOCK}}
+RULES:
+- Return only the intent name for the input text.
+- Use the CONTEXT block to resolve pronouns or follow-up references when available and clearly intended.
 
 ALLOWED INTENTS:
 {{TOOL_REFERENCE}}
-
-Return only the intent name for the following input.
 
 INPUT:
 {{USER_INPUT}}`,
