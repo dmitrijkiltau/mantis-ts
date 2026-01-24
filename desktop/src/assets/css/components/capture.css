@@ -17,7 +17,7 @@
   }
 
   .capture-title {
-    @apply text-xs font-bold tracking-widest
+    @apply text-xs font-bold tracking-widest;
     text-shadow: var(--shadow-text-primary);
   }
 

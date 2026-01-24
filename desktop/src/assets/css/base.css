@@ -5,7 +5,8 @@
 
   body {
     @apply relative isolate min-h-screen font-mono antialiased text-terminal-primary;
-    background: radial-gradient(
+    background:
+      radial-gradient(
         ellipse at top left,
         var(--color-gradient-top),
         transparent 50%
@@ -41,7 +42,9 @@
 
   /* Phosphor text glow effect for terminal aesthetic */
   .phosphor-text {
-    text-shadow: 0 0 2px var(--color-terminal-primary), 0 0 4px rgba(0, 255, 136, 0.5);
+    text-shadow:
+      0 0 2px var(--color-terminal-primary),
+      0 0 4px rgba(0, 255, 136, 0.5);
     filter: blur(var(--phosphor-blur));
   }
 
@@ -79,8 +82,13 @@
 
   /* Subtle CRT flicker - very subtle to avoid annoyance */
   @keyframes crt-flicker {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 0.01; }
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.01;
+    }
   }
 
   .app-shell {
@@ -144,7 +152,7 @@
 
     &[data-status="warning"] {
       @apply border-amber-40 text-terminal-amber;
-      
+
       &::before {
         @apply bg-terminal-amber;
       }
@@ -153,7 +161,7 @@
     &[data-status="error"] {
       border-color: var(--color-danger-40);
       color: var(--color-danger);
-      
+
       &::before {
         background: var(--color-danger);
       }
@@ -161,7 +169,7 @@
 
     &[data-status="success"] {
       @apply border-emerald-40 text-terminal-emerald;
-      
+
       &::before {
         @apply bg-terminal-emerald;
       }
@@ -169,8 +177,13 @@
   }
 
   @keyframes pip-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
 
   /* Retro terminal border decoration */
@@ -227,4 +240,10 @@
   body::after {
     display: none;
   }
+}
+
+@utility card {
+  @apply flex flex-col gap-2 p-3 bg-status-ok;
+  @apply rounded border-l-[3px] border-l-primary-50;
+  box-shadow: var(--shadow-inset-glow);
 }

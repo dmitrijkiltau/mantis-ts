@@ -40,7 +40,7 @@ Type checking can be performed using:
 npm run typecheck
 ```
 
-Tests can be run using (only for contract and pipeline changes):
+Only for contract and pipeline changes:
 ```bash
 npm run test
 ```

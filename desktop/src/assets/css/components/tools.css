@@ -10,7 +10,7 @@
   }
 
   .tool-panel-title {
-    @apply text-sm font-bold tracking-widest
+    @apply text-sm font-bold tracking-widest;
     text-shadow: var(--shadow-text-primary-soft);
   }
 
@@ -30,25 +30,20 @@
   }
 
   .tool-card {
-    @apply p-4 border flex flex-col gap-3 relative;
-    background: var(--color-bg-terminal);
-    border-color: var(--color-primary-30);
-    box-shadow: var(--shadow-inset-glow), var(--shadow-glow-primary-soft);
-  }
+    @apply card;
 
-  .tool-card-header {
-    @apply flex items-center justify-between gap-3;
-  }
+    .tool-card-header {
+      @apply flex items-center justify-between gap-3;
+    }
 
-  .tool-title-group {
-    @apply flex items-center gap-3;
+    .tool-title-group {
+      @apply flex items-center gap-3;
+    }
   }
 
   .tool-icon {
     @apply text-xs px-2 py-1 border;
-    background: var(--color-primary-10);
-    border-color: var(--color-primary-40);
-    color: var(--color-terminal-cyan);
+    @apply bg-primary-10 border-primary-40 text-terminal-cyan;
     box-shadow: var(--shadow-glow-cyan);
   }
 
@@ -58,7 +53,6 @@
 
   .tool-status {
     @apply inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest;
-    color: var(--color-terminal-primary);
 
     &::before {
       content: "";
@@ -68,15 +62,15 @@
     }
   }
 
-  .tool-status[data-status='LOCKED'] {
+  .tool-status[data-status="LOCKED"] {
     color: var(--color-warning);
   }
 
-  .tool-status[data-status='DEGRADED'] {
+  .tool-status[data-status="DEGRADED"] {
     color: var(--color-terminal-amber);
   }
 
-  .tool-status[data-status='UNUSED'] {
+  .tool-status[data-status="UNUSED"] {
     color: var(--color-primary-50);
   }
 
@@ -93,19 +87,19 @@
     @apply uppercase tracking-[0.25em] text-primary-70;
   }
 
-  .tool-meta-value[data-risk='LOW'] {
+  .tool-meta-value[data-risk="LOW"] {
     color: var(--color-terminal-emerald);
   }
 
-  .tool-meta-value[data-risk='MEDIUM'] {
+  .tool-meta-value[data-risk="MEDIUM"] {
     color: var(--color-terminal-amber);
   }
 
-  .tool-meta-value[data-risk='HIGH'] {
+  .tool-meta-value[data-risk="HIGH"] {
     color: var(--color-terminal-orange);
   }
 
-  .tool-meta-value[data-risk='EXTERNAL'] {
+  .tool-meta-value[data-risk="EXTERNAL"] {
     color: var(--color-terminal-cyan);
   }
 
@@ -116,10 +110,8 @@
   }
 
   .tool-count-badge {
-    @apply inline-flex items-center gap-2 px-3 py-1 border text-[11px] font-bold tracking-widest;
-    background: var(--color-primary-10);
-    border-color: var(--color-primary-40);
-    color: var(--color-terminal-primary);
+    @apply text-[11px] font-bold tracking-widest px-3 py-1;
+    @apply bg-primary-10 rounded border border-primary-40;
     box-shadow: var(--shadow-glow-primary-soft);
   }
 
@@ -187,7 +179,7 @@
     @apply text-[10px] font-bold uppercase tracking-widest;
   }
 
-  .tool-argument-required[data-required='optional'] {
+  .tool-argument-required[data-required="optional"] {
     color: var(--color-primary-70);
   }
 
@@ -207,10 +199,6 @@
     &::-webkit-details-marker {
       display: none;
     }
-  }
-
-  .tool-manual[open] .tool-manual-summary {
-    color: var(--color-terminal-primary);
   }
 
   .tool-manual-body {
@@ -234,7 +222,6 @@
     @apply px-2 py-1 border text-[10px] uppercase tracking-widest;
     background: var(--color-primary-8);
     border-color: var(--color-primary-30);
-    color: var(--color-terminal-primary);
   }
 
   .tool-form {
@@ -258,7 +245,6 @@
     @apply w-full px-3 py-2 rounded border text-sm;
     background: var(--color-bg-black);
     border-color: var(--color-primary-30);
-    color: var(--color-terminal-primary);
 
     &:focus {
       outline: 2px solid var(--color-primary-40);
@@ -302,7 +288,6 @@
     @apply text-xs whitespace-pre-wrap p-2 rounded border;
     background: var(--color-bg-black);
     border-color: var(--color-primary-20);
-    color: var(--color-terminal-primary);
   }
 
   /* Process List Visualization */
@@ -401,7 +386,6 @@
   }
 
   .process-cpu-text-empty {
-    color: var(--color-terminal-primary);
     text-shadow: 0 0 2px var(--color-bg-black);
   }
 

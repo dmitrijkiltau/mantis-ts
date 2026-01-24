@@ -2,8 +2,13 @@
   .pip-tablet {
     @apply rounded-lg overflow-hidden relative;
     @apply border-[3px] border-primary-60;
-    background: linear-gradient(135deg, var(--color-bg-tablet), var(--color-bg-tablet-alt));
-    box-shadow: var(--shadow-glow-primary-strong), var(--shadow-inset-glow-strong);
+    background: linear-gradient(
+      135deg,
+      var(--color-bg-tablet),
+      var(--color-bg-tablet-alt)
+    );
+    box-shadow:
+      var(--shadow-glow-primary-strong), var(--shadow-inset-glow-strong);
 
     /* CRT scanlines overlay */
     &::before {
@@ -47,8 +52,12 @@
   }
 
   @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .tablet-stats {
@@ -88,13 +97,22 @@
 
   .scan-line {
     @apply absolute left-0 right-0 h-0.5 pointer-events-none;
-    background: linear-gradient(90deg, transparent, var(--color-primary-40), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-primary-40),
+      transparent
+    );
     animation: scan 3s linear infinite;
   }
 
   @keyframes scan {
-    from { top: 0; }
-    to { top: 100%; }
+    from {
+      top: 0;
+    }
+    to {
+      top: 100%;
+    }
   }
 
   .tablet-panel {
@@ -127,45 +145,37 @@
   }
 
   .status-card {
-    @apply flex flex-col gap-2 px-4 py-3 rounded border-l-[3px];
-    background: var(--color-status-neutral);
-    border-color: var(--color-primary-50);
-    box-shadow: var(--shadow-inset-glow);
-  }
+    @apply card;
 
-  .status-card[data-state='OPERATIONAL'],
-  .status-card[data-state='COMPLETE'],
-  .status-card[data-state='AWAITING_INPUT'],
-  .status-card[data-state='ANSWER_GENERATED'] {
-    background: var(--color-status-ok);
-    border-color: var(--color-emerald-40);
-  }
+    &[data-state="OPERATIONAL"],
+    &[data-state="COMPLETE"],
+    &[data-state="AWAITING_INPUT"],
+    &[data-state="ANSWER_GENERATED"] {
+      @apply bg-status-ok border-l-emerald-40;
+    }
 
-  .status-card[data-state='PROCESSING'],
-  .status-card[data-state='ANALYZING'],
-  .status-card[data-state='QUERY_RECEIVED'],
-  .status-card[data-state='CONTRACT_VALIDATION'],
-  .status-card[data-state^='TOOL_'] {
-    background: var(--color-status-active);
-    border-color: var(--color-cyan-50);
-  }
+    &[data-state="PROCESSING"],
+    &[data-state="ANALYZING"],
+    &[data-state="QUERY_RECEIVED"],
+    &[data-state="CONTRACT_VALIDATION"],
+    &[data-state^="TOOL_"] {
+      @apply bg-status-active border-l-cyan-50;
+    }
 
-  .status-card[data-state='FAILED'],
-  .status-card[data-state='ERROR'],
-  .status-card[data-state='EXCEPTION'],
-  .status-card[data-state='UNHANDLED'] {
-    background: var(--color-status-error);
-    border-color: var(--color-status-error-border);
-  }
+    &[data-state="FAILED"],
+    &[data-state="ERROR"],
+    &[data-state="EXCEPTION"],
+    &[data-state="UNHANDLED"] {
+      @apply bg-status-error border-l-status-error-border;
+    }
 
-  .status-card[data-state='NONE'] {
-    background: var(--color-status-neutral);
-    border-color: var(--color-primary-40);
+    &[data-state="NONE"] {
+      @apply bg-status-neutral border-l-primary-40;
+    }
   }
 
   .status-label {
-    @apply text-xs font-bold tracking-wider min-w-30;
-    color: var(--color-primary-70);
+    @apply text-xs font-bold tracking-wider min-w-30 text-primary-70;
   }
 
   .status-value {
@@ -183,11 +193,6 @@
 
   .status-section-header {
     @apply flex items-center justify-between gap-3;
-  }
-
-  .status-section-meta {
-    @apply text-[10px] px-2 py-1;
-    @apply bg-bg-black-soft rounded border border-primary-30;
   }
 
   .subsystem-groups {
@@ -217,158 +222,138 @@
   }
 
   .subsystem-module {
-    @apply flex flex-col gap-2 p-3 rounded border;
-    background: var(--color-bg-black-soft);
-    border-color: var(--color-primary-20);
-    box-shadow: var(--shadow-inset-glow);
-  }
+    @apply card;
 
-  .subsystem-module[data-state='ACTIVE'] {
-    background: var(--color-status-ok);
-    border-color: var(--color-emerald-40);
-  }
-
-  .subsystem-module[data-state='STANDBY'] {
-    background: var(--color-amber-20);
-    border-color: var(--color-amber-40);
-  }
-
-  .subsystem-module[data-state='IDLE'] {
-    background: var(--color-status-neutral);
-    border-color: var(--color-primary-40);
-  }
-
-  .subsystem-module[data-state='DEGRADED'] {
-    background: var(--color-status-error);
-    border-color: var(--color-status-error-border);
-  }
-
-  .subsystem-module[data-state='OFFLINE'] {
-    background: var(--color-bg-black);
-    border-color: var(--color-primary-15);
-  }
-
-  .subsystem-module-header {
-    @apply flex items-center justify-between gap-2;
-  }
-
-  .subsystem-module-title {
-    @apply flex items-center gap-2 text-xs font-bold tracking-wider;
-  }
-
-  .subsystem-module-lamp {
-    @apply w-2 h-2 rounded-full border;
-    background: var(--color-primary-30);
-    border-color: var(--color-primary-50);
-    box-shadow: var(--shadow-glow-primary-soft);
-  }
-
-  .subsystem-module-lamp[data-state='ACTIVE'] {
-    background: var(--color-terminal-emerald);
-    border-color: var(--color-emerald-40);
-    box-shadow: var(--shadow-glow-primary-strong);
-  }
-
-  .subsystem-module-lamp[data-state='STANDBY'] {
-    background: var(--color-terminal-amber);
-    border-color: var(--color-amber-40);
-    box-shadow: var(--shadow-glow-amber);
-  }
-
-  .subsystem-module-lamp[data-state='IDLE'] {
-    background: var(--color-primary-40);
-    border-color: var(--color-primary-60);
-  }
-
-  .subsystem-module-lamp[data-state='DEGRADED'] {
-    background: var(--color-status-error-border);
-    border-color: var(--color-status-error-border);
-  }
-
-  .subsystem-module-lamp[data-state='OFFLINE'] {
-    background: var(--color-primary-20);
-    border-color: var(--color-primary-30);
-    box-shadow: none;
-  }
-
-  .subsystem-module-status {
-    @apply text-[9px] font-bold tracking-[0.25em] uppercase px-2 py-0.5 rounded border;
-    background: var(--color-bg-black-soft);
-    border-color: var(--color-primary-20);
-    color: var(--color-primary-70);
-  }
-
-  .subsystem-module-status[data-state='ACTIVE'] {
-    color: var(--color-terminal-primary);
-    border-color: var(--color-emerald-40);
-  }
-
-  .subsystem-module-status[data-state='STANDBY'] {
-    color: var(--color-terminal-amber);
-    border-color: var(--color-amber-40);
-  }
-
-  .subsystem-module-status[data-state='IDLE'] {
-    color: var(--color-primary-70);
-    border-color: var(--color-primary-30);
-  }
-
-  .subsystem-module-status[data-state='DEGRADED'] {
-    color: var(--color-status-error-border);
-    border-color: var(--color-status-error-border);
-  }
-
-  .subsystem-module-status[data-state='OFFLINE'] {
-    color: var(--color-primary-50);
-    border-color: var(--color-primary-20);
-  }
-
-  .subsystem-module-body {
-    @apply flex flex-col gap-1;
-  }
-
-  .subsystem-module-row {
-    @apply grid gap-2 text-[11px];
-    grid-template-columns: 84px 1fr;
-  }
-
-  .subsystem-module-label {
-    @apply text-[9px] uppercase tracking-[0.3em] text-primary-60;
-  }
-
-  .subsystem-module-value {
-    word-break: break-word;
-  }
-
-  .subsystem-module-link {
-    @apply underline decoration-primary-40;
-    text-underline-offset: 2px;
-
-    &:hover {
-      @apply text-terminal-cyan decoration-terminal-cyan;
+    &[data-state="ACTIVE"] {
+      @apply bg-status-ok border-l-emerald-40;
     }
-  }
 
-  .subsystem-module-access {
-    @apply inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-widest uppercase;
-    background: var(--color-bg-black-soft);
-  }
+    &[data-state="STANDBY"] {
+      @apply bg-amber-20 border-l-amber-40;
+    }
 
-  .subsystem-module-access[data-access='LOCKED'] {
-    @apply text-terminal-cyan border-terminal-cyan;
-  }
+    &[data-state="IDLE"] {
+      @apply bg-status-neutral border-l-primary-40;
+    }
 
-  .subsystem-module-access[data-access='OPEN'] {
-    @apply border-primary-30;
-  }
+    &[data-state="DEGRADED"] {
+      @apply bg-status-error border-l-status-error-border;
+    }
 
-  .subsystem-module-load {
-    @apply text-xs tracking-[0.3em];
-  }
+    &[data-state="OFFLINE"] {
+      background: var(--color-bg-black);
+      border-color: var(--color-primary-15);
+    }
 
-  .subsystem-module-telemetry {
-    @apply mt-1 pt-2 flex flex-col gap-1 text-[10px] text-primary-60 border-t;
-    border-color: var(--color-primary-15);
+    .subsystem-module-header {
+      @apply flex items-center justify-between gap-2;
+    }
+
+    .subsystem-module-title {
+      @apply flex items-center gap-2 text-xs font-bold tracking-wider;
+    }
+
+    .subsystem-module-lamp {
+      @apply w-2 h-2 rounded-full border;
+      @apply bg-primary-30 border-primary-50;
+      box-shadow: var(--shadow-glow-primary-soft);
+
+      &[data-state="ACTIVE"] {
+        @apply bg-terminal-emerald border-emerald-40;
+        box-shadow: var(--shadow-glow-primary-strong);
+      }
+
+      &[data-state="STANDBY"] {
+        @apply bg-terminal-amber border-amber-40;
+        box-shadow: var(--shadow-glow-amber);
+      }
+
+      &[data-state="IDLE"] {
+        @apply bg-primary-40 border-primary-60;
+      }
+
+      &[data-state="DEGRADED"] {
+        @apply bg-status-error border-status-error-border;
+      }
+
+      &[data-state="OFFLINE"] {
+        @apply bg-primary-20 border-primary-30;
+        box-shadow: none;
+      }
+    }
+
+    .subsystem-module-status {
+      @apply text-[9px] font-bold tracking-[0.25em] uppercase px-2 py-0.5 rounded border;
+      @apply bg-bg-black-soft border-primary-20 text-primary-70;
+    }
+
+    .subsystem-module-status[data-state="ACTIVE"] {
+      @apply border-emerald-40;
+    }
+
+    .subsystem-module-status[data-state="STANDBY"] {
+      @apply text-terminal-amber border-amber-40;
+    }
+
+    .subsystem-module-status[data-state="IDLE"] {
+      @apply text-primary-70 border-primary-30;
+    }
+
+    .subsystem-module-status[data-state="DEGRADED"] {
+      @apply border-status-error text-status-error-border;
+    }
+
+    .subsystem-module-status[data-state="OFFLINE"] {
+      @apply text-primary-50 border-primary-20;
+    }
+
+    .subsystem-module-body {
+      @apply flex flex-col gap-1;
+    }
+
+    .subsystem-module-row {
+      @apply grid gap-2 text-[11px];
+      grid-template-columns: 84px 1fr;
+    }
+
+    .subsystem-module-label {
+      @apply text-[9px] uppercase tracking-[0.3em] text-primary-60;
+    }
+
+    .subsystem-module-value {
+      word-break: break-word;
+    }
+
+    .subsystem-module-link {
+      @apply underline decoration-primary-40;
+      text-underline-offset: 2px;
+
+      &:hover {
+        @apply text-terminal-cyan decoration-terminal-cyan;
+      }
+    }
+
+    .subsystem-module-access {
+      @apply inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-widest uppercase;
+      background: var(--color-bg-black-soft);
+    }
+
+    .subsystem-module-access[data-access="LOCKED"] {
+      @apply text-terminal-cyan border-terminal-cyan;
+    }
+
+    .subsystem-module-access[data-access="OPEN"] {
+      @apply border-primary-30;
+    }
+
+    .subsystem-module-load {
+      @apply text-xs tracking-[0.3em];
+    }
+
+    .subsystem-module-telemetry {
+      @apply mt-1 pt-2 flex flex-col gap-1 text-[10px] text-primary-60 border-t;
+      border-color: var(--color-primary-15);
+    }
   }
 
   .subsystem-placeholder {
@@ -392,7 +377,11 @@
 
   .history-summary {
     @apply flex items-center gap-3 px-4 py-3 cursor-pointer select-none;
-    background: linear-gradient(90deg, var(--color-bg-black), var(--color-primary-10));
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-black),
+      var(--color-primary-10)
+    );
   }
 
   .history-summary::-webkit-details-marker {
@@ -408,7 +397,7 @@
     @apply border-primary-40 text-terminal-cyan bg-primary-10;
   }
 
-  .history-entry[data-kind='error'] .history-badge {
+  .history-entry[data-kind="error"] .history-badge {
     @apply border-amber-40 text-terminal-amber bg-amber-20;
   }
 

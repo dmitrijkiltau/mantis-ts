@@ -183,22 +183,20 @@ const formatLatency = (value: number | null | undefined): string => {
 
 
 /**
- * Formats the last execution timestamp as a relative time.
+ * Formats the last execution timestamp as a localized date/time (y-m-d hh:mm).
  */
-const formatLastExec = (timestamp: number | null | undefined, now: number): string => {
+export const formatLastExec = (timestamp: number | null | undefined): string => {
   if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
     return '--';
   }
-  const deltaMs = Math.max(0, now - timestamp);
-  if (deltaMs < 1000) {
-    return '<1s ago';
-  }
-  if (deltaMs < 60000) {
-    return `${(deltaMs / 1000).toFixed(1)}s ago`;
-  }
-  const minutes = Math.floor(deltaMs / 60000);
-  const seconds = Math.floor((deltaMs % 60000) / 1000);
-  return `${minutes}m ${seconds}s ago`;
+  const d = new Date(timestamp);
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const hh = d.getHours();
+  const mm = d.getMinutes();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${y}-${pad(m)}-${pad(day)} ${pad(hh)}:${pad(mm)}`;
 };
 
 /**
@@ -207,7 +205,6 @@ const formatLastExec = (timestamp: number | null | undefined, now: number): stri
 const resolveTelemetry = (
   contractKey: ContractKey,
   telemetryMap: ContractTelemetryMap,
-  now: number,
 ): ContractTelemetry => {
   const telemetry = telemetryMap[contractKey];
   if (!telemetry) {
@@ -215,7 +212,7 @@ const resolveTelemetry = (
   }
 
   return {
-    lastExec: formatLastExec(telemetry.lastExecAt, now),
+    lastExec: formatLastExec(telemetry.lastExecAt),
     avgLatency: formatLatency(telemetry.averageLatencyMs),
   };
 };
@@ -343,7 +340,6 @@ const getLoadBar = (priority: number): string => {
  */
 const buildSubsystemGroups = (
   telemetryMap: ContractTelemetryMap,
-  now: number,
 ): SubsystemGroup[] => {
   const groupsById = new Map<SubsystemGroupId, SubsystemGroup>();
   for (let index = 0; index < SUBSYSTEM_GROUPS.length; index += 1) {
@@ -373,7 +369,7 @@ const buildSubsystemGroups = (
       modelName,
       mode,
       accessLabel: getAccessLabel(mode),
-      telemetry: resolveTelemetry(contractKey, telemetryMap, now),
+      telemetry: resolveTelemetry(contractKey, telemetryMap),
       state: moduleState,
     });
   }
@@ -401,8 +397,7 @@ export const ContractModels: Component = () => {
   const services = useDesktopServices();
   const { uiState } = useUIStateContext();
   const [telemetryMap, setTelemetryMap] = createSignal<ContractTelemetryMap>({});
-  const [now, setNow] = createSignal(Date.now());
-  const subsystemGroups = createMemo<SubsystemGroup[]>(() => buildSubsystemGroups(telemetryMap(), now()));
+  const subsystemGroups = createMemo<SubsystemGroup[]>(() => buildSubsystemGroups(telemetryMap()));
   const moduleCounts = createMemo(() => {
     const groups = subsystemGroups();
     let total = 0;
@@ -426,12 +421,7 @@ export const ContractModels: Component = () => {
       setTelemetryMap(snapshot as ContractTelemetryMap);
     });
 
-    const tick = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
     onCleanup(() => {
-      window.clearInterval(tick);
       unsubscribe();
     });
   });
@@ -496,7 +486,7 @@ export const ContractModels: Component = () => {
       <div class="status-section-header">
         <div class="status-section-label">AI SUBSYSTEMS</div>
         <div
-          class="status-section-meta"
+          class="tool-count-badge"
           id="contract-model-count"
           title={`Online modules: ${moduleCounts().online} / ${moduleCounts().total}`}
         >
