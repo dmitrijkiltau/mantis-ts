@@ -10,14 +10,12 @@ import { CONTRACT_IMAGE_RECOGNITION } from './image.recognition.js';
  * CORE CONTRACTS (always active):
  * - INTENT_CLASSIFICATION: Routes user intent
  * - TOOL_ARGUMENT_EXTRACTION: Extracts structured arguments
- * - ANSWER: Knowledge answers (strict/normal modes)
- * - CONVERSATIONAL_ANSWER: Small talk and greetings
+ * - ANSWER: Knowledge answers (strict, normal, conversational, tool-formatting)
  * 
  * MODALITY CONTRACTS (situational):
  * - IMAGE_RECOGNITION: Vision analysis
  * 
  * OPTIONAL CONTRACTS (off-path):
- * - RESPONSE_FORMATTING: Tool output presentation only
  * - LANGUAGE_DETECTION: Telemetry only
  */
 export const CONTRACTS = {

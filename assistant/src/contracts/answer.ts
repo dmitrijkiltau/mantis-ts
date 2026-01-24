@@ -1,5 +1,4 @@
 import { type ContractValidator } from '../types';
-import { ANSWER_CONTEXT_PROMPT, buildAnswerClosing } from './answer.shared.js';
 
 /**
  * Answer mode determines response style.
@@ -17,14 +16,16 @@ export type AnswerMode = 'strict' | 'normal' | 'conversational' | 'tool-formatti
 export const CONTRACT_ANSWER = {
   MODEL: 'ministral-3:3b',
   MODE: 'chat',
-  SYSTEM_PROMPT: `${ANSWER_CONTEXT_PROMPT}
+  SYSTEM_PROMPT: `{{TONE_INSTRUCTIONS}}CONTEXT:
+{{CONTEXT_BLOCK}}
 
 {{MODE_INSTRUCTIONS}}
 Personality profile: {{PERSONALITY_DESCRIPTION}}.
 
 Do not invent physical context (weather, location, people) that is not provided.
 No preamble, no instructions, no bullet points, no formatting.
-${buildAnswerClosing('answer')}`,
+Always respond in {{LANGUAGE}}.
+Output only your answer.`,
   USER_PROMPT: `Question:
 {{QUESTION}}`,
   RETRIES: {
