@@ -14,10 +14,6 @@ import type { AnswerMode } from './contracts/answer.js';
 import type { FieldType } from './contracts/definition.js';
 import { Logger } from './logger.js';
 import {
-  REQUIRED_NULL_RATIO_THRESHOLD,
-  TOOL_INTENT_PREFIX,
-} from './pipeline/config.js';
-import {
   deriveDetectedLanguage,
   type DetectedLanguage,
   LANGUAGE_FALLBACK,
@@ -33,6 +29,9 @@ type PipelineRunOptions = {
   allowLowScoreRetry?: boolean;
   signal?: AbortSignal;
 };
+
+const TOOL_INTENT_PREFIX = 'tool.';
+const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
 
 /**
  * Helper to measure execution duration in milliseconds.
