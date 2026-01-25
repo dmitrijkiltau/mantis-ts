@@ -25,9 +25,31 @@ export const isDirectoryPayload = (value: unknown): value is BubbleDirectoryPayl
   }
 
   const record = value as Record<string, unknown>;
-  return record.action === 'directory'
-    && typeof record.path === 'string'
-    && Array.isArray(record.entries);
+  if (record.action !== 'list') {
+    return false;
+  }
+
+  if (typeof record.path !== 'string') {
+    return false;
+  }
+
+  if (!Array.isArray(record.entries)) {
+    return false;
+  }
+
+  return record.entries.every((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return false;
+    }
+
+    const entryRecord = entry as Record<string, unknown>;
+    if (typeof entryRecord.name !== 'string') {
+      return false;
+    }
+
+    const type = entryRecord.type;
+    return type === 'file' || type === 'directory' || type === 'other';
+  });
 };
 
 export const isSearchPayload = (value: unknown): value is BubbleSearchPayload => {

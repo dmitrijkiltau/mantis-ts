@@ -14,7 +14,7 @@ export type BubbleDirectoryEntry = {
 };
 
 export type BubbleDirectoryPayload = {
-  action: 'directory';
+  action: 'list';
   path: string;
   entries: BubbleDirectoryEntry[];
   truncated?: boolean;

@@ -1,9 +1,9 @@
 import type { ToolDefinition } from '../definition.js';
-import { clampPositiveInteger, normalizeAction, validatePath } from '../internal/helpers.js';
+import { normalizeAction, validatePath } from '../internal/helpers.js';
 import { z } from 'zod';
 
 /* -------------------------------------------------------------------------
- * TYPES
+ * SLIMMED TYPES & ERRORS
  * ------------------------------------------------------------------------- */
 
 type FilesystemAction = 'read' | 'list' | 'stat';
@@ -16,11 +16,11 @@ type FilesystemToolArgs = {
 type DirectoryEntrySummary = {
   name: string;
   type: 'file' | 'directory' | 'other';
-  sizeBytes?: number | null;
+  sizeBytes: number | null; // explicit: number or null
 };
 
-type FileOpenResult = {
-  action: 'file';
+type FileResult = {
+  action: 'read';
   path: string;
   content: string;
   bytesRead: number;
@@ -28,14 +28,14 @@ type FileOpenResult = {
   truncated: boolean;
 };
 
-type DirectoryOpenResult = {
-  action: 'directory';
+type DirectoryResult = {
+  action: 'list';
   path: string;
   entries: DirectoryEntrySummary[];
   truncated: boolean;
 };
 
-type FilesystemStatResult = {
+type StatResult = {
   action: 'stat';
   path: string;
   exists: boolean;
@@ -44,19 +44,19 @@ type FilesystemStatResult = {
   message: string;
 };
 
-type FilesystemNoticeResult = {
+type ErrorResult = {
   action: FilesystemAction;
   path: string;
   ok: false;
-  error: 'not_found' | 'not_file' | 'not_directory' | 'permission_denied' | 'unknown';
+  error: 'not_found' | 'permission_denied' | 'invalid_type' | 'unknown';
   message: string;
 };
 
-type FilesystemToolResult =
-  | FileOpenResult
-  | DirectoryOpenResult
-  | FilesystemStatResult
-  | FilesystemNoticeResult;
+type FilesystemToolResult = FileResult | DirectoryResult | StatResult | ErrorResult;
+
+/* -------------------------------------------------------------------------
+ * TAURI FS SHIM
+ * ------------------------------------------------------------------------- */
 
 type TauriFS = {
   readTextFile: (path: string) => Promise<string>;
@@ -65,13 +65,11 @@ type TauriFS = {
 };
 
 /* -------------------------------------------------------------------------
- * CONSTANTS
+ * CONSTANTS & SCHEMA
  * ------------------------------------------------------------------------- */
 
 const DEFAULT_MAX_BYTES = 100_000; // 100 KB
-const MAX_ALLOWED_BYTES = 1_000_000; // 1 MB safety cap
 const DEFAULT_LIST_LIMIT = 50;
-const MAX_LIST_LIMIT = 500;
 const FILESYSTEM_ACTIONS = new Set<FilesystemAction>(['read', 'list', 'stat']);
 
 const filesystemArgsSchema = z.object({
@@ -89,361 +87,141 @@ let tauriFS: TauriFS | null = null;
  * HELPERS
  * ------------------------------------------------------------------------- */
 
-/**
- * Lazily loads Tauri filesystem APIs.
- */
 const loadTauriFS = async (): Promise<TauriFS> => {
-  if (tauriFS) {
-    return tauriFS;
-  }
-
+  if (tauriFS) return tauriFS;
   try {
     const { readTextFile, readDir, stat } = await import('@tauri-apps/plugin-fs');
     tauriFS = { readTextFile, readDir, stat };
     return tauriFS;
-  } catch (error) {
+  } catch (e) {
     throw new Error('Filesystem operations require Tauri environment.');
   }
 };
 
-
-
-/**
- * Joins a base path with an entry name using the existing separator.
- */
 const joinPath = (basePath: string, entryName: string): string => {
-  if (/[\\/]+$/.test(basePath)) {
-    return `${basePath}${entryName}`;
-  }
-
+  if (/[\\/]+$/.test(basePath)) return `${basePath}${entryName}`;
   const separator = basePath.includes('\\') ? '\\' : '/';
   return `${basePath}${separator}${entryName}`;
 };
 
-const getErrorMessage = (error: unknown): string => (
-  error instanceof Error ? error.message : String(error)
-);
-
-const isNotFoundError = (error: unknown): boolean => {
-  if (error && typeof error === 'object' && 'code' in error) {
-    const code = (error as { code?: unknown }).code;
-    if (code === 'ENOENT' || code === 'NotFound') {
-      return true;
-    }
-  }
-
-  const message = getErrorMessage(error).toLowerCase();
-  return (
-    message.includes('no such file') ||
-    message.includes('not found') ||
-    message.includes('cannot find the file') ||
-    message.includes('os error 2') ||
-    message.includes('datei nicht finden')
-  );
+const ensureFile = (stats: { isFile: boolean }, path: string) => {
+  if (!stats.isFile) throw new Error(`"${path}" is not a file`);
 };
 
-const isPermissionError = (error: unknown): boolean => {
-  if (error && typeof error === 'object' && 'code' in error) {
-    const code = (error as { code?: unknown }).code;
-    if (code === 'EACCES' || code === 'EPERM') {
-      return true;
-    }
-  }
-
-  const message = getErrorMessage(error).toLowerCase();
-  return message.includes('permission') || message.includes('access denied');
+const ensureDir = (stats: { isDirectory: boolean }, path: string) => {
+  if (!stats.isDirectory) throw new Error(`"${path}" is not a directory`);
 };
 
-const buildNoticeResult = (
-  action: FilesystemAction,
-  path: string,
-  error: FilesystemNoticeResult['error'],
-  message: string,
-): FilesystemNoticeResult => ({
-  action,
-  path,
-  ok: false,
-  error,
-  message,
-});
-
-const buildNoticeFromError = (
-  action: FilesystemAction,
-  path: string,
-  error: unknown,
-): FilesystemNoticeResult => {
-  if (isNotFoundError(error)) {
-    return buildNoticeResult(action, path, 'not_found', `No entry found at "${path}".`);
+const buildError = (action: FilesystemAction, path: string, e: unknown): ErrorResult => {
+  const msg = e instanceof Error ? e.message : String(e);
+  const lower = msg.toLowerCase();
+  
+  if (e && typeof e === 'object' && 'code' in (e as any)) {
+    const code = (e as any).code;
+    if (code === 'ENOENT' || code === 'NotFound') return { action, path, ok: false, error: 'not_found', message: `No entry found at "${path}".` };
+    if (code === 'EACCES' || code === 'EPERM') return { action, path, ok: false, error: 'permission_denied', message: `Permission denied for "${path}".` };
   }
-  if (isPermissionError(error)) {
-    return buildNoticeResult(action, path, 'permission_denied', `Permission denied for "${path}".`);
+  
+  if (lower.includes('no such file') || lower.includes('not found') || lower.includes('os error 2')) {
+    return { action, path, ok: false, error: 'not_found', message: `No entry found at "${path}".` };
   }
-  return buildNoticeResult(
-    action,
-    path,
-    'unknown',
-    `Unable to ${action} "${path}": ${getErrorMessage(error)}`,
-  );
+  if (lower.includes('permission') || lower.includes('access denied')) {
+    return { action, path, ok: false, error: 'permission_denied', message: `Permission denied for "${path}".` };
+  }
+  if (lower.includes('not a file') || lower.includes('not a directory')) {
+    return { action, path, ok: false, error: 'invalid_type', message: msg };
+  }
+  
+  return { action, path, ok: false, error: 'unknown', message: `Unable to ${action} "${path}": ${msg}` };
 };
 
-const statPath = async (
-  targetPath: string,
-  fs: TauriFS,
-): Promise<
-  | { ok: true; stats: { size: number; isFile: boolean; isDirectory: boolean } }
-  | { ok: false; error: 'not_found' | 'permission_denied' | 'unknown'; message: string }
-> => {
-  try {
-    const stats = await fs.stat(targetPath);
-    return { ok: true, stats };
-  } catch (error) {
-    const message = getErrorMessage(error);
-    if (isNotFoundError(error)) {
-      return { ok: false, error: 'not_found', message };
-    }
-    if (isPermissionError(error)) {
-      return { ok: false, error: 'permission_denied', message };
-    }
-    return { ok: false, error: 'unknown', message };
-  }
-};
-
-/**
- * Opens a file and returns a bounded preview of its contents.
- */
 const readFileContent = async (
   targetPath: string,
-  maxBytes: number | null | undefined,
   fs: TauriFS,
-): Promise<FileOpenResult> => {
-  const byteLimit = clampPositiveInteger(maxBytes, DEFAULT_MAX_BYTES, MAX_ALLOWED_BYTES);
-
-  let stats: { size: number; isFile: boolean; isDirectory: boolean };
-  try {
-    stats = await fs.stat(targetPath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to read file "${targetPath}": ${message}`);
-  }
-
-  if (!stats.isFile) {
-    throw new Error(`Path is not a file: ${targetPath}`);
-  }
-
+  stats: { size: number; isFile: boolean; isDirectory: boolean },
+): Promise<FileResult> => {
+  ensureFile(stats, targetPath);
+  const byteLimit = DEFAULT_MAX_BYTES;
   const content = await fs.readTextFile(targetPath);
   const encoder = new TextEncoder();
   const bytes = encoder.encode(content);
   const totalBytes = bytes.byteLength;
   const truncated = totalBytes > byteLimit;
-  
-  const resultContent = truncated 
-    ? new TextDecoder().decode(bytes.subarray(0, byteLimit))
-    : content;
-
-  return {
-    action: 'file',
-    path: targetPath,
-    content: resultContent,
-    bytesRead: Math.min(totalBytes, byteLimit),
-    totalBytes,
-    truncated,
-  };
+  const resultContent = truncated ? new TextDecoder().decode(bytes.subarray(0, byteLimit)) : content;
+  return { action: 'read', path: targetPath, content: resultContent, bytesRead: Math.min(totalBytes, byteLimit), totalBytes, truncated };
 };
 
-/**
- * Lists the contents of a directory with an optional entry cap.
- */
 const listDirectory = async (
   targetPath: string,
-  limit: number | null | undefined,
   fs: TauriFS,
-): Promise<DirectoryOpenResult> => {
-  const entryLimit = clampPositiveInteger(limit, DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
+): Promise<DirectoryResult> => {
+  const entryLimit = DEFAULT_LIST_LIMIT;
+  const entries = await fs.readDir(targetPath);
+  const slice = entries.slice(0, entryLimit);
 
-  let entries: Array<{ name: string; isFile: boolean; isDirectory: boolean; isSymlink: boolean }>;
-  try {
-    entries = await fs.readDir(targetPath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to open directory "${targetPath}": ${message}`);
-  }
-
-  const summarized: DirectoryEntrySummary[] = [];
-  for (let index = 0; index < entries.length; index += 1) {
-    if (summarized.length >= entryLimit) {
-      break;
-    }
-
-    const entry = entries[index];
-    if (!entry) {
-      continue;
-    }
-    let type: DirectoryEntrySummary['type'] = 'other';
-    let sizeBytes: number | null | undefined = undefined;
-
-    if (entry.isDirectory) {
-      type = 'directory';
-    } else if (entry.isFile) {
-      type = 'file';
-    }
-
-    if (type === 'file') {
-      const entryPath = joinPath(targetPath, entry.name);
+  const summarized = await Promise.all(
+    slice.map(async (e) => {
+      if (!e) return { name: '', type: 'other', sizeBytes: null } as DirectoryEntrySummary;
+      if (e.isDirectory) return { name: e.name, type: 'directory', sizeBytes: null } as DirectoryEntrySummary;
+      if (!e.isFile) return { name: e.name, type: 'other', sizeBytes: null } as DirectoryEntrySummary;
+      const entryPath = joinPath(targetPath, e.name);
       try {
-        const stats = await fs.stat(entryPath);
-        sizeBytes = stats.size;
+        const s = await fs.stat(entryPath);
+        return { name: e.name, type: 'file', sizeBytes: s.size } as DirectoryEntrySummary;
       } catch {
-        sizeBytes = null;
+        return { name: e.name, type: 'file', sizeBytes: null } as DirectoryEntrySummary;
       }
-    }
+    }),
+  );
 
-    summarized.push({ name: entry.name, type, sizeBytes });
-  }
-
-  return {
-    action: 'directory',
-    path: targetPath,
-    entries: summarized,
-    truncated: entries.length > summarized.length,
-  };
+  return { action: 'list', path: targetPath, entries: summarized, truncated: entries.length > summarized.length };
 };
 
 /* -------------------------------------------------------------------------
- * TOOL DEFINITION
+ * TOOL
  * ------------------------------------------------------------------------- */
 
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
   description: `Select to read a file, list a directory, or stat path information on the local filesystem.`,
   triggers: ['file', 'files', 'folder', 'directory', 'path', 'read', 'list', 'open'],
-  schema: {
-    action: 'string',
-    path: 'string|null',
-  },
+  schema: { action: 'string', path: 'string|null' },
   argsSchema: filesystemArgsSchema,
   async execute(args) {
     const fs = await loadTauriFS();
     const targetPath = validatePath((args as any).path ?? '');
     const action = normalizeAction<FilesystemAction>((args as any).action, FILESYSTEM_ACTIONS);
 
-    const statResult = await statPath(targetPath, fs);
-    if (action === 'stat') {
-      if (!statResult.ok) {
-        if (statResult.error === 'not_found') {
-          return {
-            action: 'stat',
-            path: targetPath,
-            exists: false,
-            type: 'missing',
-            sizeBytes: null,
-            message: `No entry found at "${targetPath}".`,
-          };
-        }
-        return buildNoticeResult(
-          'stat',
-          targetPath,
-          statResult.error,
-          `Unable to stat "${targetPath}": ${statResult.message}`,
-        );
+    try {
+      const stats = await fs.stat(targetPath);
+
+      if (action === 'stat') {
+        const type = stats.isFile ? 'file' : stats.isDirectory ? 'directory' : 'other';
+        const sizeBytes = stats.isFile ? stats.size : null;
+        const message = type === 'file' 
+          ? `File exists at "${targetPath}".` 
+          : type === 'directory' 
+            ? `Directory exists at "${targetPath}".` 
+            : `Path exists at "${targetPath}".`;
+        return { action: 'stat', path: targetPath, exists: true, type, sizeBytes, message };
       }
 
-      const type = statResult.stats.isFile
-        ? 'file'
-        : statResult.stats.isDirectory
-          ? 'directory'
-          : 'other';
-      const sizeBytes = type === 'file' ? statResult.stats.size : null;
-      const message = type === 'file'
-        ? `File exists at "${targetPath}".`
-        : type === 'directory'
-          ? `Directory exists at "${targetPath}".`
-          : `Path exists at "${targetPath}".`;
-      return {
-        action: 'stat',
-        path: targetPath,
-        exists: true,
-        type,
-        sizeBytes,
-        message,
-      };
+      if (action === 'read') {
+        ensureFile(stats, targetPath);
+        return await readFileContent(targetPath, fs, stats);
+      }
+
+      if (action === 'list') {
+        ensureDir(stats, targetPath);
+        return await listDirectory(targetPath, fs);
+      }
+
+      return { action, path: targetPath, ok: false, error: 'unknown', message: `Unsupported filesystem action "${(args as any).action}".` };
+    } catch (e) {
+      if (action === 'stat' && (e instanceof Error && e.message.includes('not found') || (e && typeof e === 'object' && 'code' in (e as any) && ((e as any).code === 'ENOENT' || (e as any).code === 'NotFound')))) {
+        return { action: 'stat', path: targetPath, exists: false, type: 'missing', sizeBytes: null, message: `No entry found at "${targetPath}".` };
+      }
+      return buildError(action, targetPath, e);
     }
-
-    if (!statResult.ok) {
-      if (statResult.error === 'not_found') {
-        return buildNoticeResult(
-          action,
-          targetPath,
-          'not_found',
-          `No entry found at "${targetPath}".`,
-        );
-      }
-      return buildNoticeResult(
-        action,
-        targetPath,
-        statResult.error,
-        `Unable to ${action} "${targetPath}": ${statResult.message}`,
-      );
-    }
-
-    const limit = typeof (args as any).limit === 'number' ? (args as any).limit : null;
-    const maxBytes = typeof (args as any).maxBytes === 'number' ? (args as any).maxBytes : null;
-
-    if (action === 'read') {
-      if (statResult.stats.isDirectory) {
-        try {
-          return await listDirectory(targetPath, limit, fs);
-        } catch (error) {
-          return buildNoticeFromError('list', targetPath, error);
-        }
-      }
-
-      if (!statResult.stats.isFile) {
-        return buildNoticeResult(
-          action,
-          targetPath,
-          'not_file',
-          `Path is not a file: "${targetPath}".`,
-        );
-      }
-
-      try {
-        return await readFileContent(targetPath, maxBytes, fs);
-      } catch (error) {
-        return buildNoticeFromError(action, targetPath, error);
-      }
-    }
-
-    if (action === 'list') {
-      if (statResult.stats.isFile) {
-        return buildNoticeResult(
-          action,
-          targetPath,
-          'not_directory',
-          `Path is a file, not a directory: "${targetPath}".`,
-        );
-      }
-
-      if (!statResult.stats.isDirectory) {
-        return buildNoticeResult(
-          action,
-          targetPath,
-          'not_directory',
-          `Path is not a directory: "${targetPath}".`,
-        );
-      }
-
-      try {
-        return await listDirectory(targetPath, limit, fs);
-      } catch (error) {
-        return buildNoticeFromError(action, targetPath, error);
-      }
-    }
-
-    return buildNoticeResult(
-      action,
-      targetPath,
-      'unknown',
-      `Unsupported filesystem action "${(args as any).action}".`,
-    );
   },
 };
