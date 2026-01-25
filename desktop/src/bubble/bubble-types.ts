@@ -1,7 +1,7 @@
 import type { JSX } from 'solid-js';
 
 export type BubbleFilePayload = {
-  action: 'file';
+  action: 'file' | 'read';
   path: string;
   content: string;
   truncated?: boolean;

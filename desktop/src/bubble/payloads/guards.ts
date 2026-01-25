@@ -14,7 +14,9 @@ export const isFilePayload = (value: unknown): value is BubbleFilePayload => {
   }
 
   const record = value as Record<string, unknown>;
-  return record.action === 'file'
+  const action = record.action;
+  const isFileAction = action === 'file' || action === 'read';
+  return isFileAction
     && typeof record.path === 'string'
     && typeof record.content === 'string';
 };
