@@ -19,117 +19,37 @@ import {
   LANGUAGE_FALLBACK,
 } from './pipeline/language.js';
 import {
-  isHttpResponseResult,
   isPcInfoSummary,
   type PcInfoSummary,
 } from './pipeline/type-guards.js';
-
-type PipelineRunOptions = {
-  intentModelOverride?: string;
-  allowLowScoreRetry?: boolean;
-  signal?: AbortSignal;
-};
+import {
+  measureDurationMs,
+  isAbortError,
+  createAbortError,
+  extractPathCandidate,
+  toTrimmedString,
+  isAbsolutePath,
+  joinPaths,
+  stripLeadingSeparators,
+  pathStartsWith,
+  relativePath,
+  areAllArgumentsNull,
+  stringifyToolResult,
+  normalizeImageAttachments,
+  parseDirectToolRequest,
+} from './helpers.js';
+import type { 
+  PipelineResult, 
+  PipelineError, 
+  ImageAttachment, 
+  PipelineRunOptions, 
+  DirectToolExecutionResult, 
+  PipelineSummaryExtras, 
+  PipelineSummaryStage 
+} from './pipeline/types.js';
 
 const TOOL_INTENT_PREFIX = 'tool.';
 const REQUIRED_NULL_RATIO_THRESHOLD = 0.5;
-
-/**
- * Helper to measure execution duration in milliseconds.
- */
-function measureDurationMs(startMs: number): number {
-  return Math.round((Date.now() - startMs) * 100) / 100;
-}
-
-const createAbortError = (): Error => {
-  const error = new Error('Pipeline execution aborted');
-  error.name = 'AbortError';
-  return error;
-};
-
-const isAbortError = (error: unknown): error is Error =>
-  typeof error === 'object'
-  && error !== null
-  && error instanceof Error
-  && error.name === 'AbortError';
-
-export type PipelineStage =
-  | 'intent'
-  | 'tool_arguments'
-  | 'tool_execution'
-  | 'image_recognition'
-  | 'strict_answer';
-
-export type PipelineError = {
-  code: string;
-  message: string;
-};
-
-export type PipelineResult =
-  | {
-      ok: true;
-      kind: 'strict_answer';
-      value: string;
-      intent?: string;
-      language: DetectedLanguage;
-      attempts: number;
-    }
-  | {
-      ok: true;
-      kind: 'tool';
-      tool: ToolName;
-      args: Record<string, unknown>;
-      result: unknown;
-      summary?: string;
-      intent: string;
-      language: DetectedLanguage;
-      attempts: number;
-    }
-  | {
-      ok: false;
-      kind: 'error';
-      stage: PipelineStage;
-      attempts: number;
-      error?: PipelineError;
-    };
-
-export type ImageAttachment = {
-  id: string;
-  name: string;
-  mimeType: string;
-  data: string;
-  source: 'upload' | 'drop' | 'screenshot';
-};
-
-type DirectToolMatch = {
-  tool: ToolName;
-  args: Record<string, unknown>;
-  reason: string;
-};
-
-type DirectToolExecutionResult = {
-  result: PipelineResult;
-  metadata: {
-    tool?: ToolName;
-    reason: string;
-  };
-};
-
-type PipelineSummaryStage =
-  | PipelineStage
-  | 'direct_tool'
-  | 'intent_failed'
-  | 'non_tool_intent'
-  | 'tool_not_found'
-  | 'argument_extraction_failed'
-  | 'null_tool_arguments';
-
-type PipelineSummaryExtras = {
-  reason?: string;
-  tool?: ToolName;
-  intent?: string;
-  imageCount?: number;
-  error?: PipelineError;
-};
 
 /**
  * Executes the end-to-end orchestration pipeline described in ARCHITECTURE.
@@ -138,7 +58,7 @@ export class Pipeline {
   constructor(
     private readonly orchestrator: Orchestrator,
     private readonly runner: Runner,
-  ) {}
+  ) { }
 
   private activeSignal: AbortSignal | null = null;
 
@@ -199,7 +119,7 @@ export class Pipeline {
       ? this.detectLanguage(userInput)
       : Promise.resolve({ ok: false, language: LANGUAGE_FALLBACK, attempts: 0 });
 
-    const imageAttachments = this.normalizeImageAttachments(attachments);
+    const imageAttachments = normalizeImageAttachments(attachments);
     if (imageAttachments.length > 0) {
       const languageResult = await languagePromise;
       const result = await this.runImageRecognition(
@@ -305,7 +225,7 @@ export class Pipeline {
       });
     }
 
-    const pathCandidate = this.extractPathCandidate(userInput);
+    const pathCandidate = extractPathCandidate(userInput);
     let activeToolName = toolName;
     let toolOverrideReason: string | undefined;
     let extractionNotes: string | undefined;
@@ -512,25 +432,7 @@ export class Pipeline {
     return result;
   }
 
-  private normalizeImageAttachments(attachments?: ImageAttachment[]): ImageAttachment[] {
-    if (!attachments || attachments.length === 0) {
-      return [];
-    }
 
-    const normalized: ImageAttachment[] = [];
-    for (let index = 0; index < attachments.length; index += 1) {
-      const entry = attachments[index];
-      if (!entry) {
-        continue;
-      }
-      if (typeof entry.data !== 'string' || !entry.data.trim()) {
-        continue;
-      }
-      normalized.push(entry);
-    }
-
-    return normalized;
-  }
 
   private async runImageRecognition(
     userInput: string,
@@ -546,10 +448,10 @@ export class Pipeline {
     const languageResult = languageResultParam ?? (userInput.trim()
       ? await this.detectLanguage(userInput)
       : {
-          ok: false,
-          language: LANGUAGE_FALLBACK,
-          attempts: 0,
-        });
+        ok: false,
+        language: LANGUAGE_FALLBACK,
+        attempts: 0,
+      });
 
     const prompt = this.orchestrator.buildImageRecognitionPrompt(
       userInput,
@@ -596,7 +498,7 @@ export class Pipeline {
     contextSnapshot?: ContextSnapshot,
     languagePromise?: Promise<{ ok: boolean; language: DetectedLanguage; attempts: number }>,
   ): Promise<DirectToolExecutionResult | null> {
-    const directMatch = this.parseDirectToolRequest(userInput);
+    const directMatch = parseDirectToolRequest(userInput);
     if (!directMatch) {
       return null;
     }
@@ -701,238 +603,7 @@ export class Pipeline {
     }
   }
 
-  private parseDirectToolRequest(userInput: string): DirectToolMatch | null {
-    const trimmed = userInput.trim();
-    if (!trimmed) {
-      return null;
-    }
 
-    if (trimmed.includes('\n')) {
-      return null;
-    }
-
-    const filesystem = this.parseDirectFilesystemCommand(trimmed);
-    if (filesystem) {
-      return filesystem;
-    }
-
-    const process = this.parseDirectProcessCommand(trimmed);
-    if (process) {
-      return process;
-    }
-
-    const http = this.parseDirectHttpCommand(trimmed);
-    if (http) {
-      return http;
-    }
-
-    return null;
-  }
-
-  private parseDirectProcessCommand(input: string): DirectToolMatch | null {
-    const normalized = input.trim().toLowerCase();
-    if (!normalized) {
-      return null;
-    }
-
-    const psWithFilter = /^(?:ps|processes)\s+(.+)$/.exec(normalized);
-    if (psWithFilter) {
-      return {
-        tool: 'process',
-        args: {
-          action: 'list',
-          query: psWithFilter[1],
-          limit: null,
-        },
-        reason: 'direct_process_with_filter',
-      };
-    }
-
-    if (
-      normalized === 'ps' ||
-      normalized === 'processes' ||
-      normalized === 'list processes'
-    ) {
-      return {
-        tool: 'process',
-        args: {
-          action: 'list',
-          query: null,
-          limit: null,
-        },
-        reason: 'direct_process',
-      };
-    }
-
-    return null;
-  }
-
-  private parseDirectFilesystemCommand(input: string): DirectToolMatch | null {
-    const match = /^(read|list)\s+(.+)$/i.exec(input);
-    if (!match) {
-      return null;
-    }
-
-    const actionToken = match[1];
-    const pathToken = match[2];
-    if (!actionToken || !pathToken) {
-      return null;
-    }
-    const action = actionToken.toLowerCase();
-    const path = this.stripWrappingQuotes(pathToken);
-    if (!path || !this.looksLikePath(path)) {
-      return null;
-    }
-
-    return {
-      tool: 'filesystem',
-      args: {
-        action,
-        path,
-      },
-      reason: `direct_${action}_filesystem`,
-    };
-  }
-
-  private parseDirectHttpCommand(input: string): DirectToolMatch | null {
-    const match = /^(get|fetch)\s+(.+)$/i.exec(input);
-    if (!match) {
-      return null;
-    }
-
-    const urlToken = match[2];
-    if (!urlToken) {
-      return null;
-    }
-    const url = this.stripWrappingQuotes(urlToken);
-    if (!url || !this.isHttpUrl(url)) {
-      return null;
-    }
-
-    return {
-      tool: 'http',
-      args: {
-        url,
-        method: 'GET',
-        headers: null,
-        body: null,
-        queryParams: null,
-        maxBytes: null,
-        timeoutMs: null,
-      },
-      reason: 'direct_get_http',
-    };
-  }
-
-  private stripWrappingQuotes(value: string): string {
-    const trimmed = value.trim();
-    if (trimmed.length < 2) {
-      return trimmed;
-    }
-
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    const isWrapped =
-      (first === '"' && last === '"') ||
-      (first === "'" && last === "'") ||
-      (first === '`' && last === '`');
-
-    if (!isWrapped) {
-      return trimmed;
-    }
-
-    return trimmed.slice(1, -1).trim();
-  }
-
-  private looksLikePath(candidate: string): boolean {
-    if (!candidate) {
-      return false;
-    }
-
-    if (/^https?:\/\//i.test(candidate)) {
-      return false;
-    }
-
-    if (candidate.includes('\\') || candidate.includes('/')) {
-      return true;
-    }
-
-    if (/^[A-Za-z]:/.test(candidate)) {
-      return true;
-    }
-
-    if (candidate.startsWith('.')) {
-      return true;
-    }
-
-    return candidate.includes('.');
-  }
-
-  /**
-   * Lightweight HTTP URL validator for direct commands.
-   */
-  private isHttpUrl(candidate: string): boolean {
-    if (!candidate) {
-      return false;
-    }
-
-    const value = candidate.trim();
-    if (!value) {
-      return false;
-    }
-
-    const tryParse = (raw: string): URL | null => {
-      try {
-        return new URL(raw);
-      } catch {
-        return null;
-      }
-    };
-
-    const hasScheme = /^[a-zA-Z][a-zA-Z\d+-.]*:/.test(value);
-    let parsed = tryParse(value);
-    if (!parsed && !hasScheme) {
-      const prefixed = value.startsWith('//') ? `https:${value}` : `https://${value}`;
-      parsed = tryParse(prefixed);
-    }
-
-    if (!parsed) {
-      return false;
-    }
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return false;
-    }
-
-    const host = parsed.hostname;
-    if (!host) {
-      return false;
-    }
-
-    if (host === 'localhost') {
-      return true;
-    }
-
-    return host.includes('.') || host.includes(':');
-  }
-
-  private extractPathCandidate(userInput: string): string | null {
-    const tokens = userInput.split(/\s+/);
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (!token) {
-        continue;
-      }
-      const unwrapped = this.stripWrappingQuotes(token.replace(/[?,]/g, ''));
-      if (!unwrapped) {
-        continue;
-      }
-      if (this.looksLikePath(unwrapped)) {
-        return unwrapped;
-      }
-    }
-    return null;
-  }
 
   private resolveToolName(intent: string): ToolName | null {
     if (!this.isToolIntent(intent)) {
@@ -1210,7 +881,7 @@ export class Pipeline {
       return true;
     }
 
-    if (this.areAllArgumentsNull(args)) {
+    if (areAllArgumentsNull(args)) {
       return true;
     }
 
@@ -1253,20 +924,7 @@ export class Pipeline {
     return missing;
   }
 
-  private areAllArgumentsNull(args: Record<string, unknown>): boolean {
-    const values = Object.values(args);
-    if (values.length === 0) {
-      return true;
-    }
 
-    for (let index = 0; index < values.length; index += 1) {
-      if (values[index] !== null && values[index] !== undefined) {
-        return false;
-      }
-    }
-
-    return true;
-  }
 
   /**
    * Detects the user's language for non-tool responses.
@@ -1441,26 +1099,7 @@ export class Pipeline {
   /**
    * Serializes tool output into a string for summarization prompts.
    */
-  private stringifyToolResult(toolResult: unknown): string {
-    if (isHttpResponseResult(toolResult) && toolResult.status === 200) {
-      return toolResult.content;
-    }
 
-    if (typeof toolResult === 'string') {
-      return toolResult;
-    }
-
-    try {
-      const serialized = JSON.stringify(toolResult, null, 2);
-      if (typeof serialized === 'string') {
-        return serialized;
-      }
-    } catch {
-      // Fall through to String conversion.
-    }
-
-    return String(toolResult);
-  }
 
   /**
    * Normalizes pcinfo arguments to include all metrics for generic requests.
@@ -1525,13 +1164,13 @@ export class Pipeline {
     args: Record<string, unknown>,
     cwd: string,
   ): Record<string, unknown> {
-    const rawPath = this.toTrimmedString(args.path);
+    const rawPath = toTrimmedString(args.path);
     if (!rawPath) {
       return { ...args, path: cwd };
     }
 
-    if (!this.isAbsolutePath(rawPath)) {
-      return { ...args, path: this.joinPaths(cwd, rawPath) };
+    if (!isAbsolutePath(rawPath)) {
+      return { ...args, path: joinPaths(cwd, rawPath) };
     }
 
     return args;
@@ -1544,28 +1183,28 @@ export class Pipeline {
     args: Record<string, unknown>,
     cwd: string,
   ): Record<string, unknown> {
-    const baseDirRaw = this.toTrimmedString(args.baseDir);
-    const startPathRaw = this.toTrimmedString(args.startPath);
+    const baseDirRaw = toTrimmedString(args.baseDir);
+    const startPathRaw = toTrimmedString(args.startPath);
     let nextBaseDir = baseDirRaw;
     let nextStartPath: string | null = startPathRaw || null;
 
     if (!nextBaseDir) {
       nextBaseDir = cwd;
-    } else if (!this.isAbsolutePath(nextBaseDir)) {
-      nextBaseDir = this.joinPaths(cwd, nextBaseDir);
+    } else if (!isAbsolutePath(nextBaseDir)) {
+      nextBaseDir = joinPaths(cwd, nextBaseDir);
     }
 
     if (nextStartPath) {
-      if (this.isAbsolutePath(nextStartPath)) {
-        if (this.pathStartsWith(nextStartPath, nextBaseDir)) {
-          const relative = this.relativePath(nextStartPath, nextBaseDir);
+      if (isAbsolutePath(nextStartPath)) {
+        if (pathStartsWith(nextStartPath, nextBaseDir)) {
+          const relative = relativePath(nextStartPath, nextBaseDir);
           nextStartPath = relative.length > 0 ? relative : null;
         } else {
           nextBaseDir = nextStartPath;
           nextStartPath = null;
         }
       } else {
-        nextStartPath = this.stripLeadingSeparators(nextStartPath);
+        nextStartPath = stripLeadingSeparators(nextStartPath);
       }
     }
 
@@ -1576,94 +1215,21 @@ export class Pipeline {
     };
   }
 
-  /**
-   * Normalize value to a trimmed string.
-   */
-  private toTrimmedString(value: unknown): string {
-    if (typeof value !== 'string') {
-      return '';
-    }
-    return value.trim();
-  }
 
-  /**
-   * Returns true if the path is absolute for Windows or POSIX.
-   */
-  private isAbsolutePath(value: string): boolean {
-    if (!value) {
-      return false;
-    }
-    if (value.startsWith('/') || value.startsWith('\\')) {
-      return true;
-    }
-    return /^[A-Za-z]:[\\/]/.test(value);
-  }
 
-  /**
-   * Normalizes a path for joining and comparison.
-   */
-  private normalizePathValue(value: string): string {
-    const trimmed = value.trim();
-    const normalized = trimmed.replace(/[\\]+/g, '/');
-    return normalized.replace(/\/+$/, '');
-  }
 
-  /**
-   * Joins base and relative paths using normalized separators.
-   */
-  private joinPaths(basePath: string, relativePath: string): string {
-    const base = this.normalizePathValue(basePath);
-    const relative = this.normalizePathValue(relativePath).replace(/^\/+/, '');
-    if (!base) {
-      return relative;
-    }
-    if (!relative) {
-      return base;
-    }
-    return `${base}/${relative}`;
-  }
 
-  /**
-   * Strips leading path separators from a path segment.
-   */
-  private stripLeadingSeparators(value: string): string {
-    return value.replace(/^[\\/]+/, '');
-  }
 
-  /**
-   * Normalizes a path for case-insensitive comparisons.
-   */
-  private normalizePathForCompare(value: string): string {
-    const normalized = this.normalizePathValue(value);
-    if (/^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//')) {
-      return normalized.toLowerCase();
-    }
-    return normalized;
-  }
 
-  /**
-   * Returns true if the path is within the base directory.
-   */
-  private pathStartsWith(pathValue: string, basePath: string): boolean {
-    const normalizedPath = this.normalizePathForCompare(pathValue);
-    const normalizedBase = this.normalizePathForCompare(basePath);
-    if (!normalizedBase) {
-      return false;
-    }
-    return normalizedPath === normalizedBase || normalizedPath.startsWith(`${normalizedBase}/`);
-  }
 
-  /**
-   * Computes a relative path from base to target.
-   */
-  private relativePath(pathValue: string, basePath: string): string {
-    const normalizedPath = this.normalizePathValue(pathValue);
-    const normalizedBase = this.normalizePathValue(basePath);
-    if (!this.pathStartsWith(normalizedPath, normalizedBase)) {
-      return normalizedPath;
-    }
-    return normalizedPath.slice(normalizedBase.length).replace(/^\/+/, '');
-  }
+
+
+
+
+
+
+
+
 
   /**
    * Apply the UI-selected working directory to shell tool runs.
@@ -1816,7 +1382,7 @@ export class Pipeline {
       return this.buildPcInfoSummary(toolResult);
     }
 
-    const payload = this.stringifyToolResult(toolResult);
+    const payload = stringifyToolResult(toolResult);
     const fallback = `Tool ${toolName} output is ready. Raw data below.`;
     return this.formatResponse(
       payload,

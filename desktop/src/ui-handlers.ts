@@ -1,4 +1,5 @@
-import { Pipeline, type PipelineResult } from '../../assistant/src/pipeline';
+import { Pipeline } from '../../assistant/src/pipeline';
+import type { PipelineResult } from '../../assistant/src/pipeline/types';
 import { Logger } from '../../assistant/src/logger';
 import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
@@ -112,10 +113,6 @@ const createHistoryText = (value: string): HTMLDivElement => {
   node.textContent = value;
   return node;
 };
-
-
-
-
 
 type QuestionHandlerOptions = {
   onStart?: () => void;

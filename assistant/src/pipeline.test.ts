@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Pipeline } from './pipeline.js';
+import { parseDirectToolRequest, stripWrappingQuotes, looksLikePath, isHttpUrl, areAllArgumentsNull } from './helpers.js';
+import { LANGUAGE_FALLBACK, deriveDetectedLanguage } from './pipeline/language.js';
 import { createMockOrchestrator, createMockRunner } from './test-helpers/pipeline-mocks.js';
 
 /**
@@ -22,17 +24,17 @@ describe('Pipeline', () => {
 
   describe('parseDirectToolRequest', () => {
     it('should return null for empty input', () => {
-      const result = (pipeline as any).parseDirectToolRequest('');
+      const result = parseDirectToolRequest('');
       expect(result).toBeNull();
     });
 
     it('should return null for multiline input', () => {
-      const result = (pipeline as any).parseDirectToolRequest('line1\nline2');
+      const result = parseDirectToolRequest('line1\nline2');
       expect(result).toBeNull();
     });
 
     it('should parse direct filesystem: "read <path>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('read /etc/hosts');
+      const result = parseDirectToolRequest('read /etc/hosts');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('filesystem');
       expect(result?.args.action).toBe('read');
@@ -41,7 +43,7 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct filesystem: "read <quoted path>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('read "/path/with spaces"');
+      const result = parseDirectToolRequest('read "/path/with spaces"');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('filesystem');
       expect(result?.args.action).toBe('read');
@@ -49,7 +51,7 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct filesystem: "list <path>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('list C:\\Users\\Documents');
+      const result = parseDirectToolRequest('list C:\\Users\\Documents');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('filesystem');
       expect(result?.args.action).toBe('list');
@@ -58,12 +60,12 @@ describe('Pipeline', () => {
     });
 
     it('should return null for filesystem command with invalid path', () => {
-      const result = (pipeline as any).parseDirectToolRequest('read notapath');
+      const result = parseDirectToolRequest('read notapath');
       expect(result).toBeNull();
     });
 
     it('should parse direct fetch: "get <url>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('get https://example.com');
+      const result = parseDirectToolRequest('get https://example.com');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('http');
       expect(result?.args.method).toBe('GET');
@@ -72,7 +74,7 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct fetch: "fetch <url>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('fetch http://example.com');
+      const result = parseDirectToolRequest('fetch http://example.com');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('http');
       expect(result?.args.method).toBe('GET');
@@ -80,14 +82,14 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct fetch: "get <quoted url>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('get "https://example.com/path?param=value"');
+      const result = parseDirectToolRequest('get "https://example.com/path?param=value"');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('http');
       expect(result?.args.url).toBe('https://example.com/path?param=value');
     });
 
     it('should parse direct fetch: scheme-less URL is accepted', () => {
-      const result = (pipeline as any).parseDirectToolRequest('get kiltau.com');
+      const result = parseDirectToolRequest('get kiltau.com');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('http');
       expect(result?.args.url).toBe('kiltau.com');
@@ -95,12 +97,12 @@ describe('Pipeline', () => {
     });
 
     it('should return null for fetch command with invalid URL', () => {
-      const result = (pipeline as any).parseDirectToolRequest('get notaurl');
+      const result = parseDirectToolRequest('get notaurl');
       expect(result).toBeNull();
     });
 
     it('should parse direct process: "ps" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('ps');
+      const result = parseDirectToolRequest('ps');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
       expect(result?.args.action).toBe('list');
@@ -109,7 +111,7 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct process: "processes" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('processes');
+      const result = parseDirectToolRequest('processes');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
       expect(result?.args.action).toBe('list');
@@ -117,14 +119,14 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct process: "list processes" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('list processes');
+      const result = parseDirectToolRequest('list processes');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
       expect(result?.args.action).toBe('list');
     });
 
     it('should parse direct process: "ps <filter>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('ps node');
+      const result = parseDirectToolRequest('ps node');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
       expect(result?.args.action).toBe('list');
@@ -133,20 +135,20 @@ describe('Pipeline', () => {
     });
 
     it('should parse direct process: "processes <filter>" command', () => {
-      const result = (pipeline as any).parseDirectToolRequest('processes chrome');
+      const result = parseDirectToolRequest('processes chrome');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
       expect(result?.args.query).toBe('chrome');
     });
 
     it('should be case-insensitive for process commands', () => {
-      const result = (pipeline as any).parseDirectToolRequest('PS');
+      const result = parseDirectToolRequest('PS');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('process');
     });
 
     it('should be case-insensitive for filesystem commands', () => {
-      const result = (pipeline as any).parseDirectToolRequest('READ ./file.txt');
+      const result = parseDirectToolRequest('READ ./file.txt');
       expect(result).not.toBeNull();
       expect(result?.tool).toBe('filesystem');
       expect(result?.args.action).toBe('read');
@@ -155,111 +157,111 @@ describe('Pipeline', () => {
 
   describe('stripWrappingQuotes', () => {
     it('should strip double quotes', () => {
-      const result = (pipeline as any).stripWrappingQuotes('"hello world"');
+      const result = stripWrappingQuotes('"hello world"');
       expect(result).toBe('hello world');
     });
 
     it('should strip single quotes', () => {
-      const result = (pipeline as any).stripWrappingQuotes("'hello world'");
+      const result = stripWrappingQuotes('hello world');
       expect(result).toBe('hello world');
     });
 
     it('should strip backticks', () => {
-      const result = (pipeline as any).stripWrappingQuotes('`hello world`');
+      const result = stripWrappingQuotes('`hello world`');
       expect(result).toBe('hello world');
     });
 
     it('should not strip mismatched quotes', () => {
-      const result = (pipeline as any).stripWrappingQuotes('"hello world\'');
+      const result = stripWrappingQuotes('"hello world\'');
       expect(result).toBe('"hello world\'');
     });
 
     it('should return as-is for unquoted strings', () => {
-      const result = (pipeline as any).stripWrappingQuotes('hello world');
+      const result = stripWrappingQuotes('hello world');
       expect(result).toBe('hello world');
     });
 
     it('should trim whitespace after stripping', () => {
-      const result = (pipeline as any).stripWrappingQuotes('"  hello  "  ');
+      const result = stripWrappingQuotes('"  hello  "  ');
       expect(result).toBe('hello');
     });
   });
 
   describe('looksLikePath', () => {
     it('should return true for Unix-style absolute path', () => {
-      const result = (pipeline as any).looksLikePath('/etc/hosts');
+      const result = looksLikePath('/etc/hosts');
       expect(result).toBe(true);
     });
 
     it('should return true for Unix-style relative path', () => {
-      const result = (pipeline as any).looksLikePath('./file.txt');
+      const result = looksLikePath('./file.txt');
       expect(result).toBe(true);
     });
 
     it('should return true for Windows-style path', () => {
-      const result = (pipeline as any).looksLikePath('C:\\Users\\Documents');
+      const result = looksLikePath('C:\\Users\\Documents');
       expect(result).toBe(true);
     });
 
     it('should return true for path with dots', () => {
-      const result = (pipeline as any).looksLikePath('file.txt');
+      const result = looksLikePath('file.txt');
       expect(result).toBe(true);
     });
 
     it('should return true for relative path starting with dot', () => {
-      const result = (pipeline as any).looksLikePath('../../file.txt');
+      const result = looksLikePath('../../file.txt');
       expect(result).toBe(true);
     });
 
     it('should return false for HTTP URLs', () => {
-      const result = (pipeline as any).looksLikePath('http://example.com');
+      const result = looksLikePath('http://example.com');
       expect(result).toBe(false);
     });
 
     it('should return false for HTTPS URLs', () => {
-      const result = (pipeline as any).looksLikePath('https://example.com');
+      const result = looksLikePath('https://example.com');
       expect(result).toBe(false);
     });
 
     it('should return false for empty string', () => {
-      const result = (pipeline as any).looksLikePath('');
+      const result = looksLikePath('');
       expect(result).toBe(false);
     });
 
     it('should return false for plain word without extension', () => {
-      const result = (pipeline as any).looksLikePath('notapath');
+      const result = looksLikePath('notapath');
       expect(result).toBe(false);
     });
   });
 
   describe('isHttpUrl', () => {
     it('should recognize valid HTTP URL', () => {
-      const result = (pipeline as any).isHttpUrl('http://example.com');
+      const result = isHttpUrl('http://example.com');
       expect(result).toBe(true);
     });
 
     it('should recognize valid HTTPS URL', () => {
-      const result = (pipeline as any).isHttpUrl('https://example.com');
+      const result = isHttpUrl('https://example.com');
       expect(result).toBe(true);
     });
 
     it('should recognize HTTPS URL with path and query', () => {
-      const result = (pipeline as any).isHttpUrl('https://example.com/path?query=value');
+      const result = isHttpUrl('https://example.com/path?query=value');
       expect(result).toBe(true);
     });
 
     it('should reject invalid URLs', () => {
-      const result = (pipeline as any).isHttpUrl('not a url');
+      const result = isHttpUrl('not a url');
       expect(result).toBe(false);
     });
 
     it('should reject file:// protocol', () => {
-      const result = (pipeline as any).isHttpUrl('file:///etc/hosts');
+      const result = isHttpUrl('file:///etc/hosts');
       expect(result).toBe(false);
     });
 
     it('should reject ftp:// protocol', () => {
-      const result = (pipeline as any).isHttpUrl('ftp://example.com');
+      const result = isHttpUrl('ftp://example.com');
       expect(result).toBe(false);
     });
   });
@@ -337,49 +339,49 @@ describe('Pipeline', () => {
 
   describe('areAllArgumentsNull', () => {
     it('should return true for empty object', () => {
-      const result = (pipeline as any).areAllArgumentsNull({});
+      const result = areAllArgumentsNull({});
       expect(result).toBe(true);
     });
 
     it('should return true when all values are null', () => {
       const args = { a: null, b: null, c: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(true);
     });
 
     it('should return true when all values are undefined', () => {
       const args = { a: undefined, b: undefined };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(true);
     });
 
     it('should return false when at least one value is present', () => {
       const args = { a: null, b: 'value', c: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(false);
     });
 
     it('should return false when any value is truthy', () => {
       const args = { a: 0, b: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(false);
     });
 
     it('should return false for empty string', () => {
       const args = { a: '', b: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(false);
     });
 
     it('should return false for false value', () => {
       const args = { a: false, b: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(false);
     });
 
     it('should return false for object value', () => {
       const args = { a: {}, b: null };
-      const result = (pipeline as any).areAllArgumentsNull(args);
+      const result = areAllArgumentsNull(args);
       expect(result).toBe(false);
     });
   });
@@ -391,7 +393,6 @@ describe('Pipeline', () => {
     });
 
     it('LANGUAGE_FALLBACK is en and deriveDetectedLanguage returns fallback when missing', () => {
-      const { LANGUAGE_FALLBACK, deriveDetectedLanguage } = require('./pipeline/language');
       expect(LANGUAGE_FALLBACK).toBe('en');
       expect(deriveDetectedLanguage(undefined)).toBe('en');
     });

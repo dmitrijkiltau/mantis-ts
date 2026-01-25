@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { createSignal, Show, type Component } from 'solid-js';
-import type { ImageAttachment } from '../../../assistant/src/pipeline';
+import type { ImageAttachment } from '../../../assistant/src/pipeline/types';
 import { buildDataUrl, buildImageAttachmentFromFile } from '../image-attachments';
 import { captureScreenSelectionAttachment } from '../screen-capture';
 import { useDesktopServices } from '../state/desktop-context';

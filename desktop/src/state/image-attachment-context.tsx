@@ -6,7 +6,7 @@ import {
   type ParentComponent,
   useContext,
 } from 'solid-js';
-import type { ImageAttachment } from '../../../assistant/src/pipeline';
+import type { ImageAttachment } from '../../../assistant/src/pipeline/types';
 
 export type ImageAttachmentStore = {
   attachment: Accessor<ImageAttachment | null>;

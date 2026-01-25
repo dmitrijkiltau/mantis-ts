@@ -1,5 +1,5 @@
 import type { ContextSnapshot } from '../../assistant/src/context';
-import type { PipelineResult } from '../../assistant/src/pipeline';
+import type { PipelineResult } from '../../assistant/src/pipeline/types';
 
 const MAX_HISTORY_CHARS = 400;
 const WEEKDAYS = [

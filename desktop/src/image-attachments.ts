@@ -1,4 +1,4 @@
-import type { ImageAttachment } from '../../assistant/src/pipeline';
+import type { ImageAttachment } from '../../assistant/src/pipeline/types';
 
 /**
  * Parsed data URL payload.

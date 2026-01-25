@@ -2,7 +2,7 @@ import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import { AssistantAvatar } from './avatar';
 import type { AvatarMood } from './avatar';
-import type { PipelineResult } from '../../assistant/src/pipeline';
+import type { PipelineResult } from '../../assistant/src/pipeline/types';
 
 export type TelemetryNodes = {
   toolCallCount: HTMLElement | null;
