@@ -81,11 +81,6 @@ export class Runner {
     const contractStartMs = Date.now();
     const signal = options?.signal;
 
-    Logger.info('runner', `Starting contract execution: ${contractName}`, {
-      model: prompt.model,
-      attemptsLimit,
-    });
-
     throwIfAborted(signal);
 
     for (let attempt = 0; attempt < attemptsLimit; attempt += 1) {
@@ -103,11 +98,6 @@ export class Runner {
         signal,
       });
       const llmDurationMs = measureDurationMs(llmStartMs);
-      Logger.debug('runner', `Attempt ${attempt + 1}/${attemptsLimit} response received`, {
-        model: attemptPrompt.model,
-        length: raw.length,
-        durationMs: llmDurationMs,
-      });
 
       const validation = validator(raw);
       history.push({ attempt, raw, validation });
@@ -115,8 +105,10 @@ export class Runner {
       if (validation.ok) {
         const totalDurationMs = measureDurationMs(contractStartMs);
         Logger.info('runner', `Contract ${contractName} succeeded on attempt ${attempt + 1}`, {
+          attempts: attempt + 1,
           attemptDurationMs: llmDurationMs,
           totalDurationMs,
+          raw: attemptPrompt.mode === 'raw' ? raw : undefined,
         });
         this.recordTelemetry(
           contractName,
@@ -144,6 +136,7 @@ export class Runner {
     const totalDurationMs = measureDurationMs(contractStartMs);
     Logger.error('runner', `Contract ${contractName} failed after ${history.length} attempts`, {
       totalDurationMs,
+      lastRaw: prompt.mode === 'raw' && history.length > 0 ? history[history.length - 1]?.raw : undefined,
     });
     this.recordTelemetry(
       contractName,

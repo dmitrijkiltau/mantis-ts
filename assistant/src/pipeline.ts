@@ -109,9 +109,6 @@ export class Pipeline {
     intentModelOverride?: string,
   ): Promise<PipelineResult> {
     const pipelineStartMs = Date.now();
-    Logger.debug('pipeline', 'Starting pipeline execution', {
-      inputLength: userInput.length,
-    });
 
     this.ensureNotAborted();
 
@@ -125,7 +122,6 @@ export class Pipeline {
       const result = await this.runImageRecognition(
         userInput,
         imageAttachments,
-        pipelineStartMs,
         contextSnapshot,
         languageResult,
       );
@@ -142,7 +138,6 @@ export class Pipeline {
       });
     }
 
-    Logger.debug('pipeline', 'Using predefined MANTIS tone instructions');
     const intentPrompt = this.orchestrator.buildIntentClassificationPrompt(
       userInput,
       contextSnapshot,
@@ -174,10 +169,8 @@ export class Pipeline {
     }
 
     const intent = intentResult.value as string;
-    Logger.debug('pipeline', `Intent classified: ${intent}`);
 
     if (!this.isToolIntent(intent)) {
-      Logger.debug('pipeline', 'Non-tool intent selected, using non-tool answer');
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -195,7 +188,6 @@ export class Pipeline {
 
     const toolName = this.resolveToolName(intent);
     if (!toolName) {
-      Logger.debug('pipeline', 'No matching tool for intent, using strict answer');
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -209,9 +201,6 @@ export class Pipeline {
     }
 
     if (!this.hasToolTrigger(userInput, toolName, intent)) {
-      Logger.debug('pipeline', 'Tool trigger missing, using strict answer', {
-        tool: toolName,
-      });
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -236,9 +225,6 @@ export class Pipeline {
       if (pathCandidate) {
         activeToolName = 'filesystem';
         toolOverrideReason = 'search_to_filesystem_path_detected';
-        Logger.debug('pipeline', 'Overriding search intent to filesystem due to explicit path', {
-          path: pathCandidate,
-        });
         extractionNotes = `Detected path: ${pathCandidate}\nUse action "list" unless user explicitly asked to read a file.`;
       }
     }
@@ -249,7 +235,6 @@ export class Pipeline {
     let toolArgs: Record<string, unknown> = {};
 
     if (schemaKeys.length > 0) {
-      Logger.debug('pipeline', `Extracting arguments for tool: ${activeToolName}`);
       const toolArgResult = await this.extractToolArguments(
         tool,
         userInput,
@@ -291,10 +276,12 @@ export class Pipeline {
     if (!schemaValidation.ok) {
       verificationResult = schemaValidation.result;
     }
-    Logger.debug('pipeline', 'Tool argument verification decision', {
-      tool: activeToolName,
-      decision: verificationResult.decision,
-    });
+    if (verificationResult.decision !== 'execute') {
+      Logger.info('pipeline', 'Tool argument verification decision', {
+        tool: activeToolName,
+        decision: verificationResult.decision,
+      });
+    }
 
     const requiredMissing = this.getMissingRequiredOverrides(activeToolName, toolArgs);
     if (requiredMissing.length > 0) {
@@ -321,10 +308,7 @@ export class Pipeline {
         });
       }
 
-      Logger.debug(
-        'pipeline',
-        `Required args missing for ${activeToolName}, falling back to strict answer`,
-      );
+      Logger.info('pipeline', 'Required args missing for tool, falling back to strict answer', { tool: activeToolName, intent });
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -342,10 +326,6 @@ export class Pipeline {
     }
 
     if (this.shouldSkipToolExecution(activeToolName, tool.schema, toolArgs)) {
-      Logger.debug(
-        'pipeline',
-        `Tool arguments are mostly null for ${activeToolName}, using strict answer instead`,
-      );
       const result = await this.runNonToolAnswer(
         userInput,
         intent,
@@ -369,15 +349,10 @@ export class Pipeline {
     );
 
     if (effectiveArgs !== toolArgs) {
-      Logger.debug('pipeline', 'Shell working directory applied', {
-        tool: activeToolName,
-        args: effectiveArgs,
-      });
+      // shell working directory was applied
     }
 
-    Logger.debug('pipeline', `Executing tool: ${activeToolName}`, {
-      args: effectiveArgs,
-    });
+
 
     const toolResult = await this.executeAndFormatTool(
       activeToolName,
@@ -437,13 +412,10 @@ export class Pipeline {
   private async runImageRecognition(
     userInput: string,
     attachments: ImageAttachment[],
-    pipelineStartMs: number,
     contextSnapshot?: ContextSnapshot,
     languageResultParam?: { ok: boolean; language: DetectedLanguage; attempts: number },
   ): Promise<PipelineResult> {
-    Logger.debug('pipeline', 'Running image recognition contract', {
-      imageCount: attachments.length,
-    });
+
 
     const languageResult = languageResultParam ?? (userInput.trim()
       ? await this.detectLanguage(userInput)
@@ -467,11 +439,6 @@ export class Pipeline {
       this.getRunnerOptions(),
     );
 
-    const durationMs = measureDurationMs(pipelineStartMs);
-    Logger.debug('pipeline', 'Image recognition stage completed', {
-      durationMs,
-    });
-
     const attemptOffset = languageResult.attempts;
     if (!result.ok) {
       Logger.error('pipeline', 'Image recognition contract failed');
@@ -483,7 +450,7 @@ export class Pipeline {
       };
     }
 
-    Logger.debug('pipeline', 'Image recognition completed successfully');
+
     return {
       ok: true,
       kind: 'strict_answer',
@@ -502,11 +469,6 @@ export class Pipeline {
     if (!directMatch) {
       return null;
     }
-
-    Logger.debug('pipeline', 'Direct tool command detected, bypassing contracts', {
-      tool: directMatch.tool,
-      reason: directMatch.reason,
-    });
 
     try {
       const tool = getToolDefinition(directMatch.tool);
@@ -565,6 +527,11 @@ export class Pipeline {
           contextSnapshot,
         );
       }
+      Logger.info('pipeline', 'Direct tool executed', {
+        tool: directMatch.tool,
+        attempts: languageResult.attempts,
+        result: summary ?? formattedResult,
+      });
       return {
         result: {
           ok: true,
@@ -945,9 +912,10 @@ export class Pipeline {
     );
 
     if (result.ok) {
+      const language = deriveDetectedLanguage(result.value);
       return {
         ok: true,
-        language: deriveDetectedLanguage(result.value),
+        language,
         attempts: result.attempts,
       };
     }
@@ -1006,7 +974,7 @@ export class Pipeline {
     toolSuggestion?: string,
     mode: AnswerMode = 'strict',
   ): Promise<PipelineResult> {
-    Logger.debug('pipeline', `Running answer contract (mode: ${mode})`);
+
     const prompt = this.orchestrator.buildAnswerPrompt(
       userInput,
       mode,
@@ -1030,7 +998,7 @@ export class Pipeline {
       };
     }
 
-    Logger.debug('pipeline', 'Answer generated successfully');
+
     const responseText = toolSuggestion
       ? `${result.value}\n\n${toolSuggestion}`
       : result.value;
@@ -1077,7 +1045,6 @@ export class Pipeline {
       );
 
       if (result.ok) {
-        Logger.debug('pipeline', 'Response formatted successfully');
         return result.value;
       }
 
@@ -1434,7 +1401,6 @@ export class Pipeline {
       }
 
       const toolResult = toolExecResult.result;
-      Logger.debug('pipeline', `Tool ${toolName} executed successfully`);
       let formattedResult = toolResult;
       let summary: string | undefined;
 
@@ -1457,9 +1423,11 @@ export class Pipeline {
         );
       }
       const durationMs = measureDurationMs(pipelineStartMs);
-      Logger.debug('pipeline', 'Pipeline completed (tool execution)', {
+      Logger.info('pipeline', 'Tool executed', {
         tool: toolName,
         durationMs,
+        attempts: baseAttempts + languageAttempts,
+        result: summary ?? formattedResult,
       });
       return {
         ok: true,
@@ -1471,8 +1439,7 @@ export class Pipeline {
         intent: intent as string,
         language: effectiveLanguage,
         attempts: baseAttempts + languageAttempts,
-      };
-    } catch (error) {
+      };    } catch (error) {
       if (isAbortError(error)) {
         throw error;
       }
