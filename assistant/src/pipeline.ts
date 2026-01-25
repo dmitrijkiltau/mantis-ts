@@ -504,7 +504,12 @@ export class Pipeline {
         : { ok: false, language: LANGUAGE_FALLBACK, attempts: 0 };
       const language = languageResult.language;
 
-      const toolResult = await tool.execute(directMatch.args);
+      const directToolArgs = this.applyWorkingDirectoryDefaults(
+        directMatch.tool,
+        directMatch.args,
+        contextSnapshot,
+      );
+      const toolResult = await tool.execute(directToolArgs);
       let formattedResult = toolResult;
       let summary: string | undefined;
 
@@ -536,7 +541,7 @@ export class Pipeline {
           ok: true,
           kind: 'tool',
           tool: directMatch.tool,
-          args: directMatch.args,
+          args: directToolArgs,
           result: formattedResult,
           summary,
           intent: `tool.${directMatch.tool}`,
@@ -1115,6 +1120,13 @@ export class Pipeline {
 
     if (toolName === 'search') {
       return this.applySearchWorkingDirectory(args, cwd);
+    }
+
+    if (toolName === 'shell') {
+      const providedCwd = toTrimmedString(args.cwd);
+      if (!providedCwd) {
+        return { ...args, cwd };
+      }
     }
 
     return args;

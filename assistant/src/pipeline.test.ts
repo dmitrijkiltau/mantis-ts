@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Pipeline } from './pipeline.js';
+import type { ContextSnapshot } from './context.js';
 import { parseDirectToolRequest, stripWrappingQuotes, looksLikePath, isHttpUrl, areAllArgumentsNull } from './helpers.js';
 import { LANGUAGE_FALLBACK, deriveDetectedLanguage } from './pipeline/language.js';
 import { createMockOrchestrator, createMockRunner } from './test-helpers/pipeline-mocks.js';
@@ -432,6 +433,31 @@ describe('Pipeline', () => {
     it('should return null for unknown tool', () => {
       const result = (pipeline as any).resolveToolName('tool.unknownTool');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('applyWorkingDirectoryDefaults', () => {
+    const callApplyWorkingDirectoryDefaults = (
+      toolName: string,
+      args: Record<string, unknown>,
+      contextSnapshot?: ContextSnapshot,
+    ): Record<string, unknown> => {
+      const method = (pipeline as any)['applyWorkingDirectoryDefaults'];
+      return method.call(pipeline, toolName, args, contextSnapshot);
+    };
+
+    it('defaults shell cwd to context when not provided', () => {
+      const context: ContextSnapshot = { environment: { cwd: 'D:/workspace' } };
+      const args = { action: 'run', program: 'ls', cwd: null };
+      const result = callApplyWorkingDirectoryDefaults('shell', args, context);
+      expect(result.cwd).toBe('D:/workspace');
+    });
+
+    it('preserves explicit shell cwd', () => {
+      const context: ContextSnapshot = { environment: { cwd: '/base/path' } };
+      const args = { action: 'run', program: 'ls', cwd: '/custom/path' };
+      const result = callApplyWorkingDirectoryDefaults('shell', args, context);
+      expect(result.cwd).toBe('/custom/path');
     });
   });
 });
