@@ -223,6 +223,7 @@ const httpArgsSchema = z.object({
 export const HTTP_TOOL: ToolDefinition<HttpToolArgs, HttpToolResult> = {
   name: 'http',
   description: 'Select to fetch a url (default to https:// without "www") and return the response body.',
+  triggers: ['http', 'https', 'url', 'fetch', 'get', 'request', 'download'],
   schema: {
     url: 'string',
     body: 'string|null',

@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 import { createEffect, createMemo, createSignal, For, type Component } from 'solid-js';
 import type { ToolDefinitionBase } from '../../../assistant/src/tools/definition';
-import { TOOLS, TOOL_TRIGGERS, type ToolName } from '../../../assistant/src/tools/registry';
+import { TOOLS, type ToolName } from '../../../assistant/src/tools/registry';
 import { useUIStateContext } from '../state/ui-state-context';
 
 type ToolEntry = {
@@ -211,7 +211,7 @@ const ToolSchemaList: Component<{ schema: ToolDefinitionBase['schema'] }> = (pro
  * Renders the collapsible tool manual.
  */
 const ToolManual: Component<{ entry: ToolEntry }> = (props) => {
-  const triggers = createMemo(() => TOOL_TRIGGERS[props.entry.name] ?? []);
+  const triggers = createMemo(() => props.entry.definition.triggers ?? []);
 
   return (
     <details class="tool-manual">

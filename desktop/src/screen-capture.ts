@@ -1,4 +1,4 @@
-import type { ImageAttachment } from '../../assistant/src/types';
+import type { ImageAttachment } from '../../assistant/src/pipeline/types';
 import { invoke } from './tauri-invoke';
 import { buildDataUrl, buildImageAttachmentFromDataUrl } from './image-attachments';
 

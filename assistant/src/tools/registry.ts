@@ -6,61 +6,43 @@ import { PROCESS_TOOL } from './system/process.js';
 import { SHELL_TOOL } from './system/shell.js';
 import { PCINFO_TOOL } from './system/pcinfo.js';
 
-type ToolMetadata = {
-  definition: ToolDefinitionBase;
-  triggers: string[];
+/**
+ * Central tool definitions keyed by name.
+ */
+const TOOL_DEFINITIONS = {
+  filesystem: FILESYSTEM_TOOL,
+  search: SEARCH_TOOL,
+  http: HTTP_TOOL,
+  process: PROCESS_TOOL,
+  shell: SHELL_TOOL,
+  pcinfo: PCINFO_TOOL,
+} as const;
+
+export type ToolName = keyof typeof TOOL_DEFINITIONS;
+
+export const TOOLS = TOOL_DEFINITIONS as Record<ToolName, ToolDefinitionBase>;
+
+const normalizeTriggers = (raw: unknown, name: string): string[] => {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`Tool "${name}" must declare a non-empty 'triggers' array`);
+  }
+
+  const normalized = Array.from(
+    new Set(raw.map((t) => String(t).toLowerCase().trim()).filter(Boolean)),
+  );
+
+  if (normalized.length === 0) {
+    throw new Error(`Tool "${name}" must declare at least one valid trigger`);
+  }
+
+  return normalized;
 };
 
-/**
- * Registry of available tools keyed by name.
- */
-const TOOL_METADATA = {
-  filesystem: {
-    definition: FILESYSTEM_TOOL,
-    triggers: ['file', 'files', 'folder', 'directory', 'path', 'read', 'list', 'open'],
-  },
-  search: {
-    definition: SEARCH_TOOL,
-    triggers: ['search', 'find', 'locate', 'lookup'],
-  },
-  http: {
-    definition: HTTP_TOOL,
-    triggers: ['http', 'https', 'url', 'fetch', 'get', 'request', 'download'],
-  },
-  process: {
-    definition: PROCESS_TOOL,
-    triggers: ['process', 'processes', 'ps', 'pid', 'task', 'service'],
-  },
-  shell: {
-    definition: SHELL_TOOL,
-    triggers: ['shell', 'command', 'terminal', 'cmd', 'run'],
-  },
-  pcinfo: {
-    definition: PCINFO_TOOL,
-    triggers: ['system', 'cpu', 'ram', 'memory', 'disk', 'storage', 'uptime', 'host', 'pc', 'machine'],
-  },
-} satisfies Record<string, ToolMetadata>;
-
-export type ToolName = keyof typeof TOOL_METADATA;
-
-const toolEntries = Object.entries(TOOL_METADATA) as Array<[ToolName, ToolMetadata]>;
-
-export const TOOLS = {} as Record<ToolName, ToolDefinitionBase>;
-
-/**
- * Trigger keywords that must appear in the user input to allow tool execution.
- */
-export const TOOL_TRIGGERS = {} as Record<ToolName, string[]>;
-
-for (const [name, metadata] of toolEntries) {
-  TOOLS[name] = metadata.definition;
-  TOOL_TRIGGERS[name] = metadata.triggers;
+for (const [name, def] of Object.entries(TOOLS) as Array<[ToolName, ToolDefinitionBase]>) {
+  def.triggers = normalizeTriggers(def.triggers, name);
 }
+
+export const getToolDefinition = (name: ToolName): ToolDefinitionBase => TOOLS[name];
 
 export const GENERAL_ANSWER_INTENT = 'answer.general';
 export const CONVERSATION_INTENT = 'answer.conversation';
-
-/**
- * Returns the tool definition for runtime dispatch.
- */
-export const getToolDefinition = (name: ToolName): ToolDefinitionBase => TOOLS[name];

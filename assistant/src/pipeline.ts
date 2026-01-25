@@ -7,7 +7,6 @@ import {
   GENERAL_ANSWER_INTENT,
   CONVERSATION_INTENT,
   getToolDefinition,
-  TOOL_TRIGGERS,
   type ToolName,
 } from './tools/registry.js';
 import type { AnswerMode } from './contracts/answer.js';
@@ -594,10 +593,7 @@ export class Pipeline {
   }
 
   private hasToolTrigger(userInput: string, toolName: ToolName, intent?: string): boolean {
-    const triggers = TOOL_TRIGGERS[toolName];
-    if (!triggers || triggers.length === 0) {
-      return true;
-    }
+    const triggers = TOOLS[toolName].triggers ?? [];
 
     const normalizedInput = userInput.toLowerCase();
     const normalizedIntent = (intent ?? '').toLowerCase();

@@ -315,6 +315,7 @@ const listDirectory = async (
 export const FILESYSTEM_TOOL: ToolDefinition<FilesystemToolArgs, FilesystemToolResult> = {
   name: 'filesystem',
   description: `Select to read a file, list a directory, or stat path information on the local filesystem.`,
+  triggers: ['file', 'files', 'folder', 'directory', 'path', 'read', 'list', 'open'],
   schema: {
     action: 'string',
     path: 'string|null',

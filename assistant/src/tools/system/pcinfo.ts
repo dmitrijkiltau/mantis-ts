@@ -503,6 +503,7 @@ const getPcInfo = async (
 export const PCINFO_TOOL: ToolDefinition<PcInfoToolArgs, PcInfoToolResult> = {
   name: 'pcinfo',
   description: 'Select to show hardware summary, resource totals, and device identifiers of the host system.',
+  triggers: ['system', 'cpu', 'ram', 'memory', 'disk', 'storage', 'uptime', 'host', 'pc', 'machine'],
   schema: {
     metrics: 'string[]|null',
     detailLevel: 'string|null',

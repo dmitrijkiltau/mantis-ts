@@ -380,6 +380,7 @@ const listProcesses = async (query: string | null, limit: number): Promise<Proce
 export const PROCESS_TOOL: ToolDefinition<ProcessToolArgs, ProcessListResult> = {
   name: 'process',
   description: 'Select to list processes, filter by name, and show a resource snapshot of the host system.',
+  triggers: ['process', 'processes', 'ps', 'pid', 'task', 'service'],
   schema: {
     action: 'string',
     query: 'string|null',

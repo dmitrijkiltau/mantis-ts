@@ -12,6 +12,7 @@ export type ToolSchema = Record<string, FieldType>;
 export type ToolDefinition<Args extends Record<string, unknown>, Result> = {
   name: string;
   description: string;
+  triggers: string[];
   schema: ToolSchema;
   argsSchema?: ZodType<Args>;
   execute(args: Args): Promise<Result> | Result;

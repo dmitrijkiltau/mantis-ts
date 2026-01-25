@@ -273,6 +273,7 @@ const searchFileSystem = async (
 export const SEARCH_TOOL: ToolDefinition<SearchToolArgs, SearchToolResult> = {
   name: 'search',
   description: `Select to scan directories, match by name, or perform a bounded depth search on the local filesystem.`,
+  triggers: ['search', 'find', 'locate', 'lookup'],
   schema: {
     query: 'string',
     baseDir: 'string|null',

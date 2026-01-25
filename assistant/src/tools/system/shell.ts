@@ -387,6 +387,7 @@ export const SHELL_TOOL: ToolDefinition<ShellToolArgs, ShellRunResult> = {
     ...WINDOWS_ALLOWLIST,
     ...POSIX_ALLOWLIST,
   ].join(', ')}.`,
+  triggers: ['shell', 'command', 'terminal', 'cmd', 'run'],
   schema: {
     action: 'string',
     program: 'string',
